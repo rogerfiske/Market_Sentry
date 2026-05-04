@@ -9,11 +9,16 @@ from rich.table import Table
 
 from marketsentry.config import config
 from marketsentry.database import (
+    get_active_watched_properties,
+    get_all_candidates,
     get_table_count,
     init_db,
     table_exists,
 )
 from marketsentry.logging_config import logger
+from marketsentry.review_export import export_candidates_from_db
+from marketsentry.review_import import process_review_decisions
+from marketsentry.sample_data import seed_sample_candidates
 
 app = typer.Typer(
     name="marketsentry",
@@ -138,6 +143,199 @@ def config_show() -> None:
 
     for name, value in config_items:
         console.print(f"[cyan]{name}:[/cyan] {value}")
+
+
+@app.command(name="seed-sample-candidates")
+def seed_sample_candidates_cmd(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Seed the database with sample candidates for testing."""
+    try:
+        db_path = database_path or config.database_path
+        console.print("[bold blue]Seeding sample candidates...[/bold blue]")
+
+        count = seed_sample_candidates(db_path)
+
+        console.print(f"[bold green]SUCCESS:[/bold green] Seeded {count} sample candidates")
+        console.print("\n[dim]Run 'marketsentry export-review' to export them for review[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Sample data seeding error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_review(
+    output_file: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output CSV file path"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Export candidate review queue to CSV."""
+    try:
+        db_path = database_path or config.database_path
+        console.print("[bold blue]Exporting candidate review queue...[/bold blue]")
+
+        output_path = export_candidates_from_db(output_file, db_path)
+
+        console.print(f"[bold green]SUCCESS:[/bold green] Exported to {output_path}")
+        console.print(
+            "\n[dim]Edit the CSV file and set user_decision to: save, reject, maybe, or hold_for_more_data[/dim]"
+        )
+        console.print("[dim]Then run 'marketsentry import-review --file <path>' to process decisions[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export review error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def import_review(
+    file: str = typer.Option(..., "--file", "-f", help="CSV file with review decisions"),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Import review decisions from CSV and promote saved candidates to watchlist."""
+    try:
+        db_path = database_path or config.database_path
+
+        if not Path(file).exists():
+            console.print(f"[bold red]Error:[/bold red] File not found: {file}")
+            raise typer.Exit(code=1)
+
+        console.print(f"[bold blue]Processing review decisions from {file}...[/bold blue]")
+
+        counts = process_review_decisions(file, db_path)
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Processed {counts['processed']}/{counts['total']} decisions")
+        console.print(f"  - Saved: {counts['save']} ({counts['promoted']} promoted to watchlist)")
+        console.print(f"  - Rejected: {counts['reject']}")
+        console.print(f"  - Maybe: {counts['maybe']}")
+        console.print(f"  - Hold for more data: {counts['hold_for_more_data']}")
+
+        if counts['invalid'] > 0:
+            console.print(f"  - [yellow]Invalid decisions:[/yellow] {counts['invalid']}")
+        if counts['errors'] > 0:
+            console.print(f"  - [red]Errors:[/red] {counts['errors']}")
+
+        console.print("\n[dim]Run 'marketsentry list-watched' to see promoted properties[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Import review error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def list_candidates(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    limit: int = typer.Option(10, "--limit", "-n", help="Number of candidates to show"),
+) -> None:
+    """List candidates from review queue."""
+    try:
+        db_path = database_path or config.database_path
+
+        candidates = get_all_candidates(db_path)
+
+        if not candidates:
+            console.print("[yellow]No candidates found in review queue[/yellow]")
+            return
+
+        # Create table
+        table = Table(title=f"Candidate Review Queue ({len(candidates)} total, showing {min(limit, len(candidates))})")
+        table.add_column("ID", style="cyan")
+        table.add_column("Address", style="magenta")
+        table.add_column("City", style="blue")
+        table.add_column("Price", justify="right")
+        table.add_column("Quiet", justify="right")
+        table.add_column("Vibrancy", justify="right")
+        table.add_column("Decision")
+
+        for candidate in candidates[:limit]:
+            price_str = f"${candidate.get('price', 0):,.0f}" if candidate.get('price') else "N/A"
+            quiet_str = f"{candidate.get('quiet_score', 0):.1f}" if candidate.get('quiet_score') else "N/A"
+            vibrancy_str = f"{candidate.get('vibrancy_score', 0):.1f}" if candidate.get('vibrancy_score') else "N/A"
+            decision_str = candidate.get('user_decision', 'pending')
+
+            table.add_row(
+                str(candidate.get('candidate_id')),
+                candidate.get('address', ''),
+                candidate.get('city', ''),
+                price_str,
+                quiet_str,
+                vibrancy_str,
+                decision_str,
+            )
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"List candidates error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def list_watched(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    limit: int = typer.Option(10, "--limit", "-n", help="Number of properties to show"),
+) -> None:
+    """List watched properties."""
+    try:
+        db_path = database_path or config.database_path
+
+        properties = get_active_watched_properties(db_path)
+
+        if not properties:
+            console.print("[yellow]No watched properties found[/yellow]")
+            console.print("\n[dim]Import reviewed candidates with 'marketsentry import-review' to add properties[/dim]")
+            return
+
+        # Create table
+        table = Table(title=f"Watched Properties ({len(properties)} active)")
+        table.add_column("ID", style="cyan")
+        table.add_column("Address", style="magenta")
+        table.add_column("City", style="blue")
+        table.add_column("Price", justify="right")
+        table.add_column("Priority")
+        table.add_column("Quiet", justify="right")
+        table.add_column("DOM Delta", justify="right")
+
+        for prop in properties[:limit]:
+            price_str = f"${prop.get('current_price', 0):,.0f}" if prop.get('current_price') else "N/A"
+            priority = prop.get('watch_priority', 2)
+            priority_str = "HIGH" if priority == 3 else "MED" if priority == 2 else "LOW"
+            quiet_str = f"{prop.get('quiet_score', 0):.1f}" if prop.get('quiet_score') else "N/A"
+            dom_delta = prop.get('effective_dom_delta')
+            dom_delta_str = f"+{dom_delta}" if dom_delta else "N/A"
+
+            table.add_row(
+                str(prop.get('property_id')),
+                prop.get('address', ''),
+                prop.get('city', ''),
+                price_str,
+                priority_str,
+                quiet_str,
+                dom_delta_str,
+            )
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"List watched properties error: {e}")
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

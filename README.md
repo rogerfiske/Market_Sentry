@@ -6,20 +6,37 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Project Scaffold (MVP 1)
+## Current Milestone: Candidate Review Workflow (MVP 2)
 
-This milestone establishes the foundational project structure:
+This milestone implements the human-in-the-loop candidate review workflow.
+
+**Status:** ✅ Complete
+
+### MVP 1: Project Scaffold
 
 - ✅ Project folder structure
 - ✅ SQLite database schema
 - ✅ Configuration files
-- ✅ CLI entry point
+- ✅ CLI entry point with database management
 - ✅ Logging system
 - ✅ Core data models
 - ✅ Basic domain logic functions
-- ✅ Unit tests
+- ✅ Comprehensive unit tests (46 tests)
 
-**No live scraping or network calls are implemented in this milestone.**
+### MVP 2: Review Workflow
+
+- ✅ Candidate insertion with deduplication (by URL and normalized address)
+- ✅ Sample seed data generation (3 test candidates)
+- ✅ Review queue export to CSV
+- ✅ Review decision import with validation
+- ✅ Watchlist promotion for 'save' decisions
+- ✅ Watch priority calculation (high/medium/low)
+- ✅ Gas service and Quiet/Vibrancy preservation
+- ✅ Idempotent import workflow
+- ✅ New CLI commands: seed-sample-candidates, export-review, import-review, list-candidates, list-watched
+- ✅ Complete workflow tests (62 tests total, all passing)
+
+**No live scraping or network calls are implemented yet. The system uses manually seeded sample data for testing the review workflow.**
 
 ## Key Features (Planned)
 
@@ -129,6 +146,78 @@ Displays current configuration settings.
 marketsentry version
 ```
 
+### Review Workflow Commands (MVP 2)
+
+#### Seed Sample Candidates
+
+```bash
+marketsentry seed-sample-candidates
+```
+
+Seeds the database with 3 sample candidates for testing the review workflow.
+
+#### Export Review Queue
+
+```bash
+marketsentry export-review
+# Or specify output file:
+marketsentry export-review --output data/exports/my_review.csv
+```
+
+Exports all candidates from the review queue to CSV for human review.
+
+#### Import Review Decisions
+
+```bash
+marketsentry import-review --file data/imports/reviewed_candidates.csv
+```
+
+Imports reviewed decisions from CSV. Valid decisions: `save`, `reject`, `maybe`, `hold_for_more_data`.
+
+Properties marked as `save` are promoted to the watchlist.
+
+#### List Candidates
+
+```bash
+marketsentry list-candidates
+# Or limit results:
+marketsentry list-candidates --limit 20
+```
+
+Lists candidates in the review queue.
+
+#### List Watched Properties
+
+```bash
+marketsentry list-watched
+# Or limit results:
+marketsentry list-watched --limit 20
+```
+
+Lists properties in the active watchlist.
+
+### Complete Review Workflow Example
+
+```bash
+# 1. Initialize database
+marketsentry init-database
+
+# 2. Seed sample candidates
+marketsentry seed-sample-candidates
+
+# 3. Export candidates for review
+marketsentry export-review
+
+# 4. Edit the exported CSV file (data/exports/review_queue_*.csv)
+#    Set user_decision column to: save, reject, maybe, or hold_for_more_data
+
+# 5. Import reviewed decisions
+marketsentry import-review --file data/exports/review_queue_20260504_123456.csv
+
+# 6. View watched properties
+marketsentry list-watched
+```
+
 ## Project Structure
 
 ```
@@ -218,12 +307,15 @@ mypy src/
 
 ## Next Planned Milestone
 
-**MVP 2: Candidate Review Queue Import/Export**
+### MVP 3: Redfin Candidate Discovery
 
-- Create database tables and support manual seed data
-- Export candidate review queue to CSV/Excel
-- Import user review decisions
-- Promote selected candidates to watched properties
+- Implement compliant Redfin search page access
+- Extract candidate property URLs from search results
+- Parse property summary data (address, price, beds, baths, etc.)
+- Collect Quiet/Vibrancy scores where available
+- Detect garage spaces and gas service evidence
+- Store candidates in review queue for user review
+- No automated decisions - all candidates go through human review
 
 ## Repository
 
