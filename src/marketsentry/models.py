@@ -1,7 +1,7 @@
 """Data models for Market_Sentry."""
 
 from datetime import date, datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -146,3 +146,65 @@ class ScoreResult(BaseModel):
     data_confidence_score: Optional[float] = None
     overall_score: Optional[float] = None
     scoring_notes: Optional[str] = None
+
+
+class RedfinSearchConfig(BaseModel):
+    """Model for Redfin search configuration."""
+
+    config_id: Optional[int] = None
+    config_name: str
+    search_url: str
+    city: str
+    active: bool = Field(default=True)
+    notes: Optional[str] = None
+
+
+class RedfinCandidateSummary(BaseModel):
+    """Model for a Redfin candidate summary extracted from search or URL."""
+
+    redfin_url: str
+    source_site: str = Field(default="redfin")
+    source_search_url: Optional[str] = None
+    address: Optional[str] = None
+    normalized_address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    price: Optional[float] = None
+    beds: Optional[int] = None
+    baths: Optional[float] = None
+    sqft: Optional[int] = None
+    lot_size: Optional[float] = None
+    displayed_dom: Optional[int] = None
+    quiet_score: Optional[float] = None
+    vibrancy_score: Optional[float] = None
+    quiet_gatekeeper_result: Optional[str] = None
+    garage_spaces: Optional[int] = None
+    gas_service: Optional[bool] = None
+    gas_evidence: Optional[str] = None
+    basic_notes: Optional[str] = None
+
+
+class RedfinParseResult(BaseModel):
+    """Model for results from parsing Redfin HTML fixtures."""
+
+    source_file: Optional[str] = None
+    parse_status: str  # success, partial, failed
+    candidates_found: int = Field(default=0)
+    candidates: List[RedfinCandidateSummary] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+
+
+class DiscoveryRunResult(BaseModel):
+    """Model for results from a discovery run."""
+
+    run_date: datetime = Field(default_factory=datetime.now)
+    source_type: str  # manual_url_import, saved_fixture, live_search
+    source_identifier: str  # file path or search URL
+    total_rows_read: int = Field(default=0)
+    candidates_inserted: int = Field(default=0)
+    candidates_skipped: int = Field(default=0)
+    rows_rejected: int = Field(default=0)
+    parse_warnings: int = Field(default=0)
+    parse_errors: int = Field(default=0)
+    notes: Optional[str] = None

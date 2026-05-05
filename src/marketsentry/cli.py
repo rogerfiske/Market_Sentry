@@ -19,6 +19,8 @@ from marketsentry.logging_config import logger
 from marketsentry.review_export import export_candidates_from_db
 from marketsentry.review_import import process_review_decisions
 from marketsentry.sample_data import seed_sample_candidates
+from marketsentry.redfin_url_import import import_redfin_urls_from_csv
+from marketsentry.redfin_fixture_parser import parse_redfin_fixtures_from_directory
 
 app = typer.Typer(
     name="marketsentry",
@@ -335,6 +337,92 @@ def list_watched(
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         logger.error(f"List watched properties error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def import_redfin_urls(
+    file: str = typer.Option(..., "--file", "-f", help="CSV file with Redfin URLs"),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Import Redfin property URLs from CSV file."""
+    try:
+        db_path = database_path or config.database_path
+
+        if not Path(file).exists():
+            console.print(f"[bold red]Error:[/bold red] File not found: {file}")
+            raise typer.Exit(code=1)
+
+        console.print(f"[bold blue]Importing Redfin URLs from {file}...[/bold blue]")
+
+        result = import_redfin_urls_from_csv(file, db_path)
+
+        console.print(
+            f"\n[bold green]SUCCESS:[/bold green] Processed {result.total_rows_read} rows"
+        )
+        console.print(f"  - Candidates inserted: {result.candidates_inserted}")
+        console.print(f"  - Candidates skipped (duplicates): {result.candidates_skipped}")
+        console.print(f"  - Rows rejected: {result.rows_rejected}")
+
+        if result.parse_warnings > 0:
+            console.print(f"  - [yellow]Warnings:[/yellow] {result.parse_warnings}")
+        if result.parse_errors > 0:
+            console.print(f"  - [red]Errors:[/red] {result.parse_errors}")
+
+        console.print("\n[dim]Run 'marketsentry list-candidates' to see imported candidates[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Import Redfin URLs error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def parse_redfin_fixtures(
+    directory: str = typer.Option(
+        ..., "--dir", "-d", help="Directory containing HTML fixtures"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Parse saved Redfin HTML fixtures and extract candidates."""
+    try:
+        db_path = database_path or config.database_path
+
+        if not Path(directory).exists():
+            console.print(f"[bold red]Error:[/bold red] Directory not found: {directory}")
+            raise typer.Exit(code=1)
+
+        if not Path(directory).is_dir():
+            console.print(f"[bold red]Error:[/bold red] Not a directory: {directory}")
+            raise typer.Exit(code=1)
+
+        console.print(
+            f"[bold blue]Parsing Redfin HTML fixtures from {directory}...[/bold blue]"
+        )
+
+        result = parse_redfin_fixtures_from_directory(directory, db_path)
+
+        console.print(
+            f"\n[bold green]SUCCESS:[/bold green] Processed {result.total_rows_read} HTML files"
+        )
+        console.print(f"  - Candidates inserted: {result.candidates_inserted}")
+        console.print(f"  - Candidates skipped (duplicates): {result.candidates_skipped}")
+        console.print(f"  - Files rejected: {result.rows_rejected}")
+
+        if result.parse_warnings > 0:
+            console.print(f"  - [yellow]Parse warnings:[/yellow] {result.parse_warnings}")
+        if result.parse_errors > 0:
+            console.print(f"  - [red]Parse errors:[/red] {result.parse_errors}")
+
+        console.print("\n[dim]Run 'marketsentry list-candidates' to see extracted candidates[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Parse Redfin fixtures error: {e}")
         raise typer.Exit(code=1)
 
 

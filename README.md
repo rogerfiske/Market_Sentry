@@ -6,9 +6,9 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Candidate Review Workflow (MVP 2)
+## Current Milestone: Redfin Discovery Adapter Foundation (MVP 3)
 
-This milestone implements the human-in-the-loop candidate review workflow.
+This milestone implements the foundation for Redfin candidate discovery using manual URL import and saved HTML fixture parsing.
 
 **Status:** ✅ Complete
 
@@ -36,7 +36,18 @@ This milestone implements the human-in-the-loop candidate review workflow.
 - ✅ New CLI commands: seed-sample-candidates, export-review, import-review, list-candidates, list-watched
 - ✅ Complete workflow tests (62 tests total, all passing)
 
-**No live scraping or network calls are implemented yet. The system uses manually seeded sample data for testing the review workflow.**
+### MVP 3: Redfin Discovery Adapter Foundation
+
+- ✅ Manual Redfin URL import from CSV
+- ✅ Saved/static HTML fixture parsing
+- ✅ Redfin URL validation and normalization
+- ✅ Address, city, and ZIP extraction from URLs
+- ✅ Candidate insertion with deduplication
+- ✅ Source page audit tracking
+- ✅ New CLI commands: import-redfin-urls, parse-redfin-fixtures
+- ✅ Comprehensive tests for all new functionality (110 tests total, all passing)
+
+**Important:** No live scraping or network calls are implemented yet. Milestone 3 uses manual URL import and saved HTML fixtures to validate the discovery→review→watchlist pipeline before adding live site access.
 
 ## Key Features (Planned)
 
@@ -146,7 +157,37 @@ Displays current configuration settings.
 marketsentry version
 ```
 
-### Review Workflow Commands (MVP 2)
+### Redfin Discovery Commands (MVP 3)
+
+#### Import Redfin URLs from CSV
+
+```bash
+marketsentry import-redfin-urls --file data/imports/redfin_urls.csv
+```
+
+Imports Redfin property URLs from a CSV file. The CSV must contain a `redfin_url` column and can optionally include `address`, `city`, `zip`, `price`, `beds`, `baths`, `sqft`, and `notes`.
+
+**Example CSV format:**
+
+```csv
+redfin_url,address,city,zip,price,beds,baths,sqft,notes
+https://www.redfin.com/CA/Temecula/46197-Via-La-Tranquila-92592/home/6574263,46197 Via La Tranquila,Temecula,92592,750000,3,2.5,2100,Looks promising
+https://www.redfin.com/CA/Murrieta/25678-Via-Viejo-92563/home/7123456,,,,,,,Test this one
+```
+
+If address, city, or ZIP are not provided, the system will attempt to extract them from the URL.
+
+#### Parse Redfin HTML Fixtures
+
+```bash
+marketsentry parse-redfin-fixtures --dir data/raw/redfin
+```
+
+Parses saved/static Redfin HTML files from a directory and extracts candidate property URLs. This allows testing the parser logic without live network calls.
+
+Place `.html` or `.htm` files in `data/raw/redfin/` and run this command to extract candidates.
+
+### Review Workflow Commands (MVP 2-3)
 
 #### Seed Sample Candidates
 
@@ -196,27 +237,39 @@ marketsentry list-watched --limit 20
 
 Lists properties in the active watchlist.
 
-### Complete Review Workflow Example
+### Complete Workflow Example (MVP 3)
 
 ```bash
 # 1. Initialize database
 marketsentry init-database
 
-# 2. Seed sample candidates
-marketsentry seed-sample-candidates
+# 2. Create a CSV file with Redfin URLs (data/imports/redfin_urls.csv)
+#    Required column: redfin_url
+#    Optional columns: address, city, zip, price, beds, baths, sqft, notes
 
-# 3. Export candidates for review
+# 3. Import Redfin URLs from CSV
+marketsentry import-redfin-urls --file data/imports/redfin_urls.csv
+
+# OR: Parse saved Redfin HTML fixtures
+marketsentry parse-redfin-fixtures --dir data/raw/redfin
+
+# 4. List imported candidates
+marketsentry list-candidates
+
+# 5. Export candidates for review
 marketsentry export-review
 
-# 4. Edit the exported CSV file (data/exports/review_queue_*.csv)
+# 6. Edit the exported CSV file (data/exports/review_queue_*.csv)
 #    Set user_decision column to: save, reject, maybe, or hold_for_more_data
 
-# 5. Import reviewed decisions
-marketsentry import-review --file data/exports/review_queue_20260504_123456.csv
+# 7. Import reviewed decisions
+marketsentry import-review --file data/exports/review_queue_20260505_123456.csv
 
-# 6. View watched properties
+# 8. View watched properties
 marketsentry list-watched
 ```
+
+**Note:** You can still use `marketsentry seed-sample-candidates` to seed test data if you don't have real Redfin URLs yet.
 
 ## Project Structure
 
@@ -252,16 +305,29 @@ Market_Sentry/
 │       ├── normalization.py   # Address/data normalization
 │       ├── gas_detection.py   # Gas service detection
 │       ├── quiet_vibrancy.py  # Location scoring
-│       ├── effective_dom.py   # Effective DOM calculation
-│       ├── scoring.py         # Property scoring engine
-│       ├── review_export.py   # Review queue export
-│       └── review_import.py   # Review decision import
-└── tests/                     # Unit tests
+│       ├── effective_dom.py            # Effective DOM calculation
+│       ├── scoring.py                  # Property scoring engine
+│       ├── review_export.py            # Review queue export
+│       ├── review_import.py            # Review decision import
+│       ├── redfin_url_utils.py         # Redfin URL validation and normalization
+│       ├── redfin_url_import.py        # Manual Redfin URL import
+│       ├── redfin_fixture_parser.py    # Saved HTML fixture parsing
+│       ├── watchlist.py                # Watchlist promotion logic
+│       └── sample_data.py              # Sample data generation
+└── tests/                              # Unit tests
+    ├── fixtures/                       # Test fixtures
+    │   ├── redfin_urls_valid.csv
+    │   ├── redfin_urls_mixed_invalid.csv
+    │   └── redfin_search_fixture.html
     ├── test_database.py
     ├── test_effective_dom.py
     ├── test_scoring.py
     ├── test_gas_detection.py
-    └── test_quiet_vibrancy.py
+    ├── test_quiet_vibrancy.py
+    ├── test_review_workflow.py
+    ├── test_redfin_url_utils.py
+    ├── test_redfin_url_import.py
+    └── test_redfin_fixture_parser.py
 ```
 
 ## Running Tests
@@ -307,15 +373,18 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 3: Redfin Candidate Discovery
+### MVP 4: Redfin Detail Parser
 
-- Implement compliant Redfin search page access
-- Extract candidate property URLs from search results
-- Parse property summary data (address, price, beds, baths, etc.)
-- Collect Quiet/Vibrancy scores where available
-- Detect garage spaces and gas service evidence
-- Store candidates in review queue for user review
-- No automated decisions - all candidates go through human review
+- Parse individual Redfin property detail pages
+- Extract comprehensive property facts
+- Extract listing history events
+- Calculate displayed DOM from listing data
+- Extract Quiet/Vibrancy scores where available
+- Detect garage spaces from property description
+- Detect gas service evidence from amenities/description
+- Extract APN when visible
+- Store parsed details with candidates
+- Continue using saved HTML fixtures (no live scraping yet)
 
 ## Repository
 
@@ -335,6 +404,8 @@ MIT
 ## Notes
 
 - This is a local-first application. All data is stored in a local SQLite database.
-- No network calls or live scraping are implemented in the current milestone.
+- **No live scraping or network calls are implemented.** Milestone 3 uses manual URL import and saved HTML fixtures.
+- See [docs/decisions/002-redfin-discovery-adapter-foundation.md](docs/decisions/002-redfin-discovery-adapter-foundation.md) for the rationale behind deferring live scraping.
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
+- The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

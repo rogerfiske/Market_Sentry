@@ -1,0 +1,4 @@
+redfin_url,address,city,zip,price,beds,baths,sqft,notes
+https://www.redfin.com/CA/Temecula/46197-Via-La-Tranquila-92592/home/6574263,46197 Via La Tranquila,Temecula,92592,750000,3,2.5,2100,Sample property 1
+https://www.redfin.com/CA/Temecula/43511-Calle-Nacido-92592/home/6199187,43511 Calle Nacido,Temecula,92592,825000,4,3,2400,Sample property 2
+https://www.redfin.com/CA/Murrieta/25678-Via-Viejo-92563/home/7123456,,,,,,,Test property with minimal data
