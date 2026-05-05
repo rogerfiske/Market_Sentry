@@ -6,9 +6,9 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Redfin Discovery Adapter Foundation (MVP 3)
+## Current Milestone: Redfin Detail Parser and Candidate Enrichment (MVP 4)
 
-This milestone implements the foundation for Redfin candidate discovery using manual URL import and saved HTML fixture parsing.
+This milestone implements detailed property parsing from saved Redfin HTML files and enriches candidate records with property facts, lifestyle scores, gas evidence, and listing history.
 
 **Status:** ✅ Complete
 
@@ -48,6 +48,22 @@ This milestone implements the foundation for Redfin candidate discovery using ma
 - ✅ Comprehensive tests for all new functionality (110 tests total, all passing)
 
 **Important:** No live scraping or network calls are implemented yet. Milestone 3 uses manual URL import and saved HTML fixtures to validate the discovery→review→watchlist pipeline before adding live site access.
+
+### MVP 4: Redfin Detail Parser and Candidate Enrichment
+
+- ✅ Parse saved Redfin property detail page HTML files
+- ✅ Extract property facts: price, beds, baths, sqft, lot size, year built, garage spaces
+- ✅ Extract Quiet and Vibrancy lifestyle scores with semantic labels
+- ✅ Detect gas service evidence from property descriptions
+- ✅ Parse listing history events with date, type, price, and MLS information
+- ✅ Calculate preliminary Effective DOM metrics (listing churn, DOM resets, sale/rent alternation)
+- ✅ Enrich candidate records with parsed detail data
+- ✅ Apply Quiet Gatekeeper logic during enrichment
+- ✅ Preserve user decisions during enrichment updates
+- ✅ New CLI commands: parse-redfin-details, enrich-redfin-details
+- ✅ Comprehensive tests for all new functionality (130 tests total, all passing)
+
+**Important:** Continues the saved HTML approach from Milestone 3. No live scraping. Users manually save Redfin detail pages and run enrichment commands.
 
 ## Key Features (Planned)
 
@@ -187,7 +203,47 @@ Parses saved/static Redfin HTML files from a directory and extracts candidate pr
 
 Place `.html` or `.htm` files in `data/raw/redfin/` and run this command to extract candidates.
 
-### Review Workflow Commands (MVP 2-3)
+### Redfin Detail Parser Commands (MVP 4)
+
+#### Parse Redfin Detail Pages
+
+```bash
+marketsentry parse-redfin-details --dir data/detail_pages/
+```
+
+Parses saved Redfin property detail page HTML files and displays a summary of extracted data including:
+
+- Property facts (price, beds, baths, sqft, lot size, year built, garage spaces)
+- Quiet and Vibrancy lifestyle scores
+- Gas service detection
+- Listing history events
+- MLS information
+
+This command does not modify the database - it only displays parsed information for verification.
+
+#### Enrich Candidates with Detail Data
+
+```bash
+marketsentry enrich-redfin-details --dir data/detail_pages/ --db db/market_sentry.db
+```
+
+Parses saved detail page HTML files and enriches matching candidates in the database with:
+
+- Property facts and lifestyle scores
+- Gas service evidence
+- Quiet Gatekeeper evaluation
+- Listing history events (with duplicate detection)
+- Preliminary Effective DOM metrics (listing churn, DOM resets, sale/rent alternation)
+
+Candidates are matched by Redfin URL or normalized address. User decisions and notes are preserved during enrichment.
+
+**Workflow:**
+
+1. Browse Redfin and save detail pages to `data/detail_pages/` (right-click → Save As → Web Page, Complete)
+2. Run `parse-redfin-details` to verify extraction
+3. Run `enrich-redfin-details` to update candidates in the database
+
+### Review Workflow Commands (MVP 2-4)
 
 #### Seed Sample Candidates
 
@@ -312,13 +368,20 @@ Market_Sentry/
 │       ├── redfin_url_utils.py         # Redfin URL validation and normalization
 │       ├── redfin_url_import.py        # Manual Redfin URL import
 │       ├── redfin_fixture_parser.py    # Saved HTML fixture parsing
+│       ├── redfin_detail_parser.py     # Redfin detail page parser
+│       ├── redfin_detail_enrichment.py # Candidate enrichment workflow
 │       ├── watchlist.py                # Watchlist promotion logic
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
     ├── fixtures/                       # Test fixtures
     │   ├── redfin_urls_valid.csv
     │   ├── redfin_urls_mixed_invalid.csv
-    │   └── redfin_search_fixture.html
+    │   ├── redfin_search_fixture.html
+    │   └── redfin_detail/              # Redfin detail page fixtures
+    │       ├── normal_property_with_gas.html
+    │       ├── high_noise_property.html
+    │       ├── listing_churn_property.html
+    │       └── sparse_data_property.html
     ├── test_database.py
     ├── test_effective_dom.py
     ├── test_scoring.py
@@ -327,7 +390,8 @@ Market_Sentry/
     ├── test_review_workflow.py
     ├── test_redfin_url_utils.py
     ├── test_redfin_url_import.py
-    └── test_redfin_fixture_parser.py
+    ├── test_redfin_fixture_parser.py
+    └── test_redfin_detail_parser.py
 ```
 
 ## Running Tests
@@ -373,18 +437,14 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 4: Redfin Detail Parser
+### MVP 5: Cross-Site Data Enrichment
 
-- Parse individual Redfin property detail pages
-- Extract comprehensive property facts
-- Extract listing history events
-- Calculate displayed DOM from listing data
-- Extract Quiet/Vibrancy scores where available
-- Detect garage spaces from property description
-- Detect gas service evidence from amenities/description
-- Extract APN when visible
-- Store parsed details with candidates
-- Continue using saved HTML fixtures (no live scraping yet)
+- Zillow detail page parser (using saved HTML approach)
+- Realtor.com detail page parser
+- Cross-site data validation and conflict resolution
+- Enhanced Effective DOM with multi-site listing history
+- Property history timeline visualization
+- Batch enrichment workflows
 
 ## Repository
 
@@ -404,8 +464,10 @@ MIT
 ## Notes
 
 - This is a local-first application. All data is stored in a local SQLite database.
-- **No live scraping or network calls are implemented.** Milestone 3 uses manual URL import and saved HTML fixtures.
-- See [docs/decisions/002-redfin-discovery-adapter-foundation.md](docs/decisions/002-redfin-discovery-adapter-foundation.md) for the rationale behind deferring live scraping.
+- **No live scraping or network calls are implemented.** Milestones 3 and 4 use manual URL import and saved HTML fixtures.
+- See design decisions for rationale:
+  - [Decision 002: Redfin Discovery Adapter Foundation](docs/decisions/002-redfin-discovery-adapter-foundation.md)
+  - [Decision 003: Redfin Detail Parser and Candidate Enrichment](docs/decisions/003-redfin-detail-parser-saved-fixtures.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

@@ -208,3 +208,102 @@ class DiscoveryRunResult(BaseModel):
     parse_warnings: int = Field(default=0)
     parse_errors: int = Field(default=0)
     notes: Optional[str] = None
+
+
+class RedfinLifestyleScores(BaseModel):
+    """Model for Redfin lifestyle scores (Quiet/Vibrancy)."""
+
+    quiet_score: Optional[float] = None
+    quiet_label: Optional[str] = None
+    quiet_raw_text: Optional[str] = None
+    vibrancy_score: Optional[float] = None
+    vibrancy_label: Optional[str] = None
+    vibrancy_raw_text: Optional[str] = None
+
+
+class RedfinPropertyFacts(BaseModel):
+    """Model for Redfin property facts."""
+
+    price: Optional[float] = None
+    beds: Optional[int] = None
+    baths: Optional[float] = None
+    sqft: Optional[int] = None
+    lot_size: Optional[float] = None
+    year_built: Optional[int] = None
+    property_type: Optional[str] = None
+    garage_spaces: Optional[int] = None
+    parking_features_raw: Optional[str] = None
+    hoa_fee: Optional[float] = None
+    property_description: Optional[str] = None
+    features_raw: Optional[str] = None
+    utilities_raw: Optional[str] = None
+
+
+class RedfinListingHistoryEvent(BaseModel):
+    """Model for a single listing history event."""
+
+    event_date: Optional[date] = None
+    event_type: str  # listed, price_changed, removed, relisted, pending, back_on_market, sold, rental_listed, rental_removed, unknown
+    price: Optional[float] = None
+    raw_text: str
+    source_listing_id: Optional[str] = None
+    mls_number: Optional[str] = None
+    source_mls: Optional[str] = None
+    confidence: str = Field(default="medium")  # low, medium, high
+
+
+class RedfinPropertyDetail(BaseModel):
+    """Model for comprehensive Redfin property detail."""
+
+    # Property identity
+    redfin_url: Optional[str] = None
+    redfin_home_id: Optional[str] = None
+    address: Optional[str] = None
+    normalized_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    apn: Optional[str] = None
+    mls_number: Optional[str] = None
+    source_mls: Optional[str] = None
+
+    # Property facts
+    facts: Optional[RedfinPropertyFacts] = None
+
+    # Lifestyle scores
+    lifestyle_scores: Optional[RedfinLifestyleScores] = None
+
+    # Gas evidence
+    gas_service: Optional[bool] = None
+    gas_evidence: Optional[str] = None
+    gas_evidence_source: Optional[str] = None
+
+    # Listing history
+    listing_history: List[RedfinListingHistoryEvent] = Field(default_factory=list)
+
+    # Displayed DOM (if extractable from page)
+    displayed_dom: Optional[int] = None
+
+
+class RedfinDetailParseResult(BaseModel):
+    """Model for results from parsing a Redfin detail page."""
+
+    source_file: Optional[str] = None
+    parse_status: str  # success, partial, failed
+    property_detail: Optional[RedfinPropertyDetail] = None
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+
+
+class RedfinDetailEnrichmentResult(BaseModel):
+    """Model for results from enriching candidates with detail data."""
+
+    total_files_processed: int = Field(default=0)
+    details_parsed: int = Field(default=0)
+    candidates_matched: int = Field(default=0)
+    candidates_updated: int = Field(default=0)
+    listing_events_inserted: int = Field(default=0)
+    listing_events_skipped: int = Field(default=0)
+    parse_warnings: int = Field(default=0)
+    parse_errors: int = Field(default=0)
+    notes: Optional[str] = None

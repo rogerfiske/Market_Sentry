@@ -68,7 +68,9 @@ def calculate_effective_dom(
 
 def calculate_listing_churn_count(listing_events: List[ListingEvent]) -> int:
     """
-    Count listing removal and relisting events.
+    Count listing removal, relisting, and price change events.
+
+    Listing churn indicates non-closing market activity patterns.
 
     Args:
         listing_events: List of listing events for the property
@@ -76,13 +78,17 @@ def calculate_listing_churn_count(listing_events: List[ListingEvent]) -> int:
     Returns:
         Count of listing churn events
     """
-    churn_event_types = ["removed", "relisted", "back_on_market"]
-    return sum(1 for event in listing_events if event.event_type in churn_event_types)
+    churn_event_types = ["removed", "relisted", "back_on_market", "price_changed", "listed"]
+    # Exclude sold events from churn count
+    return sum(
+        1 for event in listing_events
+        if event.event_type in churn_event_types
+    )
 
 
 def calculate_dom_reset_count(listing_events: List[ListingEvent]) -> int:
     """
-    Count DOM reset events (removals followed by relisting).
+    Count DOM reset events (removals followed by relisting within 90 days).
 
     Args:
         listing_events: List of listing events for the property
@@ -90,8 +96,26 @@ def calculate_dom_reset_count(listing_events: List[ListingEvent]) -> int:
     Returns:
         Count of DOM reset events
     """
-    # Placeholder: Count removal events that might trigger DOM reset
-    return sum(1 for event in listing_events if event.event_type == "removed")
+    if not listing_events:
+        return 0
+
+    # Sort events by date
+    sorted_events = sorted(listing_events, key=lambda e: e.event_date or date.min)
+
+    reset_count = 0
+    for i, event in enumerate(sorted_events):
+        if event.event_type == "removed":
+            # Look for relisting within 90 days
+            for j in range(i + 1, len(sorted_events)):
+                next_event = sorted_events[j]
+                if next_event.event_type in ["relisted", "listed", "back_on_market"]:
+                    if event.event_date and next_event.event_date:
+                        days_diff = (next_event.event_date - event.event_date).days
+                        if days_diff <= 90:
+                            reset_count += 1
+                    break  # Count only the first relist after each removal
+
+    return reset_count
 
 
 def calculate_sale_rent_alternation_count(listing_events: List[ListingEvent]) -> int:

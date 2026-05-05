@@ -21,6 +21,8 @@ from marketsentry.review_import import process_review_decisions
 from marketsentry.sample_data import seed_sample_candidates
 from marketsentry.redfin_url_import import import_redfin_urls_from_csv
 from marketsentry.redfin_fixture_parser import parse_redfin_fixtures_from_directory
+from marketsentry.redfin_detail_parser import parse_redfin_detail_directory
+from marketsentry.redfin_detail_enrichment import enrich_candidates_from_detail_directory
 
 app = typer.Typer(
     name="marketsentry",
@@ -423,6 +425,117 @@ def parse_redfin_fixtures(
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         logger.error(f"Parse Redfin fixtures error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def parse_redfin_details(
+    directory: str = typer.Option(
+        ..., "--dir", "-d", help="Directory containing Redfin detail HTML files"
+    ),
+) -> None:
+    """Parse Redfin property detail HTML files and display summary."""
+    try:
+        if not Path(directory).exists():
+            console.print(f"[bold red]Error:[/bold red] Directory not found: {directory}")
+            raise typer.Exit(code=1)
+
+        if not Path(directory).is_dir():
+            console.print(f"[bold red]Error:[/bold red] Not a directory: {directory}")
+            raise typer.Exit(code=1)
+
+        console.print(
+            f"[bold blue]Parsing Redfin detail files from {directory}...[/bold blue]"
+        )
+
+        results = parse_redfin_detail_directory(Path(directory))
+
+        success_count = sum(1 for r in results if r.parse_status in ["success", "partial"])
+        failed_count = sum(1 for r in results if r.parse_status == "failed")
+        total_warnings = sum(len(r.warnings) for r in results)
+        total_errors = sum(len(r.errors) for r in results)
+
+        console.print(
+            f"\n[bold green]Parsed {len(results)} files:[/bold green]"
+        )
+        console.print(f"  - Successful: {success_count}")
+        console.print(f"  - Failed: {failed_count}")
+
+        if total_warnings > 0:
+            console.print(f"  - [yellow]Total warnings:[/yellow] {total_warnings}")
+        if total_errors > 0:
+            console.print(f"  - [red]Total errors:[/red] {total_errors}")
+
+        # Show sample details
+        console.print(f"\n[bold]Sample parsed details:[/bold]")
+        for i, result in enumerate(results[:3]):  # Show first 3
+            if result.property_detail:
+                detail = result.property_detail
+                console.print(f"\n{i+1}. {detail.address or 'Unknown address'}")
+                if detail.facts:
+                    console.print(f"   Price: ${detail.facts.price:,.0f}" if detail.facts.price else "   Price: N/A")
+                    console.print(f"   Beds/Baths: {detail.facts.beds or 'N/A'}/{detail.facts.baths or 'N/A'}")
+                if detail.lifestyle_scores:
+                    console.print(f"   Quiet: {detail.lifestyle_scores.quiet_score}/10" if detail.lifestyle_scores.quiet_score else "   Quiet: N/A")
+                if detail.listing_history:
+                    console.print(f"   Listing events: {len(detail.listing_history)}")
+
+        console.print("\n[dim]Note: This command only parses and displays. Use 'enrich-redfin-details' to update candidates.[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Parse Redfin details error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def enrich_redfin_details(
+    directory: str = typer.Option(
+        ..., "--dir", "-d", help="Directory containing Redfin detail HTML files"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Parse Redfin detail files and enrich candidate records."""
+    try:
+        db_path = database_path or config.database_path
+
+        if not Path(directory).exists():
+            console.print(f"[bold red]Error:[/bold red] Directory not found: {directory}")
+            raise typer.Exit(code=1)
+
+        if not Path(directory).is_dir():
+            console.print(f"[bold red]Error:[/bold red] Not a directory: {directory}")
+            raise typer.Exit(code=1)
+
+        console.print(
+            f"[bold blue]Enriching candidates from detail files in {directory}...[/bold blue]"
+        )
+
+        result = enrich_candidates_from_detail_directory(directory, db_path)
+
+        console.print(
+            f"\n[bold green]SUCCESS:[/bold green] Processed {result.total_files_processed} files"
+        )
+        console.print(f"  - Details parsed: {result.details_parsed}")
+        console.print(f"  - Candidates matched: {result.candidates_matched}")
+        console.print(f"  - Candidates updated: {result.candidates_updated}")
+        console.print(f"  - Listing events inserted: {result.listing_events_inserted}")
+
+        if result.listing_events_skipped > 0:
+            console.print(f"  - Listing events skipped (duplicates): {result.listing_events_skipped}")
+
+        if result.parse_warnings > 0:
+            console.print(f"  - [yellow]Parse warnings:[/yellow] {result.parse_warnings}")
+        if result.parse_errors > 0:
+            console.print(f"  - [red]Parse errors:[/red] {result.parse_errors}")
+
+        console.print("\n[dim]Run 'marketsentry list-candidates' to see enriched candidates[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Enrich Redfin details error: {e}")
         raise typer.Exit(code=1)
 
 

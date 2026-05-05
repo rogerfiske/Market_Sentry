@@ -101,16 +101,26 @@ def test_calculate_listing_churn_count() -> None:
 
     churn_count = calculate_listing_churn_count(events)
 
-    assert churn_count == 2  # removed + relisted
+    assert churn_count == 3  # listed + removed + relisted
 
 
 def test_calculate_dom_reset_count() -> None:
-    """Test DOM reset count calculation."""
+    """Test DOM reset count calculation (removals followed by relisting within 90 days)."""
     events = [
+        ListingEvent(
+            event_date=date.today() - timedelta(days=90),
+            source_site="redfin",
+            event_type="listed",
+        ),
+        ListingEvent(
+            event_date=date.today() - timedelta(days=75),
+            source_site="redfin",
+            event_type="removed",
+        ),
         ListingEvent(
             event_date=date.today() - timedelta(days=60),
             source_site="redfin",
-            event_type="listed",
+            event_type="relisted",
         ),
         ListingEvent(
             event_date=date.today() - timedelta(days=45),
@@ -120,13 +130,13 @@ def test_calculate_dom_reset_count() -> None:
         ListingEvent(
             event_date=date.today() - timedelta(days=30),
             source_site="redfin",
-            event_type="removed",
+            event_type="relisted",
         ),
     ]
 
     reset_count = calculate_dom_reset_count(events)
 
-    assert reset_count == 2
+    assert reset_count == 2  # Two removal->relist cycles within 90 days
 
 
 def test_calculate_sale_rent_alternation_count() -> None:
