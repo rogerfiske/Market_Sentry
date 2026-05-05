@@ -1207,5 +1207,57 @@ def export_effective_dom_v2_report(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def persist_effective_dom_v2(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Persist Effective DOM v2 metrics to watched properties and candidates."""
+    from marketsentry.effective_dom_v2_persistence import persist_effective_dom_v2 as persist_v2
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Persisting Effective DOM v2 metrics...[/bold blue]")
+
+        # Apply schema migrations first to ensure v2 columns exist
+        migrate_schema(db_path)
+
+        # Persist v2 metrics
+        result = persist_v2(db_path)
+
+        console.print(f"\n[bold green]PERSIST COMPLETE:[/bold green]")
+        console.print(f"  - Properties scanned: {result.properties_scanned}")
+        console.print(f"  - County transfers considered: {result.county_transfers_considered}")
+        console.print(f"  - County resets applied: {result.county_resets_applied}")
+        console.print(f"  - Records updated: {result.records_updated}")
+        console.print(f"  - Churn metrics preserved: {result.churn_metrics_preserved}")
+
+        if result.warnings:
+            console.print(f"\n[yellow]WARNINGS ({len(result.warnings)}):[/yellow]")
+            for warning in result.warnings[:10]:
+                console.print(f"  - {warning}")
+            if len(result.warnings) > 10:
+                console.print(f"  ... and {len(result.warnings) - 10} more")
+
+        if result.errors:
+            console.print(f"\n[red]ERRORS ({len(result.errors)}):[/red]")
+            for error in result.errors[:10]:
+                console.print(f"  - {error}")
+            if len(result.errors) > 10:
+                console.print(f"  ... and {len(result.errors) - 10} more")
+
+        console.print(
+            "\n[dim]Note: County reset affects Effective DOM only. "
+            "Churn Index remains preserved separately.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Persist effective DOM v2 error: {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

@@ -252,6 +252,68 @@ MIGRATE_PROPERTY_OBSERVATION_SNAPSHOTS_V2 = [
     "ALTER TABLE property_observation_snapshots ADD COLUMN price_change_count INTEGER DEFAULT 0;",
 ]
 
+# Milestone 10: Effective DOM v2 operational integration migrations
+# These add v2 fields to property_observation_snapshots, watched_properties,
+# and candidate_review_queue tables.
+
+MIGRATE_SNAPSHOTS_V2_OPERATIONAL = [
+    "ALTER TABLE property_observation_snapshots ADD COLUMN effective_dom_v1 INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN effective_dom_v2 INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN effective_dom_delta_v1 INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN effective_dom_delta_v2 INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN county_reset_applied BOOLEAN DEFAULT 0;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN county_reset_date DATE;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN county_reset_record_type TEXT;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN county_reset_confidence TEXT;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN recent_churn_index REAL;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN recent_churn_lookback_years INTEGER DEFAULT 3;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN recent_churn_event_count INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN recent_dom_reset_count INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN recent_sale_rent_alternation_count INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN churn_preserved_after_transfer BOOLEAN DEFAULT 1;",
+]
+
+MIGRATE_WATCHED_PROPERTIES_V2_OPERATIONAL = [
+    "ALTER TABLE watched_properties ADD COLUMN effective_dom_v1 INTEGER;",
+    "ALTER TABLE watched_properties ADD COLUMN effective_dom_v2 INTEGER;",
+    "ALTER TABLE watched_properties ADD COLUMN effective_dom_delta_v1 INTEGER;",
+    "ALTER TABLE watched_properties ADD COLUMN effective_dom_delta_v2 INTEGER;",
+    "ALTER TABLE watched_properties ADD COLUMN county_reset_applied BOOLEAN DEFAULT 0;",
+    "ALTER TABLE watched_properties ADD COLUMN county_reset_date DATE;",
+    "ALTER TABLE watched_properties ADD COLUMN county_reset_record_type TEXT;",
+    "ALTER TABLE watched_properties ADD COLUMN county_reset_confidence TEXT;",
+    "ALTER TABLE watched_properties ADD COLUMN recent_churn_index REAL;",
+    "ALTER TABLE watched_properties ADD COLUMN recent_churn_lookback_years INTEGER DEFAULT 3;",
+    "ALTER TABLE watched_properties ADD COLUMN recent_churn_event_count INTEGER;",
+    "ALTER TABLE watched_properties ADD COLUMN recent_dom_reset_count INTEGER;",
+    "ALTER TABLE watched_properties ADD COLUMN recent_sale_rent_alternation_count INTEGER;",
+    "ALTER TABLE watched_properties ADD COLUMN churn_preserved_after_transfer BOOLEAN DEFAULT 1;",
+]
+
+MIGRATE_CANDIDATE_REVIEW_QUEUE_V2_OPERATIONAL = [
+    "ALTER TABLE candidate_review_queue ADD COLUMN effective_dom_v1 INTEGER;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN effective_dom_v2 INTEGER;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN effective_dom_delta_v1 INTEGER;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN effective_dom_delta_v2 INTEGER;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN county_reset_applied BOOLEAN DEFAULT 0;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN county_reset_date DATE;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN county_reset_record_type TEXT;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN county_reset_confidence TEXT;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN recent_churn_index REAL;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN recent_churn_lookback_years INTEGER DEFAULT 3;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN recent_churn_event_count INTEGER;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN recent_dom_reset_count INTEGER;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN recent_sale_rent_alternation_count INTEGER;",
+    "ALTER TABLE candidate_review_queue ADD COLUMN churn_preserved_after_transfer BOOLEAN DEFAULT 1;",
+]
+
+# All v2 operational migration groups
+ALL_V2_OPERATIONAL_MIGRATIONS = {
+    "property_observation_snapshots": MIGRATE_SNAPSHOTS_V2_OPERATIONAL,
+    "watched_properties": MIGRATE_WATCHED_PROPERTIES_V2_OPERATIONAL,
+    "candidate_review_queue": MIGRATE_CANDIDATE_REVIEW_QUEUE_V2_OPERATIONAL,
+}
+
 # Index definitions for performance
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_candidates_review_status ON candidate_review_queue(review_status);",

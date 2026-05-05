@@ -35,6 +35,21 @@ class CandidateProperty(BaseModel):
     listing_churn_count: Optional[int] = None
     dom_reset_count: Optional[int] = None
     sale_rent_alternation_count: Optional[int] = None
+    # Effective DOM v2 operational fields (Milestone 10)
+    effective_dom_v1: Optional[int] = None
+    effective_dom_v2: Optional[int] = None
+    effective_dom_delta_v1: Optional[int] = None
+    effective_dom_delta_v2: Optional[int] = None
+    county_reset_applied: Optional[bool] = Field(default=False)
+    county_reset_date: Optional[date] = None
+    county_reset_record_type: Optional[str] = None
+    county_reset_confidence: Optional[str] = None
+    recent_churn_index: Optional[float] = None
+    recent_churn_lookback_years: Optional[int] = Field(default=3)
+    recent_churn_event_count: Optional[int] = None
+    recent_dom_reset_count: Optional[int] = None
+    recent_sale_rent_alternation_count: Optional[int] = None
+    churn_preserved_after_transfer: Optional[bool] = Field(default=True)
     review_status: str = Field(default="pending")
     user_decision: Optional[str] = None
     user_notes: Optional[str] = None
@@ -75,6 +90,21 @@ class WatchedProperty(BaseModel):
     listing_churn_count: Optional[int] = None
     dom_reset_count: Optional[int] = None
     sale_rent_alternation_count: Optional[int] = None
+    # Effective DOM v2 operational fields (Milestone 10)
+    effective_dom_v1: Optional[int] = None
+    effective_dom_v2: Optional[int] = None
+    effective_dom_delta_v1: Optional[int] = None
+    effective_dom_delta_v2: Optional[int] = None
+    county_reset_applied: Optional[bool] = Field(default=False)
+    county_reset_date: Optional[date] = None
+    county_reset_record_type: Optional[str] = None
+    county_reset_confidence: Optional[str] = None
+    recent_churn_index: Optional[float] = None
+    recent_churn_lookback_years: Optional[int] = Field(default=3)
+    recent_churn_event_count: Optional[int] = None
+    recent_dom_reset_count: Optional[int] = None
+    recent_sale_rent_alternation_count: Optional[int] = None
+    churn_preserved_after_transfer: Optional[bool] = Field(default=True)
     county_sale_verified: Optional[bool] = None
     ownership_transfer_found: Optional[bool] = None
     last_checked_date: Optional[date] = None
@@ -133,6 +163,21 @@ class ObservationSnapshot(BaseModel):
     property_detail_hash: Optional[str] = None
     raw_source_url: Optional[str] = None
     notes: Optional[str] = None
+    # Effective DOM v2 operational fields (Milestone 10)
+    effective_dom_v1: Optional[int] = None
+    effective_dom_v2: Optional[int] = None
+    effective_dom_delta_v1: Optional[int] = None
+    effective_dom_delta_v2: Optional[int] = None
+    county_reset_applied: Optional[bool] = Field(default=False)
+    county_reset_date: Optional[date] = None
+    county_reset_record_type: Optional[str] = None
+    county_reset_confidence: Optional[str] = None
+    recent_churn_index: Optional[float] = None
+    recent_churn_lookback_years: Optional[int] = Field(default=3)
+    recent_churn_event_count: Optional[int] = None
+    recent_dom_reset_count: Optional[int] = None
+    recent_sale_rent_alternation_count: Optional[int] = None
+    churn_preserved_after_transfer: Optional[bool] = Field(default=True)
 
 
 class ReviewDecision(BaseModel):
@@ -488,6 +533,10 @@ class SnapshotChangeResult(BaseModel):
     gas_service_changed: bool = Field(default=False)
     discrepancy_flag_changed: bool = Field(default=False)
     source_presence_changed: bool = Field(default=False)
+    # Effective DOM v2 change detection (Milestone 10)
+    effective_dom_v2_changed: bool = Field(default=False)
+    recent_churn_index_changed: bool = Field(default=False)
+    county_reset_applied_changed: bool = Field(default=False)
     change_summary: Optional[str] = None
     change_details: List[str] = Field(default_factory=list)
 

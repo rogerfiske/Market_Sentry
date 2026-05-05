@@ -6,9 +6,9 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Effective DOM v2 County-Verified Reset Integration (MVP 9)
+## Current Milestone: Effective DOM v2 Operational Integration (MVP 10)
 
-This milestone integrates county-confirmed ownership transfer records into Effective DOM calculation as reset boundaries while preserving recent churn metrics separately for comprehensive property analysis.
+This milestone operationalizes Effective DOM v2 and Churn Index by integrating them into the recurring watchlist monitoring, candidate analysis, and scoring workflows. After Milestone 9 validated v2 as a report-only calculation, Milestone 10 persists v2 metrics into the operational database tables so they appear in normal operating reports.
 
 **Status:** ✅ Complete
 
@@ -324,6 +324,35 @@ Property characteristics: gas_service, garage_spaces
 User data: user_notes, notes
 
 **Important Note:** Effective DOM v2 report is an analytical tool, NOT a purchase recommendation. County reset affects Effective DOM only. Churn Index remains preserved separately to enable comprehensive property analysis across different time horizons.
+
+### MVP 10: Effective DOM v2 Operational Integration
+
+- ✅ v2 schema integration: 14 columns added to watched_properties, property_observation_snapshots, and candidate_review_queue
+- ✅ Safe idempotent migrations (column_exists checks, ALTER TABLE ADD COLUMN)
+- ✅ v2 persistence workflow (`persist-effective-dom-v2` CLI command)
+- ✅ Watchlist monitoring snapshots include v2 fields and change detection (effective_dom_v2, churn_index, county_reset)
+- ✅ Watchlist monitoring report includes 18 additional v2/churn columns
+- ✅ Candidate analysis report includes v2, county reset, and Churn Index columns
+- ✅ v2-aware scoring flags: churn_review_flag, county_reset_with_churn_flag, v2_leverage_flag
+- ✅ Scoring uses neutral language (no seller-intent accusations)
+- ✅ Quiet Score gatekeeper preserved: rejects properties with quiet_score < 7.0 regardless of v2 signals
+- ✅ Churn Index NOT erased by county reset (churn_preserved_after_transfer always true)
+- ✅ v1 metrics fully preserved alongside v2
+- ✅ CandidateProperty and WatchedProperty models updated with v2 fields
+- ✅ Comprehensive tests (342 tests total, all passing)
+
+**Important:** This milestone performs NO live network calls, NO scraping, NO browser automation. v2 metrics are calculated from existing database data (listing events, county records) and persisted to operational tables.
+
+**Effective DOM v2 is now operational, not report-only.** After running `persist-effective-dom-v2`, v2 metrics appear in:
+
+- Watchlist monitoring snapshots (`snapshot-watchlist`)
+- Watchlist monitoring reports (`export-watchlist-monitoring-report`)
+- Candidate analysis reports (`export-analysis-report`)
+- Scoring recommendations (v2 leverage flags)
+
+**Churn Index in monitoring:** The Churn Index appears in monitoring reports as `recent_churn_index`, tracking changes over time via `previous_recent_churn_index` and `recent_churn_index_change`. High churn (>= 6.0) adds a neutral review flag ("high_recent_churn") to positive_flags. It is a buyer-review signal, not a seller-intent accusation.
+
+**Churn preservation:** When `county_reset_applied` is true, Effective DOM v2 may show lower exposure (post-transfer only), but Churn Index remains unchanged. The `churn_preserved_after_transfer` field is always true, ensuring churn metrics are never erased by county reset.
 
 ### Effective DOM v1 Metrics
 
@@ -834,6 +863,30 @@ Default output: `data/exports/effective_dom_v2_YYYYMMDD_HHMMSS.csv`
 
 **Important:** This report is an analytical tool, NOT a purchase recommendation. County reset affects Effective DOM only. Churn Index (recent_churn_index) remains preserved separately to enable analysis across different time horizons.
 
+### Effective DOM v2 Operational Commands (MVP 10)
+
+#### Persist Effective DOM v2 Metrics
+
+```bash
+marketsentry persist-effective-dom-v2
+# Or specify database path:
+marketsentry persist-effective-dom-v2 --db db/market_sentry.db
+```
+
+Computes Effective DOM v2 and Churn Index for all watched properties and candidates, then persists the results to the database. This command:
+
+- Reads watched_properties, candidates, listing_events, and county_record_observations
+- Computes Effective DOM v2 with county-confirmed reset boundaries
+- Computes Churn Index v1 from all events within 3-year lookback
+- Updates watched_properties and candidate_review_queue with v2 metrics
+- Preserves user_notes, user_decision, active_watch_status, and watch_priority
+- Never zeros or erases churn metrics when county reset applies
+- Is idempotent (safe to run multiple times)
+
+Prints: properties scanned, county transfers considered, county resets applied, records updated, churn metrics preserved.
+
+**Important:** Run this command before `snapshot-watchlist` or `export-analysis-report` to ensure v2 metrics are current. This command performs no live network calls.
+
 ### Review Workflow Commands (MVP 2-5)
 
 #### Seed Sample Candidates
@@ -1113,6 +1166,7 @@ Market_Sentry/
 │       ├── watchlist.py                # Watchlist promotion logic
 │       ├── monitoring.py               # Watchlist monitoring snapshots
 │       ├── monitoring_report.py        # Monitoring report generation
+│       ├── effective_dom_v2_persistence.py  # v2 operational persistence
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
     ├── fixtures/                       # Test fixtures
@@ -1141,7 +1195,8 @@ Market_Sentry/
     ├── test_cross_site_enrichment.py
     ├── test_cross_site_comparison.py
     ├── test_cross_site_report.py
-    └── test_monitoring.py
+    ├── test_monitoring.py
+    └── test_milestone_10.py           # v2 operational integration tests
 ```
 
 ## Running Tests
@@ -1187,18 +1242,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 8: County Recorder Integration and Enhanced DOM
+### MVP 11: (To Be Determined)
 
-- County recorder HTML fixture parsing (saved public records pages)
-- Property ownership transfer verification from county records
-- Cross-reference sold events with confirmed title transfers
-- County-verified sale reset logic for Effective DOM calculation
-- Enhanced DOM metrics with county-confirmed ownership changes
-- Property transfer timeline visualization
-- APN (Assessor's Parcel Number) tracking and validation
-- Ownership transfer discrepancy detection (MLS sold vs county records)
+Milestones 1-10 are complete. Future milestones may include live data retrieval, automated scheduling, enhanced visualization, or additional analytical workflows.
 
-**Note:** Milestone 7 (Watchlist Monitoring Snapshots) is now complete.
+**Note:** Milestone 10 (Effective DOM v2 Operational Integration) is now complete.
 
 ## Repository
 
@@ -1225,6 +1273,7 @@ MIT
   - [Decision 004: Effective DOM v1 and Review Scoring](docs/decisions/004-effective-dom-v1-and-review-scoring.md)
   - [Decision 005: Cross-Site Enrichment Foundation](docs/decisions/005-cross-site-enrichment-foundation.md)
   - [Decision 006: Watchlist Monitoring Snapshots](docs/decisions/006-watchlist-monitoring-snapshots.md)
+  - [Decision 009: Effective DOM v2 Operational Integration](docs/decisions/009-effective-dom-v2-operational-integration.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

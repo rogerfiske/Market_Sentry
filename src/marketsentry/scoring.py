@@ -26,6 +26,10 @@ class CandidateScore:
         self.warning_flags: List[str] = []
         self.positive_flags: List[str] = []
         self.explanation: str = ""
+        # v2-aware scoring flags (Milestone 10)
+        self.churn_review_flag: bool = False
+        self.county_reset_with_churn_flag: bool = False
+        self.v2_leverage_flag: bool = False
 
 
 def score_candidate(
@@ -102,10 +106,13 @@ def score_candidate(
     result.warning_flags = _collect_warning_flags(candidate, result)
     result.positive_flags = _collect_positive_flags(candidate, result)
 
-    # 9. Determine review recommendation
+    # 9. Apply v2-aware scoring flags (Milestone 10)
+    _apply_v2_scoring_flags(candidate, result)
+
+    # 10. Determine review recommendation
     result.review_recommendation = _determine_review_recommendation(result)
 
-    # 10. Generate explanation
+    # 11. Generate explanation
     result.explanation = _generate_explanation(result)
 
     return result
@@ -457,6 +464,62 @@ def _collect_positive_flags(
         flags.append("sale_rent_alternation")
 
     return flags
+
+
+def _apply_v2_scoring_flags(
+    candidate: CandidateProperty | WatchedProperty,
+    result: CandidateScore,
+) -> None:
+    """
+    Apply v2-aware scoring flags based on Effective DOM v2 and Churn Index.
+
+    Sets neutral review/leverage flags. Does NOT override Quiet gatekeeper.
+    High churn is a review signal, not a rejection or accusation.
+
+    Positive buyer-review signals:
+    - effective_dom_delta_v2 >= 90
+    - county_reset_applied true but recent_churn_index >= 5
+    - recent_churn_index >= 6
+    - dom_reset_count >= 1
+    - sale_rent_alternation_count >= 1
+    - price_change_count >= 1
+
+    Args:
+        candidate: Candidate or watched property
+        result: CandidateScore to update
+    """
+    # Get v2 fields if available
+    effective_dom_delta_v2 = getattr(candidate, "effective_dom_delta_v2", None)
+    county_reset_applied = getattr(candidate, "county_reset_applied", None)
+    recent_churn_index = getattr(candidate, "recent_churn_index", None)
+    recent_dom_reset_count = getattr(candidate, "recent_dom_reset_count", None)
+    recent_sale_rent_alternation_count = getattr(
+        candidate, "recent_sale_rent_alternation_count", None
+    )
+
+    # churn_review_flag: high recent churn (neutral review signal)
+    if recent_churn_index is not None and recent_churn_index >= 6:
+        result.churn_review_flag = True
+        result.positive_flags.append("high_recent_churn")
+
+    # county_reset_with_churn_flag: county reset applied but churn preserved
+    if county_reset_applied and recent_churn_index is not None and recent_churn_index >= 5:
+        result.county_reset_with_churn_flag = True
+        result.positive_flags.append("county_reset_with_preserved_churn")
+
+    # v2_leverage_flag: v2 delta signals buyer leverage
+    if effective_dom_delta_v2 is not None and effective_dom_delta_v2 >= 90:
+        result.v2_leverage_flag = True
+        result.positive_flags.append("high_v2_dom_delta")
+
+    # Additional v2 review signals added to positive flags
+    if recent_dom_reset_count is not None and recent_dom_reset_count >= 1:
+        if "has_dom_resets" not in result.positive_flags:
+            result.positive_flags.append("review_listing_history")
+
+    if recent_sale_rent_alternation_count is not None and recent_sale_rent_alternation_count >= 1:
+        if "sale_rent_alternation" not in result.positive_flags:
+            result.positive_flags.append("review_listing_history")
 
 
 def _determine_review_recommendation(result: CandidateScore) -> str:

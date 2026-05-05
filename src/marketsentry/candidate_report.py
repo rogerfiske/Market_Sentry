@@ -8,7 +8,8 @@ from typing import List, Optional
 from marketsentry.config import config
 from marketsentry.database import get_connection
 from marketsentry.effective_dom import calculate_all_effective_dom_metrics
-from marketsentry.models import CandidateProperty, ListingEvent
+from marketsentry.effective_dom_v2_calculator import calculate_effective_dom_v2
+from marketsentry.models import CandidateProperty, CountyRecordObservation, ListingEvent
 from marketsentry.scoring import score_candidate
 
 
@@ -161,6 +162,21 @@ def _load_candidates_with_metrics(database_path: str) -> List[dict]:
             displayed_dom=candidate.displayed_dom,
         )
 
+        # Calculate v2 metrics with county records
+        county_query = """
+            SELECT * FROM county_record_observations
+            WHERE candidate_id = ?
+            ORDER BY record_date
+        """
+        county_rows = cursor.execute(county_query, (candidate_id,)).fetchall()
+        county_records = []
+        for cr in county_rows:
+            county_records.append(CountyRecordObservation(**dict(cr)))
+
+        v2_metrics = calculate_effective_dom_v2(
+            listing_events, county_records, candidate.displayed_dom
+        )
+
         # Score the candidate
         score = score_candidate(candidate)
 
@@ -183,10 +199,23 @@ def _load_candidates_with_metrics(database_path: str) -> List[dict]:
             "displayed_dom": metrics.displayed_dom or "",
             "effective_dom": metrics.effective_dom or "",
             "effective_dom_delta": metrics.effective_dom_delta or "",
+            "effective_dom_v1": v2_metrics.effective_dom_v1 if v2_metrics.effective_dom_v1 is not None else "",
+            "effective_dom_v2": v2_metrics.effective_dom_v2 if v2_metrics.effective_dom_v2 is not None else "",
+            "effective_dom_delta_v1": v2_metrics.effective_dom_delta_v1 if v2_metrics.effective_dom_delta_v1 is not None else "",
+            "effective_dom_delta_v2": v2_metrics.effective_dom_delta_v2 if v2_metrics.effective_dom_delta_v2 is not None else "",
+            "county_reset_applied": v2_metrics.county_reset_applied,
+            "county_reset_date": str(v2_metrics.county_reset_date) if v2_metrics.county_reset_date else "",
+            "county_reset_record_type": v2_metrics.county_reset_record_type or "",
+            "recent_churn_index": v2_metrics.recent_churn_index if v2_metrics.recent_churn_index is not None else "",
+            "recent_churn_lookback_years": v2_metrics.recent_churn_lookback_years,
+            "churn_preserved_after_transfer": v2_metrics.churn_preserved_after_transfer,
             "listing_churn_count": metrics.listing_churn_count,
             "dom_reset_count": metrics.dom_reset_count,
             "sale_rent_alternation_count": metrics.sale_rent_alternation_count,
             "price_change_count": metrics.price_change_count,
+            "churn_review_flag": score.churn_review_flag if hasattr(score, "churn_review_flag") else "",
+            "county_reset_with_churn_flag": score.county_reset_with_churn_flag if hasattr(score, "county_reset_with_churn_flag") else "",
+            "v2_leverage_flag": score.v2_leverage_flag if hasattr(score, "v2_leverage_flag") else "",
             "data_confidence_score": f"{score.data_confidence_score:.1f}" if score.data_confidence_score is not None else "",
             "warning_flags": "; ".join(score.warning_flags) if score.warning_flags else "",
             "positive_flags": "; ".join(score.positive_flags) if score.positive_flags else "",
@@ -229,10 +258,23 @@ def _write_csv_report(candidates: List[dict], output_path: Path):
         "displayed_dom",
         "effective_dom",
         "effective_dom_delta",
+        "effective_dom_v1",
+        "effective_dom_v2",
+        "effective_dom_delta_v1",
+        "effective_dom_delta_v2",
+        "county_reset_applied",
+        "county_reset_date",
+        "county_reset_record_type",
+        "recent_churn_index",
+        "recent_churn_lookback_years",
+        "churn_preserved_after_transfer",
         "listing_churn_count",
         "dom_reset_count",
         "sale_rent_alternation_count",
         "price_change_count",
+        "churn_review_flag",
+        "county_reset_with_churn_flag",
+        "v2_leverage_flag",
         "data_confidence_score",
         "warning_flags",
         "positive_flags",

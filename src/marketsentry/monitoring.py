@@ -307,6 +307,29 @@ def compare_snapshots(
         result.discrepancy_flag_changed = True
         changes.append("Cross-site discrepancy flags changed")
 
+    # Effective DOM v2 change detection
+    if previous.effective_dom_v2 != current.effective_dom_v2:
+        result.effective_dom_v2_changed = True
+        changes.append(
+            f"Effective DOM v2 changed ({previous.effective_dom_v2} -> {current.effective_dom_v2})"
+        )
+
+    # Recent Churn Index change detection
+    if previous.recent_churn_index != current.recent_churn_index:
+        result.recent_churn_index_changed = True
+        changes.append(
+            f"Recent Churn Index changed ({previous.recent_churn_index} -> {current.recent_churn_index})"
+        )
+
+    # County reset applied change detection
+    prev_reset = previous.county_reset_applied or False
+    curr_reset = current.county_reset_applied or False
+    if prev_reset != curr_reset:
+        result.county_reset_applied_changed = True
+        changes.append(
+            f"County reset applied changed ({prev_reset} -> {curr_reset})"
+        )
+
     # Set has_changes flag
     result.has_changes = len(changes) > 0
 
@@ -403,6 +426,21 @@ def _build_snapshot_from_property_data(
         property_detail_hash=property_detail_hash,
         raw_source_url=property_data.get("redfin_url"),
         notes=None,
+        # Effective DOM v2 operational fields
+        effective_dom_v1=property_data.get("effective_dom_v1"),
+        effective_dom_v2=property_data.get("effective_dom_v2"),
+        effective_dom_delta_v1=property_data.get("effective_dom_delta_v1"),
+        effective_dom_delta_v2=property_data.get("effective_dom_delta_v2"),
+        county_reset_applied=property_data.get("county_reset_applied") or False,
+        county_reset_date=property_data.get("county_reset_date"),
+        county_reset_record_type=property_data.get("county_reset_record_type"),
+        county_reset_confidence=property_data.get("county_reset_confidence"),
+        recent_churn_index=property_data.get("recent_churn_index"),
+        recent_churn_lookback_years=property_data.get("recent_churn_lookback_years") or 3,
+        recent_churn_event_count=property_data.get("recent_churn_event_count"),
+        recent_dom_reset_count=property_data.get("recent_dom_reset_count"),
+        recent_sale_rent_alternation_count=property_data.get("recent_sale_rent_alternation_count"),
+        churn_preserved_after_transfer=property_data.get("churn_preserved_after_transfer") or True,
     )
 
     return snapshot
@@ -429,8 +467,15 @@ def _store_snapshot(
         dom_reset_count, sale_rent_alternation_count, cross_site_confidence_score,
         price_discrepancy_flag, status_discrepancy_flag, dom_discrepancy_flag,
         price_change_count, listing_history_hash, property_detail_hash,
-        raw_source_url, notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        raw_source_url, notes,
+        effective_dom_v1, effective_dom_v2, effective_dom_delta_v1,
+        effective_dom_delta_v2, county_reset_applied, county_reset_date,
+        county_reset_record_type, county_reset_confidence,
+        recent_churn_index, recent_churn_lookback_years,
+        recent_churn_event_count, recent_dom_reset_count,
+        recent_sale_rent_alternation_count, churn_preserved_after_transfer
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     params = (
@@ -458,6 +503,20 @@ def _store_snapshot(
         snapshot.property_detail_hash,
         snapshot.raw_source_url,
         snapshot.notes,
+        snapshot.effective_dom_v1,
+        snapshot.effective_dom_v2,
+        snapshot.effective_dom_delta_v1,
+        snapshot.effective_dom_delta_v2,
+        snapshot.county_reset_applied,
+        str(snapshot.county_reset_date) if snapshot.county_reset_date else None,
+        snapshot.county_reset_record_type,
+        snapshot.county_reset_confidence,
+        snapshot.recent_churn_index,
+        snapshot.recent_churn_lookback_years,
+        snapshot.recent_churn_event_count,
+        snapshot.recent_dom_reset_count,
+        snapshot.recent_sale_rent_alternation_count,
+        snapshot.churn_preserved_after_transfer,
     )
 
     return execute_insert(query, params, database_path=database_path)

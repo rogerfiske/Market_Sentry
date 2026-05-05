@@ -68,6 +68,24 @@ def export_watchlist_monitoring_report(
             "effective_dom",
             "previous_effective_dom",
             "effective_dom_delta",
+            "effective_dom_v1",
+            "effective_dom_v2",
+            "effective_dom_delta_v1",
+            "effective_dom_delta_v2",
+            "previous_effective_dom_v2",
+            "effective_dom_v2_change",
+            "county_reset_applied",
+            "county_reset_date",
+            "county_reset_record_type",
+            "county_reset_confidence",
+            "recent_churn_index",
+            "previous_recent_churn_index",
+            "recent_churn_index_change",
+            "recent_churn_lookback_years",
+            "recent_churn_event_count",
+            "recent_dom_reset_count",
+            "recent_sale_rent_alternation_count",
+            "churn_preserved_after_transfer",
             "quiet_score",
             "vibrancy_score",
             "quiet_gatekeeper_result",
@@ -114,26 +132,7 @@ def _get_watched_properties_with_snapshots(
         # Get all active watched properties
         query = """
         SELECT
-            p.property_id,
-            p.watch_priority,
-            p.active_watch_status,
-            p.address,
-            p.city,
-            p.zip,
-            p.redfin_url,
-            p.current_price,
-            p.displayed_dom,
-            p.effective_dom,
-            p.effective_dom_delta,
-            p.quiet_score,
-            p.vibrancy_score,
-            p.garage_spaces,
-            p.gas_service,
-            p.listing_churn_count,
-            p.dom_reset_count,
-            p.sale_rent_alternation_count,
-            p.user_notes,
-            p.last_checked_date
+            p.*
         FROM watched_properties p
         WHERE p.active_watch_status = 1
         ORDER BY p.watch_priority DESC NULLS LAST, p.property_id
@@ -295,6 +294,24 @@ def _build_monitoring_row(
         latest_snapshot.snapshot_date.isoformat() if latest_snapshot else None
     )
 
+    # Effective DOM v2 fields
+    current_effective_dom_v2 = prop_data.get("effective_dom_v2")
+    previous_effective_dom_v2 = (
+        previous_snapshot.get("effective_dom_v2") if previous_snapshot else None
+    )
+    effective_dom_v2_change = None
+    if current_effective_dom_v2 is not None and previous_effective_dom_v2 is not None:
+        effective_dom_v2_change = current_effective_dom_v2 - previous_effective_dom_v2
+
+    # Churn Index change tracking
+    current_churn_index = prop_data.get("recent_churn_index")
+    previous_churn_index = (
+        previous_snapshot.get("recent_churn_index") if previous_snapshot else None
+    )
+    churn_index_change = None
+    if current_churn_index is not None and previous_churn_index is not None:
+        churn_index_change = round(current_churn_index - previous_churn_index, 2)
+
     return {
         "property_id": prop_data.get("property_id"),
         "watch_priority": prop_data.get("watch_priority"),
@@ -315,6 +332,24 @@ def _build_monitoring_row(
         "effective_dom": current_effective_dom,
         "previous_effective_dom": previous_effective_dom,
         "effective_dom_delta": prop_data.get("effective_dom_delta"),
+        "effective_dom_v1": prop_data.get("effective_dom_v1"),
+        "effective_dom_v2": current_effective_dom_v2,
+        "effective_dom_delta_v1": prop_data.get("effective_dom_delta_v1"),
+        "effective_dom_delta_v2": prop_data.get("effective_dom_delta_v2"),
+        "previous_effective_dom_v2": previous_effective_dom_v2,
+        "effective_dom_v2_change": effective_dom_v2_change,
+        "county_reset_applied": prop_data.get("county_reset_applied"),
+        "county_reset_date": prop_data.get("county_reset_date"),
+        "county_reset_record_type": prop_data.get("county_reset_record_type"),
+        "county_reset_confidence": prop_data.get("county_reset_confidence"),
+        "recent_churn_index": current_churn_index,
+        "previous_recent_churn_index": previous_churn_index,
+        "recent_churn_index_change": churn_index_change,
+        "recent_churn_lookback_years": prop_data.get("recent_churn_lookback_years"),
+        "recent_churn_event_count": prop_data.get("recent_churn_event_count"),
+        "recent_dom_reset_count": prop_data.get("recent_dom_reset_count"),
+        "recent_sale_rent_alternation_count": prop_data.get("recent_sale_rent_alternation_count"),
+        "churn_preserved_after_transfer": prop_data.get("churn_preserved_after_transfer"),
         "quiet_score": quiet_score,
         "vibrancy_score": prop_data.get("vibrancy_score"),
         "quiet_gatekeeper_result": quiet_gatekeeper_result,

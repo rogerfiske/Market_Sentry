@@ -9,7 +9,11 @@ from marketsentry.config import config
 from marketsentry.logging_config import logger
 from marketsentry.models import CandidateProperty, WatchedProperty
 from marketsentry.normalization import normalize_address
-from marketsentry.schema import ALL_SCHEMA_STATEMENTS, MIGRATE_PROPERTY_OBSERVATION_SNAPSHOTS_V2
+from marketsentry.schema import (
+    ALL_SCHEMA_STATEMENTS,
+    ALL_V2_OPERATIONAL_MIGRATIONS,
+    MIGRATE_PROPERTY_OBSERVATION_SNAPSHOTS_V2,
+)
 
 
 def get_connection(database_path: Optional[str] = None) -> sqlite3.Connection:
@@ -110,7 +114,7 @@ def migrate_schema(database_path: Optional[str] = None) -> None:
     migrations_applied = 0
 
     try:
-        # Migrate property_observation_snapshots table (v2)
+        # Migrate property_observation_snapshots table (v2 baseline)
         for migration_sql in MIGRATE_PROPERTY_OBSERVATION_SNAPSHOTS_V2:
             # Extract column name from ALTER TABLE statement
             # Format: "ALTER TABLE property_observation_snapshots ADD COLUMN column_name TYPE;"
@@ -126,6 +130,21 @@ def migrate_schema(database_path: Optional[str] = None) -> None:
                     logger.info(f"Applied migration: Added column {column_name}")
                 else:
                     logger.debug(f"Skipping migration: Column {column_name} already exists")
+
+        # Milestone 10: Apply v2 operational migrations to all tables
+        for table_name, migration_list in ALL_V2_OPERATIONAL_MIGRATIONS.items():
+            for migration_sql in migration_list:
+                parts = migration_sql.split()
+                if "ADD" in parts and "COLUMN" in parts:
+                    column_idx = parts.index("COLUMN") + 1
+                    column_name = parts[column_idx]
+
+                    if not column_exists(table_name, column_name, db_path):
+                        cursor.execute(migration_sql)
+                        migrations_applied += 1
+                        logger.info(f"Applied migration: Added column {column_name} to {table_name}")
+                    else:
+                        logger.debug(f"Skipping migration: Column {column_name} already exists in {table_name}")
 
         conn.commit()
         logger.info(f"Schema migrations complete. Applied {migrations_applied} migrations.")
