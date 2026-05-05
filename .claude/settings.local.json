@@ -23,7 +23,8 @@
       "Bash(marketsentry export-analysis-report:*)",
       "Bash(wc:*)",
       "Bash(sqlite3:*)",
-      "Bash(marketsentry import-cross-site-urls:*)"
+      "Bash(marketsentry import-cross-site-urls:*)",
+      "Bash(powershell -Command:*)"
     ]
   }
 }

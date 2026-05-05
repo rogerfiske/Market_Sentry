@@ -139,6 +139,90 @@ This milestone implements watchlist monitoring snapshots and change detection fo
 
 **Watched Property Status:** active_watch_status is not automatically changed based on cross-site status disagreements. Status changes remain under user/system review.
 
+### MVP 8: County Recorder and Assessor Verification Foundation
+
+- ✅ Manual county record CSV import (Riverside County optimized, multi-county capable)
+- ✅ Saved/static county HTML fixture parsing (assessor, recorder, tax_collector, permits)
+- ✅ County record normalization and classification
+- ✅ Ownership transfer verification logic (Grant Deed, Quitclaim Deed, Trustee Deed, Warranty Deed)
+- ✅ Conservative non-transfer classification (Deed of Trust, Reconveyance, Lien, Assessment, Permit)
+- ✅ Property and candidate matching by property_id, candidate_id, APN, and normalized address
+- ✅ County-verified Effective DOM reset foundation (verification API for future Effective DOM v2 integration)
+- ✅ Churn Index placeholder calculation (3-year lookback placeholder, weighted by churn type)
+- ✅ Churn preservation guarantee: county_reset_supported does NOT erase churn metrics
+- ✅ County verification report generation with all metrics side-by-side (CSV format)
+- ✅ New CLI commands: import-county-records, parse-county-fixtures, verify-county-records, export-county-verification-report
+- ✅ Comprehensive tests for all county functionality (298 tests total, all passing)
+
+**Important:** This milestone performs NO live network calls, NO scraping, NO browser automation. All county data comes from manual CSV imports or saved/static HTML fixtures.
+
+**County Source Types Supported:**
+- **assessor**: Property ownership, APN confirmation, assessed value
+- **recorder**: Deed and transfer events, document numbers, sale prices
+- **tax_collector**: Property tax status
+- **permit**: Building permits and construction history
+
+**Ownership Transfer Classification:**
+
+Ownership transfer records (support Effective DOM reset):
+- **Grant Deed**: Standard ownership transfer
+- **Quitclaim Deed**: Ownership transfer without warranty
+- **Trustee Deed**: Foreclosure or trust sale transfer
+- **Warranty Deed**: Guaranteed ownership transfer
+
+NOT ownership transfer (do NOT support reset):
+- **Deed of Trust**: Loan/financing document, not transfer
+- **Reconveyance**: Loan payoff/release, not transfer
+- **Lien**: Encumbrance, not transfer
+- **Assessment**: Valuation record, not transfer
+- **Permit**: Construction authorization, not transfer
+- **Tax Record**: Tax payment/delinquency, not transfer
+
+**Effective DOM vs Churn Index:**
+
+**CRITICAL DISTINCTION:** County-confirmed ownership transfer may reset Effective DOM for the current ownership cycle, but churn metrics are preserved separately and remain reportable:
+
+- **Effective DOM**: Current ownership-cycle market exposure, reset by confirmed ownership transfer
+- **Churn Index**: Recent 2-3 year property/listing instability signal, NOT automatically erased by ownership transfer
+
+The `churn_preserved_after_transfer` field is always `True` in the county verification report. This ensures churn remains available for analysis even when `county_reset_supported` is `True`.
+
+**Churn Index Placeholder:** Current implementation uses a simple weighted sum of existing churn metrics (listing_churn_count * 1.0, dom_reset_count * 1.5, sale_rent_alternation_count * 2.0) normalized to 0-10 scale. This is a placeholder pending date-bounded Churn Index v1 in a future milestone.
+
+**Manual County Record CSV Format:**
+
+Required columns:
+- `source_type` (assessor, recorder, tax_collector, permit)
+- `record_date` (YYYY-MM-DD)
+- `record_type` (Grant Deed, Quitclaim Deed, etc.)
+
+At least one identity field:
+- `property_id`, `candidate_id`, `apn`, or `address`
+
+Optional columns:
+- `city`, `zip`, `document_number`, `document_title`, `grantor`, `grantee`, `sale_price`, `transfer_tax`, `assessed_value`, `owner_name`, `permit_number`, `permit_type`, `permit_status`, `notes`, `source_url`
+
+**County Verification Report Columns (35 total):**
+- Property identification (property_id, address, city, zip, apn, redfin_url)
+- Current metrics (current_price, effective_dom, displayed_dom)
+- Churn metrics (listing_churn_count, dom_reset_count, sale_rent_alternation_count)
+- Churn Index (recent_churn_index, recent_churn_lookback_years, recent_churn_event_count, churn_preserved_after_transfer)
+- County verification (county_records_seen, county_transfer_found, county_transfer_date, county_transfer_record_type, county_reset_supported)
+- Source presence (assessor_seen, recorder_seen, tax_collector_seen, permit_seen)
+- Additional data (assessed_value, latest_permit_type, latest_permit_status)
+
+**Saved County HTML Fixtures:**
+
+Test fixtures provided:
+- Assessor: APN, address, assessed value, owner name
+- Recorder: Grant deed with sale price, grantor, grantee
+- Recorder: Deed of trust (financing document)
+- Recorder: No transfer found
+- Tax Collector: APN, address, tax status
+- Permit: Building permit number, type, status
+
+**Important Note:** County verification reports are for assessment purposes, NOT purchase recommendations. Churn Index remains reportable even when county_reset_supported is true, ensuring all analytical signals are preserved.
+
 ### Effective DOM v1 Metrics
 
 **Effective DOM** measures property-level market exposure across listing, removal, and relisting events. Milestone 5 implements multiple DOM variants with a fallback hierarchy:

@@ -516,3 +516,175 @@ class MonitoringRunResult(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     notes: Optional[str] = None
+
+
+# County Verification Models
+
+
+class CountyRecordImportRow(BaseModel):
+    """Model for a row in a county records CSV import."""
+
+    source_type: str
+    record_date: Optional[date] = None
+    record_type: str
+    apn: Optional[str] = None
+    address: Optional[str] = None
+    candidate_id: Optional[int] = None
+    property_id: Optional[int] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    document_number: Optional[str] = None
+    document_title: Optional[str] = None
+    grantor: Optional[str] = None
+    grantee: Optional[str] = None
+    sale_price: Optional[float] = None
+    transfer_tax: Optional[float] = None
+    assessed_value: Optional[float] = None
+    owner_name: Optional[str] = None
+    permit_number: Optional[str] = None
+    permit_type: Optional[str] = None
+    permit_status: Optional[str] = None
+    notes: Optional[str] = None
+    source_url: Optional[str] = None
+
+
+class CountyRecordObservation(BaseModel):
+    """Model for a county record observation."""
+
+    county_record_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    property_id: Optional[int] = None
+    source_type: str
+    county_name: Optional[str] = Field(default="Riverside")
+    source_url: Optional[str] = None
+    record_date: Optional[date] = None
+    record_type: str
+    normalized_record_type: Optional[str] = None
+    document_number: Optional[str] = None
+    document_title: Optional[str] = None
+    apn: Optional[str] = None
+    normalized_apn: Optional[str] = None
+    address: Optional[str] = None
+    normalized_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = Field(default="CA")
+    zip: Optional[str] = None
+    grantor: Optional[str] = None
+    grantee: Optional[str] = None
+    sale_price: Optional[float] = None
+    transfer_tax: Optional[float] = None
+    assessed_value: Optional[float] = None
+    owner_name: Optional[str] = None
+    permit_number: Optional[str] = None
+    permit_type: Optional[str] = None
+    permit_status: Optional[str] = None
+    match_method: Optional[str] = None
+    confidence: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class CountyRecordParseResult(BaseModel):
+    """Model for results from parsing county record HTML."""
+
+    source_file: Optional[str] = None
+    source_type: str
+    parse_status: str  # success, partial, failed
+    county_record: Optional[CountyRecordObservation] = None
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+
+
+class CountyTransferEvent(BaseModel):
+    """Model for a county-confirmed ownership transfer event."""
+
+    county_record_id: int
+    property_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    transfer_date: date
+    record_type: str
+    normalized_record_type: str
+    document_number: Optional[str] = None
+    sale_price: Optional[float] = None
+    transfer_tax: Optional[float] = None
+    grantor: Optional[str] = None
+    grantee: Optional[str] = None
+    confidence: str = Field(default="medium")
+    notes: Optional[str] = None
+
+
+class CountyVerificationResult(BaseModel):
+    """Model for county verification result for a property."""
+
+    property_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    cycle_start: Optional[date] = None
+    cycle_end: Optional[date] = None
+    county_records_seen: int = Field(default=0)
+    county_transfer_found: bool = Field(default=False)
+    county_transfer_date: Optional[date] = None
+    county_transfer_record_type: Optional[str] = None
+    county_transfer_document_number: Optional[str] = None
+    county_transfer_confidence: Optional[str] = None
+    county_reset_supported: bool = Field(default=False)
+    assessor_seen: bool = Field(default=False)
+    recorder_seen: bool = Field(default=False)
+    tax_collector_seen: bool = Field(default=False)
+    permit_seen: bool = Field(default=False)
+    assessed_value: Optional[float] = None
+    latest_permit_type: Optional[str] = None
+    latest_permit_status: Optional[str] = None
+    verification_notes: Optional[str] = None
+
+
+class CountyRecordImportResult(BaseModel):
+    """Model for results from county record CSV import."""
+
+    total_rows_read: int = Field(default=0)
+    rows_inserted: int = Field(default=0)
+    rows_matched: int = Field(default=0)
+    rows_unmatched: int = Field(default=0)
+    rows_rejected: int = Field(default=0)
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class CountyVerificationReportRow(BaseModel):
+    """Model for a row in the county verification report."""
+
+    property_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    apn: Optional[str] = None
+    redfin_url: Optional[str] = None
+    current_price: Optional[float] = None
+    effective_dom: Optional[int] = None
+    displayed_dom: Optional[int] = None
+    listing_churn_count: Optional[int] = None
+    dom_reset_count: Optional[int] = None
+    sale_rent_alternation_count: Optional[int] = None
+    recent_churn_index: Optional[float] = None
+    recent_churn_lookback_years: Optional[int] = Field(default=3)
+    recent_churn_event_count: Optional[int] = None
+    recent_dom_reset_count: Optional[int] = None
+    recent_sale_rent_alternation_count: Optional[int] = None
+    churn_preserved_after_transfer: bool = Field(default=True)
+    county_records_seen: int = Field(default=0)
+    county_transfer_found: bool = Field(default=False)
+    county_transfer_date: Optional[date] = None
+    county_transfer_record_type: Optional[str] = None
+    county_transfer_document_number: Optional[str] = None
+    county_transfer_confidence: Optional[str] = None
+    county_reset_supported: bool = Field(default=False)
+    assessor_seen: bool = Field(default=False)
+    recorder_seen: bool = Field(default=False)
+    tax_collector_seen: bool = Field(default=False)
+    permit_seen: bool = Field(default=False)
+    assessed_value: Optional[float] = None
+    latest_permit_type: Optional[str] = None
+    latest_permit_status: Optional[str] = None
+    verification_notes: Optional[str] = None
+    user_notes: Optional[str] = None

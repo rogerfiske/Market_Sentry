@@ -119,3 +119,24 @@ def extract_integer_value(value: Optional[str]) -> Optional[int]:
     if numeric is not None:
         return int(numeric)
     return None
+
+
+def normalize_apn(apn: str) -> str:
+    """
+    Normalize an APN (Assessor Parcel Number) for comparison.
+
+    Removes hyphens, spaces, and other common separators.
+
+    Args:
+        apn: Raw APN string
+
+    Returns:
+        Normalized APN string (digits only)
+    """
+    if not apn:
+        return ""
+
+    # Remove all non-alphanumeric characters
+    normalized = re.sub(r"[^\w]", "", apn)
+
+    return normalized.strip()

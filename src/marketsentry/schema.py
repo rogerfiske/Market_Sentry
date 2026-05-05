@@ -201,6 +201,44 @@ CREATE TABLE IF NOT EXISTS cross_site_observations (
 );
 """
 
+CREATE_COUNTY_RECORD_OBSERVATIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS county_record_observations (
+    county_record_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_id INTEGER,
+    property_id INTEGER,
+    source_type TEXT NOT NULL,
+    county_name TEXT DEFAULT 'Riverside',
+    source_url TEXT,
+    record_date DATE,
+    record_type TEXT NOT NULL,
+    normalized_record_type TEXT,
+    document_number TEXT,
+    document_title TEXT,
+    apn TEXT,
+    normalized_apn TEXT,
+    address TEXT,
+    normalized_address TEXT,
+    city TEXT,
+    state TEXT DEFAULT 'CA',
+    zip TEXT,
+    grantor TEXT,
+    grantee TEXT,
+    sale_price REAL,
+    transfer_tax REAL,
+    assessed_value REAL,
+    owner_name TEXT,
+    permit_number TEXT,
+    permit_type TEXT,
+    permit_status TEXT,
+    match_method TEXT,
+    confidence TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (candidate_id) REFERENCES candidate_review_queue (candidate_id),
+    FOREIGN KEY (property_id) REFERENCES watched_properties (property_id)
+);
+"""
+
 # Migration statements for existing databases
 MIGRATE_PROPERTY_OBSERVATION_SNAPSHOTS_V2 = [
     "ALTER TABLE property_observation_snapshots ADD COLUMN effective_dom_delta INTEGER;",
@@ -232,6 +270,13 @@ CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_cross_site_candidate ON cross_site_observations(candidate_id);",
     "CREATE INDEX IF NOT EXISTS idx_cross_site_source ON cross_site_observations(source_site);",
     "CREATE INDEX IF NOT EXISTS idx_cross_site_observed_at ON cross_site_observations(observed_at);",
+    "CREATE INDEX IF NOT EXISTS idx_county_property ON county_record_observations(property_id);",
+    "CREATE INDEX IF NOT EXISTS idx_county_candidate ON county_record_observations(candidate_id);",
+    "CREATE INDEX IF NOT EXISTS idx_county_normalized_apn ON county_record_observations(normalized_apn);",
+    "CREATE INDEX IF NOT EXISTS idx_county_normalized_address ON county_record_observations(normalized_address);",
+    "CREATE INDEX IF NOT EXISTS idx_county_record_date ON county_record_observations(record_date);",
+    "CREATE INDEX IF NOT EXISTS idx_county_normalized_record_type ON county_record_observations(normalized_record_type);",
+    "CREATE INDEX IF NOT EXISTS idx_county_document_number ON county_record_observations(document_number);",
 ]
 
 # All schema statements in order
@@ -243,4 +288,5 @@ ALL_SCHEMA_STATEMENTS = [
     CREATE_SOURCE_PAGES_TABLE,
     CREATE_USER_REVIEW_ACTIONS_TABLE,
     CREATE_CROSS_SITE_OBSERVATIONS_TABLE,
+    CREATE_COUNTY_RECORD_OBSERVATIONS_TABLE,
 ] + CREATE_INDEXES

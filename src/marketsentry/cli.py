@@ -916,5 +916,203 @@ def export_watchlist_monitoring_report(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def import_county_records(
+    file: str = typer.Option(..., "--file", "-f", help="Path to county records CSV file"),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Import county records from CSV file."""
+    from marketsentry.county_import import import_county_records_csv
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print(f"[bold blue]Importing county records from {file}...[/bold blue]")
+
+        # Import CSV
+        result = import_county_records_csv(file, db_path)
+
+        console.print(f"\n[bold green]IMPORT COMPLETE:[/bold green]")
+        console.print(f"  - Rows read: {result.total_rows_read}")
+        console.print(f"  - Rows inserted: {result.rows_inserted}")
+        console.print(f"  - Rows matched: {result.rows_matched}")
+        console.print(f"  - Rows unmatched: {result.rows_unmatched}")
+        console.print(f"  - Rows rejected: {result.rows_rejected}")
+
+        if result.warnings:
+            console.print(f"\n[yellow]WARNINGS ({len(result.warnings)}):[/yellow]")
+            for warning in result.warnings[:10]:  # Show first 10
+                console.print(f"  - {warning}")
+            if len(result.warnings) > 10:
+                console.print(f"  ... and {len(result.warnings) - 10} more")
+
+        if result.errors:
+            console.print(f"\n[red]ERRORS ({len(result.errors)}):[/red]")
+            for error in result.errors[:10]:  # Show first 10
+                console.print(f"  - {error}")
+            if len(result.errors) > 10:
+                console.print(f"  ... and {len(result.errors) - 10} more")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Import county records error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def parse_county_fixtures(
+    source: str = typer.Option(..., "--source", "-s", help="Source type: assessor, recorder, tax_collector, permit"),
+    directory: str = typer.Option(..., "--dir", "-d", help="Directory containing county HTML fixtures"),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Parse saved county HTML fixtures and store observations."""
+    from marketsentry.county_parser import parse_county_record_directory
+    from marketsentry.county_import import _insert_county_record
+    from pathlib import Path
+
+    try:
+        db_path = database_path or config.database_path
+        dir_path = Path(directory)
+
+        console.print(f"[bold blue]Parsing county {source} fixtures from {directory}...[/bold blue]")
+
+        # Parse directory
+        results = parse_county_record_directory(dir_path, source)
+
+        files_processed = len(results)
+        observations_parsed = 0
+        observations_inserted = 0
+        parse_warnings = 0
+        parse_errors = 0
+
+        for result in results:
+            if result.parse_status in ["success", "partial"]:
+                observations_parsed += 1
+
+                # Insert county record if available
+                if result.county_record:
+                    if _insert_county_record(result.county_record, db_path):
+                        observations_inserted += 1
+
+            parse_warnings += len(result.warnings)
+            parse_errors += len(result.errors)
+
+        console.print(f"\n[bold green]PARSE COMPLETE:[/bold green]")
+        console.print(f"  - Files processed: {files_processed}")
+        console.print(f"  - Observations parsed: {observations_parsed}")
+        console.print(f"  - Observations inserted: {observations_inserted}")
+        console.print(f"  - Warnings: {parse_warnings}")
+        console.print(f"  - Errors: {parse_errors}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Parse county fixtures error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def verify_county_records(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Verify county records for watched properties."""
+    from marketsentry.county_verification import verify_effective_dom_reset
+    from datetime import date, timedelta
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Verifying county records for watched properties...[/bold blue]")
+
+        # Get all active watched properties
+        query = "SELECT property_id FROM watched_properties WHERE active_watch_status = 1"
+        properties = execute_query(query, database_path=db_path)
+
+        properties_scanned = len(properties)
+        transfers_found = 0
+        reset_supported_cases = 0
+
+        # Verify each property
+        cycle_end = date.today()
+        cycle_start = cycle_end - timedelta(days=365 * 5)  # 5 year lookback
+
+        for prop in properties:
+            property_id = prop["property_id"]
+            verification_result = verify_effective_dom_reset(
+                property_id, cycle_start, cycle_end, db_path
+            )
+
+            if verification_result.county_transfer_found:
+                transfers_found += 1
+
+            if verification_result.county_reset_supported:
+                reset_supported_cases += 1
+
+        console.print(f"\n[bold green]VERIFICATION COMPLETE:[/bold green]")
+        console.print(f"  - Properties scanned: {properties_scanned}")
+        console.print(f"  - County transfers found: {transfers_found}")
+        console.print(f"  - Reset-supported cases: {reset_supported_cases}")
+
+        console.print(
+            "\n[dim]Note: County transfer records may support Effective DOM reset,"
+            " but churn metrics remain preserved separately.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Verify county records error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_county_verification_report(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output file path (default: timestamped file in data/exports/)"
+    ),
+) -> None:
+    """Export county verification report to CSV."""
+    from marketsentry.county_verification_report import export_county_verification_report as export_report
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting county verification report...[/bold blue]")
+
+        # Export CSV report
+        row_count = export_report(output, db_path)
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Report exported")
+        console.print(f"  - Properties: {row_count}")
+
+        # Get output path from function if not provided
+        if not output:
+            from datetime import datetime
+            from pathlib import Path
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = str(Path(config.export_path) / f"county_verification_{timestamp}.csv")
+        else:
+            output_path = output
+
+        console.print(f"  - Output file: {output_path}")
+
+        console.print(
+            "\n[dim]Note: County verification report is for assessment purposes, not a purchase recommendation."
+            " Churn Index remains reportable even when county_reset_supported is true.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export county verification report error: {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()
