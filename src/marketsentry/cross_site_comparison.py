@@ -242,7 +242,7 @@ def _get_redfin_data(
         result = execute_query(query, (property_id,), database_path=database_path)
 
         if result:
-            return result[0]
+            return dict(result[0])
 
     except Exception as e:
         logger.error(f"Error getting Redfin data for property {property_id}: {e}")

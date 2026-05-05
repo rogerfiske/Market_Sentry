@@ -38,14 +38,14 @@ class TestCompareCrossSite:
         query = """
         INSERT INTO watched_properties (
             first_saved_date, address, city, zip, current_price, displayed_dom, active_watch_status
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         params = ("2026-05-01", "123 Test St", "Temecula", "92592", 500000.0, 15, 1)
         execute_insert(query, params, database_path=temp_db)
 
         result = execute_query(
             "SELECT property_id FROM watched_properties WHERE address = ?",
-            (params[0],),
+            (params[1],),
             database_path=temp_db,
         )
         property_id = result[0]["property_id"]
@@ -53,19 +53,19 @@ class TestCompareCrossSite:
         # Add Zillow observation (matching price)
         obs_query = """
         INSERT INTO cross_site_observations (
-            property_id, source_site, price, displayed_dom, listing_status
-        ) VALUES (?, ?, ?, ?, ?)
+            property_id, source_site, source_url, price, displayed_dom, listing_status
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             obs_query,
-            (property_id, "zillow", 500000.0, 15, "for_sale"),
+            (property_id, "zillow", "https://www.zillow.com/property/123", 500000.0, 15, "for_sale"),
             database_path=temp_db,
         )
 
         # Add Realtor observation (matching price)
         execute_insert(
             obs_query,
-            (property_id, "realtor", 500000.0, 15, "for_sale"),
+            (property_id, "realtor", "https://www.realtor.com/property/123", 500000.0, 15, "for_sale"),
             database_path=temp_db,
         )
 
@@ -93,11 +93,11 @@ class TestCompareCrossSite:
         query = """
         INSERT INTO watched_properties (
             first_saved_date, address, city, zip, current_price, displayed_dom, active_watch_status
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             query,
-            ("456 Price St", "Temecula", "92592", 750000.0, 10, 1),
+            ("2026-05-01", "456 Price St", "Temecula", "92592", 750000.0, 10, 1),
             database_path=temp_db,
         )
 
@@ -111,12 +111,12 @@ class TestCompareCrossSite:
         # Add observation with different price (>$10k difference)
         obs_query = """
         INSERT INTO cross_site_observations (
-            property_id, source_site, price, displayed_dom, listing_status
-        ) VALUES (?, ?, ?, ?, ?)
+            property_id, source_site, source_url, price, displayed_dom, listing_status
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             obs_query,
-            (property_id, "zillow", 735000.0, 10, "for_sale"),
+            (property_id, "zillow", "https://www.zillow.com/property/456", 735000.0, 10, "for_sale"),
             database_path=temp_db,
         )
 
@@ -133,11 +133,11 @@ class TestCompareCrossSite:
         query = """
         INSERT INTO watched_properties (
             first_saved_date, address, city, zip, current_price, displayed_dom, active_watch_status
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             query,
-            ("789 Status Ave", "Temecula", "92592", 600000.0, 20, 1),
+            ("2026-05-01", "789 Status Ave", "Temecula", "92592", 600000.0, 20, 1),
             database_path=temp_db,
         )
 
@@ -151,12 +151,12 @@ class TestCompareCrossSite:
         # Add observation with different status
         obs_query = """
         INSERT INTO cross_site_observations (
-            property_id, source_site, price, displayed_dom, listing_status
-        ) VALUES (?, ?, ?, ?, ?)
+            property_id, source_site, source_url, price, displayed_dom, listing_status
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             obs_query,
-            (property_id, "zillow", 600000.0, 20, "sold"),
+            (property_id, "zillow", "https://www.zillow.com/property/789", 600000.0, 20, "sold"),
             database_path=temp_db,
         )
 
@@ -172,11 +172,11 @@ class TestCompareCrossSite:
         query = """
         INSERT INTO watched_properties (
             first_saved_date, address, city, zip, current_price, displayed_dom, active_watch_status
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             query,
-            ("101 DOM Ln", "Temecula", "92592", 550000.0, 15, 1),
+            ("2026-05-01", "101 DOM Ln", "Temecula", "92592", 550000.0, 15, 1),
             database_path=temp_db,
         )
 
@@ -190,12 +190,12 @@ class TestCompareCrossSite:
         # Add observation with different DOM (>30 days difference)
         obs_query = """
         INSERT INTO cross_site_observations (
-            property_id, source_site, price, displayed_dom, listing_status
-        ) VALUES (?, ?, ?, ?, ?)
+            property_id, source_site, source_url, price, displayed_dom, listing_status
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             obs_query,
-            (property_id, "zillow", 550000.0, 50, "for_sale"),
+            (property_id, "zillow", "https://www.zillow.com/property/101", 550000.0, 50, "for_sale"),
             database_path=temp_db,
         )
 
@@ -212,11 +212,11 @@ class TestCompareCrossSite:
         query = """
         INSERT INTO watched_properties (
             first_saved_date, address, city, zip, current_price, displayed_dom, active_watch_status
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             query,
-            ("999 Multi St", "Temecula", "92592", 700000.0, 25, 1),
+            ("2026-05-01", "999 Multi St", "Temecula", "92592", 700000.0, 25, 1),
             database_path=temp_db,
         )
 
@@ -230,22 +230,22 @@ class TestCompareCrossSite:
         # Add observations from different sites
         obs_query = """
         INSERT INTO cross_site_observations (
-            property_id, source_site, price, displayed_dom, listing_status
-        ) VALUES (?, ?, ?, ?, ?)
+            property_id, source_site, source_url, price, displayed_dom, listing_status
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             obs_query,
-            (property_id, "zillow", 700000.0, 25, "for_sale"),
+            (property_id, "zillow", "https://www.zillow.com/property/999", 700000.0, 25, "for_sale"),
             database_path=temp_db,
         )
         execute_insert(
             obs_query,
-            (property_id, "realtor", 715000.0, 25, "for_sale"),
+            (property_id, "realtor", "https://www.realtor.com/property/999", 715000.0, 25, "for_sale"),
             database_path=temp_db,
         )
         execute_insert(
             obs_query,
-            (property_id, "homes", 700000.0, 60, "for_sale"),
+            (property_id, "homes", "https://www.homes.com/property/999", 700000.0, 60, "for_sale"),
             database_path=temp_db,
         )
 

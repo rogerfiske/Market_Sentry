@@ -1,6 +1,7 @@
 """Tests for cross-site URL import functionality."""
 
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -117,7 +118,8 @@ class TestImportCrossSiteUrls:
             first_saved_date, normalized_address, address, city, zip, active_watch_status
         ) VALUES (?, ?, ?, ?, ?, ?)
         """
-        params = ("2026-05-01", "67890 TEST LANE", "67890 Test Lane", "Temecula", "92592", 1)
+        # Use "LN" (the normalized form) instead of "LANE" since normalize_address() converts LANE -> LN
+        params = ("2026-05-01", "67890 TEST LN", "67890 Test Lane", "Temecula", "92592", 1)
         execute_insert(query, params, database_path=temp_db)
 
         # Get property_id
@@ -230,6 +232,9 @@ class TestImportCrossSiteUrls:
             database_path=temp_db,
         )
         original_timestamp = original_data[0]["updated_at"]
+
+        # Wait 1 second to ensure timestamp will be different
+        time.sleep(1)
 
         # Import URLs
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, newline='') as f:

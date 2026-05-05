@@ -644,7 +644,7 @@ def import_cross_site_urls(
         result = import_cross_site_urls_from_csv(file, db_path)
 
         console.print(f"\n[bold green]SUCCESS:[/bold green] Import complete")
-        console.print(f"  - Rows processed: {result.rows_processed}")
+        console.print(f"  - Rows processed: {result.total_rows_read}")
         console.print(f"  - Properties matched: {result.properties_matched}")
         console.print(f"  - Properties updated: {result.properties_updated}")
         console.print(f"  - Rows skipped: {result.rows_skipped}")

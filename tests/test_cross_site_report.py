@@ -34,11 +34,11 @@ class TestExportCrossSiteReport:
         INSERT INTO watched_properties (
             first_saved_date, address, city, zip, beds, baths, sqft,
             current_price, displayed_dom, active_watch_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             query,
-            ("123 Main St", "Temecula", "92592", 3, 2.0, 1800, 500000.0, 15, 1),
+            ("2026-05-01", "123 Main St", "Temecula", "92592", 3, 2.0, 1800, 500000.0, 15, 1),
             database_path=temp_db,
         )
 
@@ -53,25 +53,25 @@ class TestExportCrossSiteReport:
         # Add cross-site observations for property 1
         obs_query = """
         INSERT INTO cross_site_observations (
-            property_id, source_site, price, beds, baths, sqft,
+            property_id, source_site, source_url, price, beds, baths, sqft,
             displayed_dom, listing_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             obs_query,
-            (property_id_1, "zillow", 500000.0, 3, 2.0, 1800, 15, "for_sale"),
+            (property_id_1, "zillow", "https://www.zillow.com/property/123", 500000.0, 3, 2.0, 1800, 15, "for_sale"),
             database_path=temp_db,
         )
         execute_insert(
             obs_query,
-            (property_id_1, "realtor", 500000.0, 3, 2.0, 1800, 15, "for_sale"),
+            (property_id_1, "realtor", "https://www.realtor.com/property/123", 500000.0, 3, 2.0, 1800, 15, "for_sale"),
             database_path=temp_db,
         )
 
         # Create property 2 with discrepancies
         execute_insert(
             query,
-            ("456 Oak Ave", "Temecula", "92592", 4, 3.0, 2400, 750000.0, 20, 1),
+            ("2026-05-01", "456 Oak Ave", "Temecula", "92592", 4, 3.0, 2400, 750000.0, 20, 1),
             database_path=temp_db,
         )
 
@@ -85,7 +85,7 @@ class TestExportCrossSiteReport:
         # Add observation with price discrepancy
         execute_insert(
             obs_query,
-            (property_id_2, "zillow", 735000.0, 4, 3.0, 2400, 20, "for_sale"),
+            (property_id_2, "zillow", "https://www.zillow.com/property/456", 735000.0, 4, 3.0, 2400, 20, "for_sale"),
             database_path=temp_db,
         )
 
@@ -172,11 +172,11 @@ class TestExportCrossSiteReport:
         query = """
         INSERT INTO watched_properties (
             first_saved_date, address, city, zip, current_price, displayed_dom, active_watch_status
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             query,
-            ("999 Full St", "Temecula", "92592", 600000.0, 30, 1),
+            ("2026-05-01", "999 Full St", "Temecula", "92592", 600000.0, 30, 1),
             database_path=temp_db,
         )
 
@@ -190,13 +190,13 @@ class TestExportCrossSiteReport:
         # Add observations from all sources
         obs_query = """
         INSERT INTO cross_site_observations (
-            property_id, source_site, price, displayed_dom, listing_status
-        ) VALUES (?, ?, ?, ?, ?)
+            property_id, source_site, source_url, price, displayed_dom, listing_status
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """
         for site in ["zillow", "realtor", "homes", "compass"]:
             execute_insert(
                 obs_query,
-                (property_id, site, 600000.0, 30, "for_sale"),
+                (property_id, site, f"https://www.{site}.com/property/999", 600000.0, 30, "for_sale"),
                 database_path=temp_db,
             )
 
@@ -233,11 +233,11 @@ class TestExportCrossSiteReport:
         INSERT INTO watched_properties (
             first_saved_date, address, city, zip, beds, baths, sqft,
             current_price, displayed_dom, active_watch_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             query,
-            ("777 Info Blvd", "Temecula", "92592", 3, 2.5, 2100, 550000.0, 12, 1),
+            ("2026-05-01", "777 Info Blvd", "Temecula", "92592", 3, 2.5, 2100, 550000.0, 12, 1),
             database_path=temp_db,
         )
 
@@ -268,11 +268,11 @@ class TestExportCrossSiteReport:
         query = """
         INSERT INTO watched_properties (
             first_saved_date, address, city, zip, current_price, displayed_dom, active_watch_status
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             query,
-            ("888 Detail Dr", "Temecula", "92592", 500000.0, 15, 1),
+            ("2026-05-01", "888 Detail Dr", "Temecula", "92592", 500000.0, 15, 1),
             database_path=temp_db,
         )
 
@@ -286,12 +286,12 @@ class TestExportCrossSiteReport:
         # Add observation with price discrepancy
         obs_query = """
         INSERT INTO cross_site_observations (
-            property_id, source_site, price, displayed_dom, listing_status
-        ) VALUES (?, ?, ?, ?, ?)
+            property_id, source_site, source_url, price, displayed_dom, listing_status
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """
         execute_insert(
             obs_query,
-            (property_id, "zillow", 475000.0, 15, "for_sale"),
+            (property_id, "zillow", "https://www.zillow.com/property/888", 475000.0, 15, "for_sale"),
             database_path=temp_db,
         )
 

@@ -141,7 +141,8 @@ def _get_watched_properties(database_path: Optional[str] = None) -> List[dict]:
         ORDER BY address
         """
 
-        return execute_query(query, database_path=database_path)
+        results = execute_query(query, database_path=database_path)
+        return [dict(row) for row in results]
 
     except Exception as e:
         logger.error(f"Error getting watched properties: {e}")

@@ -21,7 +21,9 @@
       "Bash(marketsentry parse-redfin-details:*)",
       "Bash(marketsentry enrich-redfin-details:*)",
       "Bash(marketsentry export-analysis-report:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(sqlite3:*)",
+      "Bash(marketsentry import-cross-site-urls:*)"
     ]
   }
 }

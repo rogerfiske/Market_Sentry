@@ -51,7 +51,7 @@ class TestParseCrossSiteDirectory:
 
         result = execute_query(
             "SELECT property_id FROM watched_properties WHERE normalized_address = ?",
-            (params[0],),
+            (params[1],),
             database_path=temp_db,
         )
         return result[0]["property_id"]
@@ -143,7 +143,7 @@ class TestInsertCrossSiteObservation:
 
         result = execute_query(
             "SELECT property_id FROM watched_properties WHERE normalized_address = ?",
-            (params[0],),
+            (params[1],),
             database_path=temp_db,
         )
         return result[0]["property_id"]
