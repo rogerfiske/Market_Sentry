@@ -6,9 +6,9 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Redfin Detail Parser and Candidate Enrichment (MVP 4)
+## Current Milestone: Effective DOM Engine and Candidate Scoring Report (MVP 5)
 
-This milestone implements detailed property parsing from saved Redfin HTML files and enriches candidate records with property facts, lifestyle scores, gas evidence, and listing history.
+This milestone implements the Effective DOM engine v1 and comprehensive candidate scoring/reporting, transforming parsed Redfin data into actionable buyer-side analysis outputs.
 
 **Status:** ✅ Complete
 
@@ -64,6 +64,82 @@ This milestone implements detailed property parsing from saved Redfin HTML files
 - ✅ Comprehensive tests for all new functionality (130 tests total, all passing)
 
 **Important:** Continues the saved HTML approach from Milestone 3. No live scraping. Users manually save Redfin detail pages and run enrichment commands.
+
+### MVP 5: Effective DOM Engine and Candidate Scoring Report
+
+- ✅ Effective DOM v1 metrics engine (displayed_dom, current_listing_instance_dom, sale_cycle_dom, rent_sale_exposure_dom, calendar_exposure_dom, effective_dom, effective_dom_delta)
+- ✅ Event normalization for listing history (sale_listed, sale_removed, sale_relisted, sale_pending, sale_back_on_market, sale_sold, sale_price_changed, rental_listed, rental_removed, unknown)
+- ✅ DOM reset counting (removals followed by relisting within 90 days without intervening sold event)
+- ✅ Listing churn indicators
+- ✅ Sale/rent alternation detection
+- ✅ Comprehensive candidate scoring v1 (quiet_gatekeeper_result, location_fit_label, location_fit_score, property_fit_score, effective_dom_leverage_score, data_confidence_score, overall_review_score)
+- ✅ Review recommendations (strong_review, review, maybe_review, reject_location_noise, needs_more_data)
+- ✅ Warning flags and positive flags collection
+- ✅ Candidate analysis report generation (CSV and Markdown formats)
+- ✅ Database recalculation workflow for Effective DOM metrics
+- ✅ New CLI commands: recalc-candidates, export-analysis-report
+- ✅ Comprehensive tests for event normalization, DOM metrics, scoring, and critical domain rules (188 tests total, all passing)
+
+**Important:** No live scraping or network calls. Milestone 5 performs deterministic analysis on existing parsed Redfin data from Milestone 4.
+
+### Effective DOM v1 Metrics
+
+**Effective DOM** measures property-level market exposure across listing, removal, and relisting events. Milestone 5 implements multiple DOM variants with a fallback hierarchy:
+
+1. **displayed_dom**: DOM shown on the source page (e.g., Redfin)
+2. **current_listing_instance_dom**: Days from latest listing/relisting event to analysis date
+3. **sale_cycle_dom**: Total active sale-listing exposure days within current no-sale cycle
+4. **rent_sale_exposure_dom**: Total exposure days across sale and rental listing periods
+5. **calendar_exposure_dom**: Calendar days from earliest observed event to analysis date
+6. **effective_dom**: Best available property-level market exposure estimate using fallback hierarchy:
+   - Prefer rent_sale_exposure_dom if sale/rent alternation present
+   - Else prefer sale_cycle_dom
+   - Else prefer calendar_exposure_dom
+   - Else fallback to current_listing_instance_dom
+   - Else fallback to displayed_dom
+7. **effective_dom_delta**: effective_dom - displayed_dom (reveals hidden market exposure)
+
+**Additional Metrics:**
+- **listing_churn_count**: Count of all listing activity events (listed, removed, relisted, price_changed)
+- **dom_reset_count**: Count of removal→relist cycles within 90 days (without intervening sold event)
+- **sale_rent_alternation_count**: Count of transitions between sale and rental exposure categories
+- **price_change_count**: Count of price_changed events
+- **first_observed_event_date**, **latest_observed_event_date**: Event date range
+- **first_observed_price**, **current_or_latest_price**, **lowest_observed_price**, **highest_observed_price**: Price tracking
+
+**Current Cycle Detection:** Events are analyzed within the current "no-sale cycle" (events after the last sold event). If a sold event is present in the listing history, it resets the cycle, and only subsequent events are counted.
+
+### Candidate Scoring Labels
+
+The scoring system uses the following review recommendation labels:
+
+- **strong_review**: High overall score (>= 80). Excellent location fit, good property fit, or high Effective DOM leverage signals. Top priority for human review.
+- **review**: Good overall score (>= 60). Target location fit and acceptable property characteristics. Recommended for review.
+- **maybe_review**: Moderate overall score (>= 40). Some positive signals but missing key data or borderline fit. Low priority review.
+- **reject_location_noise**: Failed Quiet gatekeeper (quiet_score < 7.0). Location does not meet noise risk threshold regardless of other factors.
+- **needs_more_data**: Low data confidence score. Missing critical fields (Quiet score, address, price, etc.). Requires enrichment before review.
+
+**Location Fit Labels:**
+- **excellent_location_fit**: quiet_score >= 9.0 and vibrancy_score <= 2.0 (location_fit_score: 100)
+- **target_location_fit**: quiet_score >= 8.0 and vibrancy_score <= 2.5 (location_fit_score: 85)
+- **quiet_but_review_vibrancy**: quiet_score >= 7.5 but vibrancy_score > 2.5 (location_fit_score: 70)
+- **borderline_quiet**: quiet_score >= 7.0 but below target thresholds (location_fit_score: 50)
+- **fail_noise_risk**: quiet_score < 7.0 (location_fit_score: 0)
+- **needs_manual_location_review**: Missing Quiet score (location_fit_score: 40)
+
+**Critical Domain Rule:** Low Vibrancy alone is NOT sufficient. The Quiet gatekeeper rejects properties with quiet_score < 7.0 even if vibrancy_score is very low. The target is very high Quiet AND very low Vibrancy.
+
+**Warning Flags:**
+- low_quiet_score, fail_quiet_gatekeeper, missing_quiet_score
+- no_gas_service, insufficient_garage_spaces
+- price_outside_range, missing_property_facts
+- no_listing_history, low_data_confidence
+
+**Positive Flags:**
+- excellent_location, target_location
+- has_gas_service, good_garage_spaces
+- high_dom_delta (effective_dom_delta >= 90)
+- has_dom_resets, high_listing_churn, sale_rent_alternation, multiple_price_changes
 
 ## Key Features (Planned)
 
@@ -243,7 +319,65 @@ Candidates are matched by Redfin URL or normalized address. User decisions and n
 2. Run `parse-redfin-details` to verify extraction
 3. Run `enrich-redfin-details` to update candidates in the database
 
-### Review Workflow Commands (MVP 2-4)
+### Effective DOM and Scoring Commands (MVP 5)
+
+#### Recalculate Candidate Metrics
+
+```bash
+marketsentry recalc-candidates
+# Or specify database path:
+marketsentry recalc-candidates --database db/market_sentry.db
+```
+
+Recalculates Effective DOM metrics and scoring-related fields for all candidates in the review queue. This command:
+
+- Reads candidates and listing_events from database
+- Recalculates all Effective DOM v1 metrics
+- Updates candidate_review_queue with effective_dom_estimate, listing_churn_count, dom_reset_count, sale_rent_alternation_count, quiet_gatekeeper_result
+- Preserves user_decision and user_notes
+- Is idempotent (safe to run multiple times)
+
+Prints: candidates scanned, candidates updated, listing events used, warnings/errors.
+
+#### Export Candidate Analysis Report
+
+```bash
+marketsentry export-analysis-report
+# Or specify output path and database:
+marketsentry export-analysis-report --output data/exports/my_analysis.csv --database db/market_sentry.db
+# Or export as Markdown:
+marketsentry export-analysis-report --markdown
+```
+
+Exports comprehensive candidate analysis report to CSV (or Markdown). The report includes:
+
+- Review recommendation and overall review score
+- Location fit label and Quiet gatekeeper result
+- Quiet/Vibrancy scores
+- Property facts (price, beds, baths, sqft, garage spaces, gas service)
+- Effective DOM metrics (displayed_dom, effective_dom, effective_dom_delta)
+- Listing activity indicators (listing_churn_count, dom_reset_count, sale_rent_alternation_count, price_change_count)
+- Data confidence score
+- Warning flags and positive flags
+- Address, city, ZIP, Redfin URL
+- User decision and notes (preserved from review queue)
+
+Default output: `data/exports/candidate_analysis_YYYYMMDD_HHMMSS.csv`
+
+**How to Use the Analysis Report:**
+
+1. Run `recalc-candidates` to ensure all metrics are current
+2. Run `export-analysis-report` to generate the CSV
+3. Open the CSV in Excel or your preferred spreadsheet tool
+4. Sort by review_recommendation and overall_review_score
+5. Focus on `strong_review` and `review` candidates first
+6. Review warning_flags and positive_flags for each candidate
+7. Use effective_dom_delta to identify properties with hidden market exposure
+8. Set user_decision column to: save, reject, maybe, or hold_for_more_data
+9. Import decisions with `import-review` command
+10. Candidates marked as `save` are promoted to watchlist
+
+### Review Workflow Commands (MVP 2-5)
 
 #### Seed Sample Candidates
 
@@ -370,6 +504,8 @@ Market_Sentry/
 │       ├── redfin_fixture_parser.py    # Saved HTML fixture parsing
 │       ├── redfin_detail_parser.py     # Redfin detail page parser
 │       ├── redfin_detail_enrichment.py # Candidate enrichment workflow
+│       ├── candidate_recalc.py         # Candidate metrics recalculation
+│       ├── candidate_report.py         # Candidate analysis report generation
 │       ├── watchlist.py                # Watchlist promotion logic
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
@@ -384,7 +520,9 @@ Market_Sentry/
     │       └── sparse_data_property.html
     ├── test_database.py
     ├── test_effective_dom.py
+    ├── test_effective_dom_v1.py       # Comprehensive v1 tests
     ├── test_scoring.py
+    ├── test_scoring_v1.py             # Comprehensive v1 tests
     ├── test_gas_detection.py
     ├── test_quiet_vibrancy.py
     ├── test_review_workflow.py
@@ -437,14 +575,16 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 5: Cross-Site Data Enrichment
+### MVP 6: Cross-Site Data Enrichment
 
 - Zillow detail page parser (using saved HTML approach)
 - Realtor.com detail page parser
+- Homes.com detail page parser
 - Cross-site data validation and conflict resolution
 - Enhanced Effective DOM with multi-site listing history
 - Property history timeline visualization
 - Batch enrichment workflows
+- County recorder integration (ownership transfer verification)
 
 ## Repository
 
@@ -464,10 +604,12 @@ MIT
 ## Notes
 
 - This is a local-first application. All data is stored in a local SQLite database.
-- **No live scraping or network calls are implemented.** Milestones 3 and 4 use manual URL import and saved HTML fixtures.
+- **No live scraping or network calls are implemented.** Milestones 3, 4, and 5 use manual URL import and saved HTML fixtures.
 - See design decisions for rationale:
   - [Decision 002: Redfin Discovery Adapter Foundation](docs/decisions/002-redfin-discovery-adapter-foundation.md)
   - [Decision 003: Redfin Detail Parser and Candidate Enrichment](docs/decisions/003-redfin-detail-parser-saved-fixtures.md)
+  - [Decision 004: Effective DOM v1 and Review Scoring](docs/decisions/004-effective-dom-v1-and-review-scoring.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.
+- Review recommendations (strong_review, review, maybe_review, reject_location_noise, needs_more_data) are NOT purchase recommendations. They only determine how candidates should be treated in the user review queue.

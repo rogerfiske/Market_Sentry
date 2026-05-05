@@ -539,5 +539,92 @@ def enrich_redfin_details(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def recalc_candidates(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Recalculate Effective DOM and scoring metrics for all candidates."""
+    from marketsentry.candidate_recalc import recalculate_candidates
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Recalculating candidate metrics...[/bold blue]")
+
+        result = recalculate_candidates(db_path)
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Recalculation complete")
+        console.print(f"  - Candidates scanned: {result.candidates_scanned}")
+        console.print(f"  - Candidates updated: {result.candidates_updated}")
+        console.print(f"  - Listing events used: {result.listing_events_used}")
+
+        if result.warnings:
+            console.print(f"\n[yellow]Warnings ({len(result.warnings)}):[/yellow]")
+            for warning in result.warnings[:5]:  # Show first 5
+                console.print(f"  - {warning}")
+            if len(result.warnings) > 5:
+                console.print(f"  ... and {len(result.warnings) - 5} more")
+
+        if result.errors:
+            console.print(f"\n[red]Errors ({len(result.errors)}):[/red]")
+            for error in result.errors[:5]:  # Show first 5
+                console.print(f"  - {error}")
+            if len(result.errors) > 5:
+                console.print(f"  ... and {len(result.errors) - 5} more")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Recalculation error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_analysis_report(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output file path (default: timestamped file in data/exports/)"
+    ),
+    markdown: bool = typer.Option(
+        False, "--markdown", "-m", help="Also export Markdown summary"
+    ),
+) -> None:
+    """Export candidate analysis report to CSV."""
+    from marketsentry.candidate_report import (
+        export_candidate_analysis_report,
+        export_markdown_summary,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting candidate analysis report...[/bold blue]")
+
+        # Export CSV report
+        csv_path = export_candidate_analysis_report(db_path, output)
+
+        # Count rows
+        import csv
+        with open(csv_path, "r", encoding="utf-8") as f:
+            row_count = sum(1 for row in csv.DictReader(f))
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Report exported")
+        console.print(f"  - Output file: {csv_path}")
+        console.print(f"  - Rows: {row_count}")
+
+        # Export markdown if requested
+        if markdown:
+            md_path = export_markdown_summary(db_path)
+            console.print(f"  - Markdown summary: {md_path}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export analysis report error: {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

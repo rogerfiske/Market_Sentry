@@ -10,14 +10,14 @@ class CandidateProperty(BaseModel):
     """Model for a candidate property in the review queue."""
 
     candidate_id: Optional[int] = None
-    discovery_date: date
-    source_site: str
-    source_search_url: str
-    redfin_url: str
-    address: str
+    discovery_date: Optional[date] = Field(default_factory=date.today)
+    source_site: str = "redfin"
+    source_search_url: str = ""
+    redfin_url: str = ""
+    address: str = ""
     normalized_address: Optional[str] = None
-    city: str
-    zip: str
+    city: str = ""
+    zip: str = ""
     price: Optional[float] = None
     beds: Optional[int] = None
     baths: Optional[float] = None
@@ -90,13 +90,15 @@ class ListingEvent(BaseModel):
     event_id: Optional[int] = None
     property_id: Optional[int] = None
     candidate_id: Optional[int] = None
-    event_date: date
-    source_site: str
-    event_type: str
+    event_date: Optional[date] = None
+    source_site: str = "redfin"
+    event_type: str = "unknown"
+    price: Optional[float] = None  # Price associated with the event (for price changes, listings, etc.)
     old_value: Optional[str] = None
     new_value: Optional[str] = None
     source_listing_id: Optional[str] = None
     mls_number: Optional[str] = None
+    source_mls: Optional[str] = None  # Source MLS (SDMLS, CRMLS, etc.)
     confidence: Optional[str] = None
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
