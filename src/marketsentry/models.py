@@ -1,6 +1,7 @@
 """Data models for Market_Sentry."""
 
 from datetime import date, datetime
+from enum import Enum
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
@@ -308,4 +309,150 @@ class RedfinDetailEnrichmentResult(BaseModel):
     listing_events_skipped: int = Field(default=0)
     parse_warnings: int = Field(default=0)
     parse_errors: int = Field(default=0)
+    notes: Optional[str] = None
+
+
+# Cross-Site Enrichment Models
+
+
+class CrossSiteSource(str, Enum):
+    """Enumeration of cross-site sources."""
+
+    zillow = "zillow"
+    realtor = "realtor"
+    homes = "homes"
+    compass = "compass"
+
+
+class CrossSiteUrlImportRow(BaseModel):
+    """Model for a row in a cross-site URL import CSV."""
+
+    redfin_url: Optional[str] = None
+    address: Optional[str] = None
+    normalized_address: Optional[str] = None
+    zillow_url: Optional[str] = None
+    realtor_url: Optional[str] = None
+    homes_url: Optional[str] = None
+    compass_url: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class CrossSiteObservation(BaseModel):
+    """Model for a cross-site observation."""
+
+    observation_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    property_id: Optional[int] = None
+    source_site: str
+    source_url: str
+    normalized_source_url: Optional[str] = None
+    observed_at: datetime = Field(default_factory=datetime.now)
+    match_method: Optional[str] = None
+    address: Optional[str] = None
+    normalized_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    price: Optional[float] = None
+    beds: Optional[int] = None
+    baths: Optional[float] = None
+    sqft: Optional[int] = None
+    lot_size: Optional[float] = None
+    listing_status: Optional[str] = None
+    displayed_dom: Optional[int] = None
+    garage_spaces: Optional[int] = None
+    gas_service: Optional[bool] = None
+    gas_evidence: Optional[str] = None
+    listing_agent: Optional[str] = None
+    listing_broker: Optional[str] = None
+    mls_number: Optional[str] = None
+    source_mls: Optional[str] = None
+    property_description: Optional[str] = None
+    parse_status: str = Field(default="success")
+    parse_warnings: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class CrossSitePropertyFacts(BaseModel):
+    """Model for cross-site property facts."""
+
+    price: Optional[float] = None
+    beds: Optional[int] = None
+    baths: Optional[float] = None
+    sqft: Optional[int] = None
+    lot_size: Optional[float] = None
+    listing_status: Optional[str] = None
+    displayed_dom: Optional[int] = None
+    garage_spaces: Optional[int] = None
+    gas_service: Optional[bool] = None
+    gas_evidence: Optional[str] = None
+    property_description: Optional[str] = None
+
+
+class CrossSiteParseResult(BaseModel):
+    """Model for results from parsing a cross-site detail page."""
+
+    source_file: Optional[str] = None
+    source_site: str
+    parse_status: str  # success, partial, failed
+    property_facts: Optional[CrossSitePropertyFacts] = None
+    source_url: Optional[str] = None
+    address: Optional[str] = None
+    normalized_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+
+
+class CrossSiteComparisonResult(BaseModel):
+    """Model for cross-site comparison results."""
+
+    property_id: Optional[int] = None
+    redfin_price: Optional[float] = None
+    zillow_price: Optional[float] = None
+    realtor_price: Optional[float] = None
+    homes_price: Optional[float] = None
+    compass_price: Optional[float] = None
+    redfin_status: Optional[str] = None
+    zillow_status: Optional[str] = None
+    realtor_status: Optional[str] = None
+    homes_status: Optional[str] = None
+    compass_status: Optional[str] = None
+    redfin_dom: Optional[int] = None
+    zillow_dom: Optional[int] = None
+    realtor_dom: Optional[int] = None
+    homes_dom: Optional[int] = None
+    compass_dom: Optional[int] = None
+    has_price_discrepancy: bool = Field(default=False)
+    has_status_discrepancy: bool = Field(default=False)
+    has_dom_discrepancy: bool = Field(default=False)
+    price_discrepancy_details: Optional[str] = None
+    status_discrepancy_details: Optional[str] = None
+    dom_discrepancy_details: Optional[str] = None
+    comparison_notes: Optional[str] = None
+
+
+class CrossSiteEnrichmentResult(BaseModel):
+    """Model for results from cross-site enrichment."""
+
+    total_files_processed: int = Field(default=0)
+    observations_parsed: int = Field(default=0)
+    observations_inserted: int = Field(default=0)
+    properties_matched: int = Field(default=0)
+    parse_warnings: int = Field(default=0)
+    parse_errors: int = Field(default=0)
+    notes: Optional[str] = None
+
+
+class CrossSiteUrlImportResult(BaseModel):
+    """Model for results from cross-site URL import."""
+
+    total_rows_read: int = Field(default=0)
+    properties_matched: int = Field(default=0)
+    properties_updated: int = Field(default=0)
+    rows_skipped: int = Field(default=0)
+    errors: List[str] = Field(default_factory=list)
     notes: Optional[str] = None

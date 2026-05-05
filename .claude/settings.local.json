@@ -17,7 +17,11 @@
       "Bash(marketsentry import-review:*)",
       "Bash(marketsentry list-watched:*)",
       "Bash(marketsentry import-redfin-urls:*)",
-      "Bash(marketsentry parse-redfin-fixtures:*)"
+      "Bash(marketsentry parse-redfin-fixtures:*)",
+      "Bash(marketsentry parse-redfin-details:*)",
+      "Bash(marketsentry enrich-redfin-details:*)",
+      "Bash(marketsentry export-analysis-report:*)",
+      "Bash(wc:*)"
     ]
   }
 }

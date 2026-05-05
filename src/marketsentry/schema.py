@@ -153,6 +153,45 @@ CREATE TABLE IF NOT EXISTS user_review_actions (
 );
 """
 
+CREATE_CROSS_SITE_OBSERVATIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS cross_site_observations (
+    observation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_id INTEGER,
+    property_id INTEGER,
+    source_site TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    normalized_source_url TEXT,
+    observed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    match_method TEXT,
+    address TEXT,
+    normalized_address TEXT,
+    city TEXT,
+    state TEXT,
+    zip TEXT,
+    price REAL,
+    beds INTEGER,
+    baths REAL,
+    sqft INTEGER,
+    lot_size REAL,
+    listing_status TEXT,
+    displayed_dom INTEGER,
+    garage_spaces INTEGER,
+    gas_service BOOLEAN,
+    gas_evidence TEXT,
+    listing_agent TEXT,
+    listing_broker TEXT,
+    mls_number TEXT,
+    source_mls TEXT,
+    property_description TEXT,
+    parse_status TEXT DEFAULT 'success',
+    parse_warnings TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (candidate_id) REFERENCES candidate_review_queue (candidate_id),
+    FOREIGN KEY (property_id) REFERENCES watched_properties (property_id)
+);
+"""
+
 # Index definitions for performance
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_candidates_review_status ON candidate_review_queue(review_status);",
@@ -167,6 +206,10 @@ CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_events_candidate ON listing_events(candidate_id);",
     "CREATE INDEX IF NOT EXISTS idx_events_date ON listing_events(event_date);",
     "CREATE INDEX IF NOT EXISTS idx_events_type ON listing_events(event_type);",
+    "CREATE INDEX IF NOT EXISTS idx_cross_site_property ON cross_site_observations(property_id);",
+    "CREATE INDEX IF NOT EXISTS idx_cross_site_candidate ON cross_site_observations(candidate_id);",
+    "CREATE INDEX IF NOT EXISTS idx_cross_site_source ON cross_site_observations(source_site);",
+    "CREATE INDEX IF NOT EXISTS idx_cross_site_observed_at ON cross_site_observations(observed_at);",
 ]
 
 # All schema statements in order
@@ -177,4 +220,5 @@ ALL_SCHEMA_STATEMENTS = [
     CREATE_LISTING_EVENTS_TABLE,
     CREATE_SOURCE_PAGES_TABLE,
     CREATE_USER_REVIEW_ACTIONS_TABLE,
+    CREATE_CROSS_SITE_OBSERVATIONS_TABLE,
 ] + CREATE_INDEXES

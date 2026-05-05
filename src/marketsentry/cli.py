@@ -626,5 +626,119 @@ def export_analysis_report(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def import_cross_site_urls(
+    file: str = typer.Option(..., "--file", "-f", help="CSV file with cross-site URLs"),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Import cross-site URLs from CSV and link to watched properties."""
+    from marketsentry.cross_site_url_import import import_cross_site_urls_from_csv
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Importing cross-site URLs...[/bold blue]")
+
+        result = import_cross_site_urls_from_csv(file, db_path)
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Import complete")
+        console.print(f"  - Rows processed: {result.rows_processed}")
+        console.print(f"  - Properties matched: {result.properties_matched}")
+        console.print(f"  - Properties updated: {result.properties_updated}")
+        console.print(f"  - Rows skipped: {result.rows_skipped}")
+
+        if result.errors:
+            console.print(f"\n[yellow]Errors ({len(result.errors)}):[/yellow]")
+            for error in result.errors[:5]:  # Show first 5 errors
+                console.print(f"  - {error}")
+            if len(result.errors) > 5:
+                console.print(f"  ... and {len(result.errors) - 5} more")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Import cross-site URLs error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def parse_cross_site_fixtures(
+    source: str = typer.Option(..., "--source", "-s", help="Source site (zillow, realtor, homes, compass)"),
+    directory: str = typer.Option(..., "--dir", "-d", help="Directory containing HTML fixtures"),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Parse cross-site HTML fixtures and create observations."""
+    from marketsentry.cross_site_enrichment import parse_cross_site_directory
+
+    try:
+        db_path = database_path or config.database_path
+
+        # Validate source
+        valid_sources = ["zillow", "realtor", "homes", "compass"]
+        if source not in valid_sources:
+            console.print(f"[bold red]Error:[/bold red] Invalid source '{source}'. Must be one of: {', '.join(valid_sources)}")
+            raise typer.Exit(code=1)
+
+        console.print(f"[bold blue]Parsing {source} fixtures from {directory}...[/bold blue]")
+
+        result = parse_cross_site_directory(directory, source, db_path)
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Enrichment complete")
+        console.print(f"  - Files processed: {result.files_processed}")
+        console.print(f"  - Observations created: {result.observations_created}")
+        console.print(f"  - Properties matched: {result.properties_matched}")
+        console.print(f"  - Parse errors: {result.parse_errors}")
+
+        if result.errors:
+            console.print(f"\n[yellow]Errors ({len(result.errors)}):[/yellow]")
+            for error in result.errors[:5]:
+                console.print(f"  - {error}")
+            if len(result.errors) > 5:
+                console.print(f"  ... and {len(result.errors) - 5} more")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Parse cross-site fixtures error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_cross_site_report(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output file path (default: timestamped file in data/exports/)"
+    ),
+) -> None:
+    """Export cross-site comparison report to CSV."""
+    from marketsentry.cross_site_report import export_cross_site_comparison_report
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting cross-site comparison report...[/bold blue]")
+
+        # Export CSV report
+        csv_path = export_cross_site_comparison_report(db_path, output)
+
+        # Count rows
+        import csv
+        with open(csv_path, "r", encoding="utf-8") as f:
+            row_count = sum(1 for row in csv.DictReader(f))
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Report exported")
+        console.print(f"  - Output file: {csv_path}")
+        console.print(f"  - Properties: {row_count}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export cross-site report error: {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()
