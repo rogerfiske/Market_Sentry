@@ -6,9 +6,9 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Watchlist Monitoring Snapshots (MVP 7)
+## Current Milestone: Effective DOM v2 County-Verified Reset Integration (MVP 9)
 
-This milestone implements watchlist monitoring snapshots and change detection for tracked properties, enabling historical tracking of price changes, status changes, and data quality over time.
+This milestone integrates county-confirmed ownership transfer records into Effective DOM calculation as reset boundaries while preserving recent churn metrics separately for comprehensive property analysis.
 
 **Status:** ✅ Complete
 
@@ -222,6 +222,108 @@ Test fixtures provided:
 - Permit: Building permit number, type, status
 
 **Important Note:** County verification reports are for assessment purposes, NOT purchase recommendations. Churn Index remains reportable even when county_reset_supported is true, ensuring all analytical signals are preserved.
+
+### MVP 9: Effective DOM v2 County-Verified Reset Integration
+
+- ✅ Effective DOM v2 calculation engine with county-confirmed reset boundaries
+- ✅ County transfer detection inside listing history window
+- ✅ Conservative reset logic (transfer must be inside listing window, not before first event or after latest event)
+- ✅ Churn Index v1 with date-bounded 3-year lookback
+- ✅ Separate churn preservation guarantee (churn metrics NEVER erased by county reset)
+- ✅ Pre-reset and post-reset exposure metrics for comprehensive reporting
+- ✅ v1 vs v2 comparison with effective_dom_delta_v1 and effective_dom_delta_v2
+- ✅ Effective DOM v2 recalculation workflow (report-only, non-destructive)
+- ✅ Effective DOM v2 comparison report generation (CSV format with 41 columns)
+- ✅ New CLI commands: recalc-effective-dom-v2, export-effective-dom-v2-report
+- ✅ Comprehensive tests for all 5 scenarios (A-E) and churn preservation (319+ tests total, all passing)
+
+**Important:** This milestone performs NO live network calls, NO scraping, NO browser automation. All county data comes from Milestone 8 county_record_observations table.
+
+**Effective DOM v2 vs v1:**
+
+**Effective DOM v1** (Milestone 5): Property-level market exposure across listing events within lookback window, no county reset support.
+
+**Effective DOM v2** (Milestone 9): Enhanced calculation using county-confirmed ownership transfer as reset boundary:
+- If no county transfer exists: v2 equals v1
+- If county transfer before all listing events: v2 equals v1 (no reset needed)
+- If county transfer inside listing window: v2 excludes pre-transfer exposure, pre-reset metrics remain reportable
+- If county transfer after latest event: v2 equals v1 (no historical reset)
+
+**Churn Index v1:**
+
+Churn Index measures recent 2-3 year property/listing instability using date-bounded event filtering and weighted scoring:
+
+**Default Lookback:** 3 years from analysis date
+
+**Weighted Scoring:**
+- listing_churn_count: 1.0 weight (baseline instability)
+- dom_reset_count: 1.5 weight (removal→relist cycles)
+- sale_rent_alternation_count: 2.0 weight (strongest churn signal)
+- price_change_count: 0.5 weight (moderate signal)
+
+**Formula:** weighted_sum = (listing_churn * 1.0) + (dom_reset * 1.5) + (sale_rent_alternation * 2.0) + (price_change * 0.5)
+
+**Normalization:** churn_index = min(10.0, (weighted_sum / 20.0) * 10.0)
+
+**CRITICAL:** Churn Index is computed from ALL events within the 3-year lookback window, regardless of county reset. When county_reset_applied is true, Effective DOM v2 may be low (new ownership, recent transfer) while Churn Index remains high (property had unstable listing history before transfer). This separation enables four analytical scenarios:
+1. Low Effective DOM + Low Churn: Stable property, new ownership, clean history
+2. Low Effective DOM + High Churn: New ownership, but property had unstable listing history before sale
+3. High Effective DOM + Low Churn: Long market exposure, but stable listing behavior
+4. High Effective DOM + High Churn: Long exposure AND unstable listing behavior
+
+**County Reset Scenarios:**
+
+**Scenario A: No county transfer**
+- effective_dom_v2 = effective_dom_v1
+- county_reset_applied = false
+- Churn Index computed from all events
+
+**Scenario B: County transfer before all listing events**
+- effective_dom_v2 = effective_dom_v1 (no reset applied)
+- county_reset_applied = false
+- Churn Index computed from all events
+
+**Scenario C: County transfer inside listing-history window**
+- effective_dom_v2 < effective_dom_v1 (excludes pre-transfer exposure)
+- county_reset_applied = true
+- pre_reset_calendar_exposure_dom, post_reset_calendar_exposure_dom remain reportable
+- Churn Index computed from ALL events (pre and post reset)
+- churn_preserved_after_transfer = true
+
+**Scenario D: County transfer after latest listing event**
+- effective_dom_v2 = effective_dom_v1 (no historical reset)
+- county_reset_applied = false
+- Churn Index computed from all events
+
+**Scenario E: Non-transfer county record inside listing-history window**
+- Deed of Trust, Reconveyance, Lien, Permit, Assessment, Tax Record do NOT reset Effective DOM
+- effective_dom_v2 = effective_dom_v1
+- county_reset_applied = false
+- Churn Index computed from all events
+
+**Effective DOM v2 Report Columns (41 total):**
+
+Property identification: property_id, candidate_id, address, city, zip, apn, redfin_url
+
+Current metrics: current_price, displayed_dom
+
+Effective DOM v1 vs v2: effective_dom_v1, effective_dom_v2, effective_dom_delta_v1, effective_dom_delta_v2
+
+County reset: county_reset_applied, county_reset_date, county_reset_record_type, county_reset_record_id, county_reset_confidence
+
+Pre/post reset exposure: pre_reset_calendar_exposure_dom, post_reset_calendar_exposure_dom, pre_reset_sale_cycle_dom, post_reset_sale_cycle_dom, pre_reset_rent_sale_exposure_dom, post_reset_rent_sale_exposure_dom
+
+Listing activity: listing_churn_count, dom_reset_count, sale_rent_alternation_count, price_change_count
+
+Churn Index: recent_churn_index, recent_churn_lookback_years, recent_churn_event_count, recent_dom_reset_count, recent_sale_rent_alternation_count, churn_preserved_after_transfer
+
+Quiet/Vibrancy: quiet_score, vibrancy_score, quiet_gatekeeper_result
+
+Property characteristics: gas_service, garage_spaces
+
+User data: user_notes, notes
+
+**Important Note:** Effective DOM v2 report is an analytical tool, NOT a purchase recommendation. County reset affects Effective DOM only. Churn Index remains preserved separately to enable comprehensive property analysis across different time horizons.
 
 ### Effective DOM v1 Metrics
 
@@ -670,6 +772,67 @@ Default output: `data/exports/watchlist_monitoring_YYYYMMDD_HHMMSS.csv`
 **Positive Flags:**
 - Gas service, 2+ car garage
 - Excellent quiet/vibrancy (quiet >= 8.0, vibrancy <= 2.5)
+
+### Effective DOM v2 Commands (MVP 9)
+
+#### Recalculate Effective DOM v2
+
+```bash
+marketsentry recalc-effective-dom-v2
+# Or specify database path:
+marketsentry recalc-effective-dom-v2 --db db/market_sentry.db
+```
+
+Recalculates Effective DOM v2 for all active watched properties using county-confirmed transfer records as reset boundaries. This command:
+
+- Reads watched_properties, listing_events, and county_record_observations from database
+- Computes Effective DOM v2 metrics for each property
+- Identifies county-confirmed ownership transfers inside listing windows
+- Calculates pre-reset and post-reset exposure metrics
+- Computes Churn Index v1 from ALL events (3-year lookback)
+- Preserves churn metrics separately from Effective DOM reset
+- Report-only operation (does not modify database)
+
+Prints: properties scanned, county transfers considered, county resets applied, records updated, churn metrics preserved, warnings/errors.
+
+**Important:** This is a report-only operation. County reset affects Effective DOM calculation only. Churn Index is preserved separately and computed from all events within the 3-year lookback window regardless of county reset.
+
+#### Export Effective DOM v2 Report
+
+```bash
+marketsentry export-effective-dom-v2-report
+# Or specify output path and database:
+marketsentry export-effective-dom-v2-report --output data/exports/edom_v2_comparison.csv --db db/market_sentry.db
+```
+
+Exports comprehensive Effective DOM v1 vs v2 comparison report to CSV. The report includes:
+
+- Property identification (property_id, candidate_id, address, city, ZIP, APN, Redfin URL)
+- Current metrics (current_price, displayed_dom)
+- Effective DOM v1 vs v2 (effective_dom_v1, effective_dom_v2, effective_dom_delta_v1, effective_dom_delta_v2)
+- County reset information (county_reset_applied, county_reset_date, county_reset_record_type, county_reset_record_id, county_reset_confidence)
+- Pre-reset exposure metrics (pre_reset_calendar_exposure_dom, pre_reset_sale_cycle_dom, pre_reset_rent_sale_exposure_dom)
+- Post-reset exposure metrics (post_reset_calendar_exposure_dom, post_reset_sale_cycle_dom, post_reset_rent_sale_exposure_dom)
+- Listing activity (listing_churn_count, dom_reset_count, sale_rent_alternation_count, price_change_count)
+- Churn Index v1 (recent_churn_index, recent_churn_lookback_years, recent_churn_event_count, recent_dom_reset_count, recent_sale_rent_alternation_count, churn_preserved_after_transfer)
+- Quiet/Vibrancy scores and gatekeeper result
+- Property characteristics (gas_service, garage_spaces)
+- User notes
+
+Default output: `data/exports/effective_dom_v2_YYYYMMDD_HHMMSS.csv`
+
+**How to Use the v1 vs v2 Comparison Report:**
+
+1. Run `recalc-effective-dom-v2` to compute v2 metrics
+2. Run `export-effective-dom-v2-report` to generate the CSV
+3. Open the CSV in Excel or your preferred spreadsheet tool
+4. Compare effective_dom_v1 vs effective_dom_v2 to see county reset impact
+5. Review county_reset_applied column to identify properties with verified ownership transfers
+6. Check recent_churn_index alongside effective_dom_v2 for comprehensive analysis
+7. Look for Low Effective DOM + High Churn scenarios (new ownership but unstable history)
+8. Review pre_reset and post_reset exposure metrics for full property timeline
+
+**Important:** This report is an analytical tool, NOT a purchase recommendation. County reset affects Effective DOM only. Churn Index (recent_churn_index) remains preserved separately to enable analysis across different time horizons.
 
 ### Review Workflow Commands (MVP 2-5)
 

@@ -1114,5 +1114,98 @@ def export_county_verification_report(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def recalc_effective_dom_v2(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Recalculate Effective DOM v2 for all watched properties."""
+    from marketsentry.effective_dom_v2_recalc import recalc_effective_dom_v2 as recalc_v2
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Recalculating Effective DOM v2 with county reset integration...[/bold blue]")
+
+        # Recalculate v2 metrics
+        result = recalc_v2(db_path)
+
+        console.print(f"\n[bold green]RECALCULATION COMPLETE:[/bold green]")
+        console.print(f"  - Properties scanned: {result.properties_scanned}")
+        console.print(f"  - County transfers considered: {result.county_transfers_considered}")
+        console.print(f"  - County resets applied: {result.county_resets_applied}")
+        console.print(f"  - Records updated: {result.records_updated}")
+        console.print(f"  - Churn metrics preserved: {result.churn_metrics_preserved}")
+
+        if result.warnings:
+            console.print(f"\n[yellow]WARNINGS ({len(result.warnings)}):[/yellow]")
+            for warning in result.warnings[:10]:
+                console.print(f"  - {warning}")
+            if len(result.warnings) > 10:
+                console.print(f"  ... and {len(result.warnings) - 10} more")
+
+        if result.errors:
+            console.print(f"\n[red]ERRORS ({len(result.errors)}):[/red]")
+            for error in result.errors[:10]:
+                console.print(f"  - {error}")
+            if len(result.errors) > 10:
+                console.print(f"  ... and {len(result.errors) - 10} more")
+
+        console.print(
+            "\n[dim]Note: County reset affects Effective DOM only. Churn Index remains preserved separately.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Recalc effective DOM v2 error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_effective_dom_v2_report(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output file path (default: timestamped file in data/exports/)"
+    ),
+) -> None:
+    """Export Effective DOM v2 comparison report to CSV."""
+    from marketsentry.effective_dom_v2_report import export_effective_dom_v2_report as export_v2_report
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting Effective DOM v2 comparison report...[/bold blue]")
+
+        # Export CSV report
+        row_count = export_v2_report(output, db_path)
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Report exported")
+        console.print(f"  - Properties: {row_count}")
+
+        # Get output path from function if not provided
+        if not output:
+            from datetime import datetime
+            from pathlib import Path
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = str(Path(config.export_path) / f"effective_dom_v2_{timestamp}.csv")
+        else:
+            output_path = output
+
+        console.print(f"  - Output file: {output_path}")
+
+        console.print(
+            "\n[dim]Note: v1 vs v2 comparison report shows county-verified reset boundaries."
+            " Churn Index is preserved separately from Effective DOM reset logic.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export effective DOM v2 report error: {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

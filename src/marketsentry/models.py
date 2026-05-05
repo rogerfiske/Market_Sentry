@@ -688,3 +688,141 @@ class CountyVerificationReportRow(BaseModel):
     latest_permit_status: Optional[str] = None
     verification_notes: Optional[str] = None
     user_notes: Optional[str] = None
+
+
+# Effective DOM v2 Models
+
+
+class EffectiveDomResetBoundary(BaseModel):
+    """Model for a county-verified reset boundary."""
+
+    county_record_id: Optional[int] = None
+    reset_date: date
+    record_type: str
+    normalized_record_type: str
+    document_number: Optional[str] = None
+    sale_price: Optional[float] = None
+    confidence: str = Field(default="medium")
+    notes: Optional[str] = None
+
+
+class ChurnIndexMetrics(BaseModel):
+    """Model for Churn Index metrics."""
+
+    recent_churn_index: Optional[float] = None
+    recent_churn_lookback_years: int = Field(default=3)
+    recent_churn_event_count: int = Field(default=0)
+    recent_dom_reset_count: int = Field(default=0)
+    recent_sale_rent_alternation_count: int = Field(default=0)
+    recent_price_change_count: int = Field(default=0)
+    churn_calculation_method: str = Field(default="event_based")  # event_based or count_based
+    churn_preserved_after_transfer: bool = Field(default=True)
+
+
+class EffectiveDomV2Metrics(BaseModel):
+    """Model for Effective DOM v2 metrics with county reset integration."""
+
+    # Property identification
+    property_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+
+    # Basic DOM metrics
+    displayed_dom: Optional[int] = None
+    effective_dom_v1: Optional[int] = None
+    effective_dom_v2: Optional[int] = None
+    effective_dom_delta_v1: Optional[int] = None
+    effective_dom_delta_v2: Optional[int] = None
+
+    # County reset information
+    county_reset_applied: bool = Field(default=False)
+    county_reset_date: Optional[date] = None
+    county_reset_record_type: Optional[str] = None
+    county_reset_record_id: Optional[str] = None  # Document number or record identifier
+    county_reset_confidence: Optional[str] = None
+
+    # Pre/post reset exposure metrics
+    pre_reset_calendar_exposure_dom: Optional[int] = None
+    post_reset_calendar_exposure_dom: Optional[int] = None
+    pre_reset_sale_cycle_dom: Optional[int] = None
+    post_reset_sale_cycle_dom: Optional[int] = None
+    pre_reset_rent_sale_exposure_dom: Optional[int] = None
+    post_reset_rent_sale_exposure_dom: Optional[int] = None
+
+    # Event timeline
+    first_observed_event_date: Optional[date] = None
+    latest_observed_event_date: Optional[date] = None
+    first_post_reset_event_date: Optional[date] = None
+    latest_post_reset_event_date: Optional[date] = None
+
+    # Churn metrics (preserved separately)
+    listing_churn_count: int = Field(default=0)
+    dom_reset_count: int = Field(default=0)
+    sale_rent_alternation_count: int = Field(default=0)
+    price_change_count: int = Field(default=0)
+
+    # Churn Index
+    recent_churn_index: Optional[float] = None
+    recent_churn_lookback_years: int = Field(default=3)
+    recent_churn_event_count: int = Field(default=0)
+    recent_dom_reset_count: int = Field(default=0)
+    recent_sale_rent_alternation_count: int = Field(default=0)
+    churn_preserved_after_transfer: bool = Field(default=True)
+
+
+class CountyResetIntegrationResult(BaseModel):
+    """Model for results from county reset integration."""
+
+    properties_scanned: int = Field(default=0)
+    county_transfers_considered: int = Field(default=0)
+    county_resets_applied: int = Field(default=0)
+    records_updated: int = Field(default=0)
+    churn_metrics_preserved: int = Field(default=0)
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class EffectiveDomComparisonRow(BaseModel):
+    """Model for a row in the Effective DOM v2 comparison report."""
+
+    property_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    apn: Optional[str] = None
+    redfin_url: Optional[str] = None
+    current_price: Optional[float] = None
+    displayed_dom: Optional[int] = None
+    effective_dom_v1: Optional[int] = None
+    effective_dom_v2: Optional[int] = None
+    effective_dom_delta_v1: Optional[int] = None
+    effective_dom_delta_v2: Optional[int] = None
+    county_reset_applied: bool = Field(default=False)
+    county_reset_date: Optional[date] = None
+    county_reset_record_type: Optional[str] = None
+    county_reset_record_id: Optional[int] = None
+    county_reset_confidence: Optional[str] = None
+    pre_reset_calendar_exposure_dom: Optional[int] = None
+    post_reset_calendar_exposure_dom: Optional[int] = None
+    pre_reset_sale_cycle_dom: Optional[int] = None
+    post_reset_sale_cycle_dom: Optional[int] = None
+    pre_reset_rent_sale_exposure_dom: Optional[int] = None
+    post_reset_rent_sale_exposure_dom: Optional[int] = None
+    listing_churn_count: int = Field(default=0)
+    dom_reset_count: int = Field(default=0)
+    sale_rent_alternation_count: int = Field(default=0)
+    price_change_count: int = Field(default=0)
+    recent_churn_index: Optional[float] = None
+    recent_churn_lookback_years: int = Field(default=3)
+    recent_churn_event_count: int = Field(default=0)
+    recent_dom_reset_count: int = Field(default=0)
+    recent_sale_rent_alternation_count: int = Field(default=0)
+    churn_preserved_after_transfer: bool = Field(default=True)
+    quiet_score: Optional[float] = None
+    vibrancy_score: Optional[float] = None
+    quiet_gatekeeper_result: Optional[str] = None
+    gas_service: Optional[bool] = None
+    garage_spaces: Optional[int] = None
+    user_notes: Optional[str] = None
+    notes: Optional[str] = None
