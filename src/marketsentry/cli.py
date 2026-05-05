@@ -13,6 +13,7 @@ from marketsentry.database import (
     get_all_candidates,
     get_table_count,
     init_db,
+    migrate_schema,
     table_exists,
 )
 from marketsentry.logging_config import logger
@@ -47,6 +48,9 @@ def init_database(
 
         # Initialize database
         init_db(db_path)
+
+        # Apply schema migrations for existing databases
+        migrate_schema(db_path)
 
         # Verify tables were created
         tables = [
@@ -737,6 +741,178 @@ def export_cross_site_report(
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         logger.error(f"Export cross-site report error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def snapshot_watchlist(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Create monitoring snapshots for all active watched properties."""
+    from marketsentry.monitoring import create_snapshots_for_all_watched
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Creating watchlist monitoring snapshots...[/bold blue]")
+
+        result = create_snapshots_for_all_watched(db_path)
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Snapshot run complete")
+        console.print(f"  - Watched properties scanned: {result.properties_scanned}")
+        console.print(f"  - Snapshots created: {result.snapshots_created}")
+        console.print(f"  - Snapshots skipped: {result.snapshots_skipped}")
+        console.print(f"  - Changes detected: {result.changes_detected_count}")
+
+        if result.warnings:
+            console.print(f"\n[yellow]Warnings ({len(result.warnings)}):[/yellow]")
+            for warning in result.warnings[:5]:
+                console.print(f"  - {warning}")
+            if len(result.warnings) > 5:
+                console.print(f"  ... and {len(result.warnings) - 5} more")
+
+        if result.errors:
+            console.print(f"\n[red]Errors ({len(result.errors)}):[/red]")
+            for error in result.errors[:5]:
+                console.print(f"  - {error}")
+            if len(result.errors) > 5:
+                console.print(f"  ... and {len(result.errors) - 5} more")
+
+        console.print("\n[dim]Run 'marketsentry list-snapshots' to view snapshots[/dim]")
+        console.print("[dim]Run 'marketsentry export-watchlist-monitoring-report' to export monitoring report[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Snapshot watchlist error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def list_snapshots(
+    property_id: Optional[int] = typer.Option(
+        None, "--property-id", "-p", help="Filter by property ID"
+    ),
+    limit: int = typer.Option(10, "--limit", "-n", help="Number of snapshots to show"),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """List recent observation snapshots."""
+    from marketsentry.database import execute_query
+
+    try:
+        db_path = database_path or config.database_path
+
+        # Build query
+        if property_id:
+            query = """
+            SELECT s.snapshot_id, s.property_id, s.snapshot_date, s.price,
+                   s.effective_dom, s.listing_status, s.notes,
+                   p.address, p.city
+            FROM property_observation_snapshots s
+            JOIN watched_properties p ON s.property_id = p.property_id
+            WHERE s.property_id = ?
+            ORDER BY s.snapshot_date DESC
+            LIMIT ?
+            """
+            params = (property_id, limit)
+        else:
+            query = """
+            SELECT s.snapshot_id, s.property_id, s.snapshot_date, s.price,
+                   s.effective_dom, s.listing_status, s.notes,
+                   p.address, p.city
+            FROM property_observation_snapshots s
+            JOIN watched_properties p ON s.property_id = p.property_id
+            ORDER BY s.snapshot_date DESC
+            LIMIT ?
+            """
+            params = (limit,)
+
+        snapshots = execute_query(query, params, database_path=db_path)
+
+        if not snapshots:
+            console.print("[yellow]No snapshots found[/yellow]")
+            console.print("\n[dim]Run 'marketsentry snapshot-watchlist' to create snapshots[/dim]")
+            return
+
+        # Create table
+        title_suffix = f" for property {property_id}" if property_id else ""
+        table = Table(title=f"Recent Observation Snapshots{title_suffix}")
+        table.add_column("ID", style="cyan")
+        table.add_column("Property ID", style="magenta")
+        table.add_column("Address")
+        table.add_column("Date", style="blue")
+        table.add_column("Price", justify="right")
+        table.add_column("Effective DOM", justify="right")
+        table.add_column("Status")
+
+        for snap in snapshots:
+            snap_dict = dict(snap)
+            price_str = f"${snap_dict.get('price', 0):,.0f}" if snap_dict.get('price') else "N/A"
+            edom_str = str(snap_dict.get('effective_dom')) if snap_dict.get('effective_dom') else "N/A"
+            date_str = snap_dict.get('snapshot_date', '')[:10] if snap_dict.get('snapshot_date') else "N/A"
+
+            table.add_row(
+                str(snap_dict.get('snapshot_id')),
+                str(snap_dict.get('property_id')),
+                snap_dict.get('address', 'N/A')[:40],
+                date_str,
+                price_str,
+                edom_str,
+                snap_dict.get('listing_status', 'N/A'),
+            )
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"List snapshots error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_watchlist_monitoring_report(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output file path (default: timestamped file in data/exports/)"
+    ),
+) -> None:
+    """Export watchlist monitoring report to CSV."""
+    from marketsentry.monitoring_report import export_watchlist_monitoring_report as export_report
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting watchlist monitoring report...[/bold blue]")
+
+        # Export CSV report
+        row_count = export_report(output, db_path)
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Report exported")
+        console.print(f"  - Properties: {row_count}")
+
+        # Get output path from function if not provided
+        if not output:
+            from datetime import datetime
+            from pathlib import Path
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = str(Path(config.export_path) / f"watchlist_monitoring_{timestamp}.csv")
+        else:
+            output_path = output
+
+        console.print(f"  - Output file: {output_path}")
+
+        console.print(
+            "\n[dim]Note: This is a watchlist monitoring report, not a purchase recommendation.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export watchlist monitoring report error: {e}")
         raise typer.Exit(code=1)
 
 

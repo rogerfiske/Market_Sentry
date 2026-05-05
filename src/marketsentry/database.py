@@ -9,7 +9,7 @@ from marketsentry.config import config
 from marketsentry.logging_config import logger
 from marketsentry.models import CandidateProperty, WatchedProperty
 from marketsentry.normalization import normalize_address
-from marketsentry.schema import ALL_SCHEMA_STATEMENTS
+from marketsentry.schema import ALL_SCHEMA_STATEMENTS, MIGRATE_PROPERTY_OBSERVATION_SNAPSHOTS_V2
 
 
 def get_connection(database_path: Optional[str] = None) -> sqlite3.Connection:
@@ -60,6 +60,79 @@ def init_db(database_path: Optional[str] = None) -> None:
     except Exception as e:
         conn.rollback()
         logger.error(f"Error initializing database: {e}")
+        raise
+
+    finally:
+        conn.close()
+
+
+def column_exists(
+    table_name: str, column_name: str, database_path: Optional[str] = None
+) -> bool:
+    """
+    Check if a column exists in a table.
+
+    Args:
+        table_name: Name of the table
+        column_name: Name of the column
+        database_path: Path to database file
+
+    Returns:
+        True if column exists, False otherwise
+    """
+    conn = get_connection(database_path)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        columns = [row[1] for row in cursor.fetchall()]
+        return column_name in columns
+    finally:
+        conn.close()
+
+
+def migrate_schema(database_path: Optional[str] = None) -> None:
+    """
+    Apply schema migrations to existing database.
+
+    This function safely migrates the schema by checking for column existence
+    before attempting to add new columns.
+
+    Args:
+        database_path: Path to database file (uses config default if not specified)
+    """
+    db_path = database_path or config.database_path
+    logger.info(f"Applying schema migrations to {db_path}")
+
+    conn = get_connection(db_path)
+    cursor = conn.cursor()
+
+    migrations_applied = 0
+
+    try:
+        # Migrate property_observation_snapshots table (v2)
+        for migration_sql in MIGRATE_PROPERTY_OBSERVATION_SNAPSHOTS_V2:
+            # Extract column name from ALTER TABLE statement
+            # Format: "ALTER TABLE property_observation_snapshots ADD COLUMN column_name TYPE;"
+            parts = migration_sql.split()
+            if "ADD" in parts and "COLUMN" in parts:
+                column_idx = parts.index("COLUMN") + 1
+                column_name = parts[column_idx]
+
+                # Check if column already exists
+                if not column_exists("property_observation_snapshots", column_name, db_path):
+                    cursor.execute(migration_sql)
+                    migrations_applied += 1
+                    logger.info(f"Applied migration: Added column {column_name}")
+                else:
+                    logger.debug(f"Skipping migration: Column {column_name} already exists")
+
+        conn.commit()
+        logger.info(f"Schema migrations complete. Applied {migrations_applied} migrations.")
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error applying schema migrations: {e}")
         raise
 
     finally:

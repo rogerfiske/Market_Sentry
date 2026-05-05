@@ -116,10 +116,19 @@ class ObservationSnapshot(BaseModel):
     price: Optional[float] = None
     displayed_dom: Optional[int] = None
     effective_dom: Optional[int] = None
+    effective_dom_delta: Optional[int] = None
     quiet_score: Optional[float] = None
     vibrancy_score: Optional[float] = None
     garage_spaces: Optional[int] = None
     gas_service: Optional[bool] = None
+    listing_churn_count: Optional[int] = None
+    dom_reset_count: Optional[int] = None
+    sale_rent_alternation_count: Optional[int] = None
+    cross_site_confidence_score: Optional[float] = None
+    price_discrepancy_flag: bool = Field(default=False)
+    status_discrepancy_flag: bool = Field(default=False)
+    dom_discrepancy_flag: bool = Field(default=False)
+    price_change_count: int = Field(default=0)
     listing_history_hash: Optional[str] = None
     property_detail_hash: Optional[str] = None
     raw_source_url: Optional[str] = None
@@ -454,5 +463,56 @@ class CrossSiteUrlImportResult(BaseModel):
     properties_matched: int = Field(default=0)
     properties_updated: int = Field(default=0)
     rows_skipped: int = Field(default=0)
+    errors: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+# Monitoring Models
+
+
+class SnapshotChangeResult(BaseModel):
+    """Model for snapshot change detection results."""
+
+    property_id: int
+    has_changes: bool = Field(default=False)
+    price_changed: bool = Field(default=False)
+    price_increased: bool = Field(default=False)
+    price_decreased: bool = Field(default=False)
+    price_change_amount: Optional[float] = None
+    status_changed: bool = Field(default=False)
+    displayed_dom_changed: bool = Field(default=False)
+    effective_dom_changed: bool = Field(default=False)
+    quiet_score_changed: bool = Field(default=False)
+    vibrancy_score_changed: bool = Field(default=False)
+    garage_spaces_changed: bool = Field(default=False)
+    gas_service_changed: bool = Field(default=False)
+    discrepancy_flag_changed: bool = Field(default=False)
+    source_presence_changed: bool = Field(default=False)
+    change_summary: Optional[str] = None
+    change_details: List[str] = Field(default_factory=list)
+
+
+class MonitoringSnapshotResult(BaseModel):
+    """Model for monitoring snapshot creation result."""
+
+    property_id: int
+    snapshot_id: Optional[int] = None
+    snapshot_created: bool = Field(default=False)
+    snapshot_skipped: bool = Field(default=False)
+    skip_reason: Optional[str] = None
+    changes_detected: Optional[SnapshotChangeResult] = None
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+
+
+class MonitoringRunResult(BaseModel):
+    """Model for monitoring run results."""
+
+    run_date: datetime = Field(default_factory=datetime.now)
+    properties_scanned: int = Field(default=0)
+    snapshots_created: int = Field(default=0)
+    snapshots_skipped: int = Field(default=0)
+    changes_detected_count: int = Field(default=0)
+    warnings: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     notes: Optional[str] = None

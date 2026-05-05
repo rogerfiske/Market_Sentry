@@ -6,9 +6,9 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Cross-Site Enrichment Foundation (MVP 6)
+## Current Milestone: Watchlist Monitoring Snapshots (MVP 7)
 
-This milestone implements cross-site enrichment from Zillow, Realtor.com, Homes.com, and Compass using saved HTML fixtures, enabling cross-validation of Redfin data and data quality confidence assessment.
+This milestone implements watchlist monitoring snapshots and change detection for tracked properties, enabling historical tracking of price changes, status changes, and data quality over time.
 
 **Status:** ✅ Complete
 
@@ -108,6 +108,36 @@ This milestone implements cross-site enrichment from Zillow, Realtor.com, Homes.
 - **DOM Discrepancy**: Flagged when displayed DOM differs by more than 30 days across sites
 
 **Important Note:** Discrepancy flags are data quality indicators, NOT purchase recommendations. They highlight properties where cross-site data conflicts suggest the need for additional verification or closer inspection.
+
+### MVP 7: Watchlist Monitoring Snapshots
+
+- ✅ Observation snapshot creation for all watched properties
+- ✅ Automated change detection between snapshots
+- ✅ Price change tracking (amount, direction)
+- ✅ Listing status change detection
+- ✅ Displayed DOM and Effective DOM change tracking
+- ✅ Quiet/Vibrancy score change monitoring (>= 0.5 threshold)
+- ✅ Cross-site discrepancy flag change detection
+- ✅ Idempotency handling (same-day duplicate prevention without material changes)
+- ✅ Watchlist monitoring report generation (CSV format)
+- ✅ Change summary generation for each property
+- ✅ Warning flags (discrepancies, low quiet score) and positive flags (gas service, garage, excellent location)
+- ✅ New CLI commands: snapshot-watchlist, list-snapshots, export-watchlist-monitoring-report
+- ✅ Comprehensive tests for all monitoring functionality (251 tests total, all passing)
+
+**Important:** This milestone performs no live network calls or scraping. It creates snapshots from existing database data (watched_properties, listing_events, cross_site_observations) to track changes over time for watchlist monitoring.
+
+**Change Detection Thresholds:**
+- **Price Change**: Any price difference
+- **Significant Price Change**: >= $10,000
+- **Status Change**: Any listing status difference
+- **DOM Change**: Any displayed or effective DOM difference
+- **Quiet/Vibrancy Change**: >= 0.5 score difference
+- **Discrepancy Flag Change**: Any boolean flag change (price, status, DOM discrepancies)
+
+**Idempotency Rule:** One snapshot per property per run timestamp. If you run snapshot-watchlist twice on the same day, the second run creates a new snapshot only if material fields changed (price, status, displayed DOM, effective DOM, or discrepancy flags). Otherwise, the snapshot is skipped with "no material changes" message.
+
+**Watched Property Status:** active_watch_status is not automatically changed based on cross-site status disagreements. Status changes remain under user/system review.
 
 ### Effective DOM v1 Metrics
 
@@ -484,6 +514,79 @@ Default output: `data/exports/cross_site_report_YYYYMMDD_HHMMSS.csv`
 
 **Important:** Discrepancy flags are data quality indicators, NOT purchase recommendations. They highlight properties requiring additional verification or manual inspection due to conflicting data across sites.
 
+### Watchlist Monitoring Commands (MVP 7)
+
+#### Create Monitoring Snapshots
+
+```bash
+marketsentry snapshot-watchlist
+# Or specify database path:
+marketsentry snapshot-watchlist --db db/market_sentry.db
+```
+
+Creates monitoring snapshots for all active watched properties. This command:
+
+- Reads current property data from watched_properties, listing_events, and cross_site_observations
+- Creates a new snapshot in property_observation_snapshots table
+- Detects changes from the previous snapshot (price, status, DOM, discrepancies)
+- Updates last_checked_date for each property
+- Implements idempotency: skips same-day duplicate snapshots without material changes
+
+Prints: properties scanned, snapshots created, snapshots skipped, changes detected, warnings/errors.
+
+**Material Changes:** Price, listing status, displayed DOM, effective DOM, or discrepancy flag changes. If none of these changed since the last snapshot today, the new snapshot is skipped.
+
+#### List Recent Snapshots
+
+```bash
+marketsentry list-snapshots
+# Or filter by property:
+marketsentry list-snapshots --property-id 5
+# Or limit results:
+marketsentry list-snapshots --limit 20
+```
+
+Lists recent observation snapshots from the property_observation_snapshots table. Shows:
+
+- Snapshot ID and property ID
+- Address and city
+- Snapshot date
+- Price, Effective DOM, listing status
+- Notes/change summary
+
+#### Export Watchlist Monitoring Report
+
+```bash
+marketsentry export-watchlist-monitoring-report
+# Or specify output path and database:
+marketsentry export-watchlist-monitoring-report --output data/exports/watchlist_monitoring.csv --db db/market_sentry.db
+```
+
+Exports comprehensive watchlist monitoring report to CSV. The report includes:
+
+- Property identification (address, city, ZIP, Redfin URL)
+- Current and previous values (price, status, DOM)
+- Change indicators (price change amount/direction, status changed)
+- Effective DOM metrics and delta
+- Quiet/Vibrancy scores and gatekeeper result
+- Property characteristics (garage spaces, gas service)
+- Listing activity indicators (churn count, DOM resets, sale/rent alternation)
+- Cross-site data quality (discrepancy flags, confidence score)
+- Change summary and warning/positive flags
+- User notes, last checked date, snapshot date
+
+Default output: `data/exports/watchlist_monitoring_YYYYMMDD_HHMMSS.csv`
+
+**Important:** This is a watchlist monitoring report, NOT a purchase recommendation. It tracks changes and data quality for properties you're monitoring over time.
+
+**Warning Flags:**
+- Price/status/DOM discrepancies across sites
+- Quiet score below threshold
+
+**Positive Flags:**
+- Gas service, 2+ car garage
+- Excellent quiet/vibrancy (quiet >= 8.0, vibrancy <= 2.5)
+
 ### Review Workflow Commands (MVP 2-5)
 
 #### Seed Sample Candidates
@@ -630,6 +733,83 @@ marketsentry export-cross-site-report
 - All cross-site data uses saved HTML approach (no live scraping)
 - Properties must be in watchlist before cross-site enrichment
 
+### Complete Workflow Example with Watchlist Monitoring (MVP 3-7)
+
+```bash
+# Phase 1: Candidate Discovery and Review (MVP 3-5)
+# ====================================================
+
+# 1. Initialize database
+marketsentry init-database
+
+# 2. Import Redfin URLs
+marketsentry import-redfin-urls --file data/imports/redfin_urls.csv
+
+# 3. Enrich candidates with Redfin detail data
+marketsentry enrich-redfin-details --dir data/detail_pages/
+
+# 4. Recalculate Effective DOM metrics and scoring
+marketsentry recalc-candidates
+
+# 5. Export analysis report
+marketsentry export-analysis-report
+
+# 6. Review candidates in CSV, set user_decision to 'save' for properties to watch
+
+# 7. Import review decisions (promotes 'save' to watchlist)
+marketsentry import-review --file data/exports/candidate_analysis_20260505_120000.csv
+
+# Phase 2: Cross-Site Enrichment for Watched Properties (MVP 6)
+# ===============================================================
+
+# 8. Import cross-site URLs to link watched properties to other sites
+marketsentry import-cross-site-urls --file data/imports/cross_site_urls.csv
+
+# 9. Parse cross-site fixtures (creates observations in database)
+marketsentry parse-cross-site-fixtures --dir data/cross_site/zillow --source zillow
+marketsentry parse-cross-site-fixtures --dir data/cross_site/realtor --source realtor
+marketsentry parse-cross-site-fixtures --dir data/cross_site/homes --source homes
+marketsentry parse-cross-site-fixtures --dir data/cross_site/compass --source compass
+
+# 10. Export cross-site comparison report
+marketsentry export-cross-site-report
+
+# Phase 3: Watchlist Monitoring (MVP 7)
+# ========================================
+
+# 11. Create initial monitoring snapshots for all watched properties
+marketsentry snapshot-watchlist
+
+# 12. List recent snapshots
+marketsentry list-snapshots
+
+# 13. Export initial watchlist monitoring report
+marketsentry export-watchlist-monitoring-report
+
+# (Later: After some time has passed, property data has changed)
+
+# 14. Create new snapshots to detect changes
+marketsentry snapshot-watchlist
+
+# 15. Export updated monitoring report to see changes
+marketsentry export-watchlist-monitoring-report
+
+# 16. Review monitoring report for:
+#     - Price changes (increases/decreases)
+#     - Status changes (active -> pending, etc.)
+#     - DOM changes
+#     - Cross-site discrepancies
+#     - Warning flags (data quality issues)
+```
+
+**Monitoring Workflow Notes:**
+- Run `snapshot-watchlist` periodically (daily, weekly, etc.) to track changes
+- Each run creates new snapshots and detects changes from previous snapshots
+- Same-day duplicates without material changes are automatically skipped
+- Monitoring report shows current vs previous values and change summaries
+- Changes are informational only - no automatic actions are taken
+- Watched property status is not automatically changed based on cross-site disagreements
+
 ## Project Structure
 
 ```
@@ -684,6 +864,8 @@ Market_Sentry/
 │       ├── homes_parser.py             # Homes.com detail page parser
 │       ├── compass_parser.py           # Compass detail page parser
 │       ├── watchlist.py                # Watchlist promotion logic
+│       ├── monitoring.py               # Watchlist monitoring snapshots
+│       ├── monitoring_report.py        # Monitoring report generation
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
     ├── fixtures/                       # Test fixtures
@@ -711,7 +893,8 @@ Market_Sentry/
     ├── test_cross_site_url_import.py
     ├── test_cross_site_enrichment.py
     ├── test_cross_site_comparison.py
-    └── test_cross_site_report.py
+    ├── test_cross_site_report.py
+    └── test_monitoring.py
 ```
 
 ## Running Tests
@@ -757,7 +940,7 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 7: County Recorder Integration and Enhanced DOM
+### MVP 8: County Recorder Integration and Enhanced DOM
 
 - County recorder HTML fixture parsing (saved public records pages)
 - Property ownership transfer verification from county records
@@ -767,6 +950,8 @@ mypy src/
 - Property transfer timeline visualization
 - APN (Assessor's Parcel Number) tracking and validation
 - Ownership transfer discrepancy detection (MLS sold vs county records)
+
+**Note:** Milestone 7 (Watchlist Monitoring Snapshots) is now complete.
 
 ## Repository
 
@@ -792,6 +977,7 @@ MIT
   - [Decision 003: Redfin Detail Parser and Candidate Enrichment](docs/decisions/003-redfin-detail-parser-saved-fixtures.md)
   - [Decision 004: Effective DOM v1 and Review Scoring](docs/decisions/004-effective-dom-v1-and-review-scoring.md)
   - [Decision 005: Cross-Site Enrichment Foundation](docs/decisions/005-cross-site-enrichment-foundation.md)
+  - [Decision 006: Watchlist Monitoring Snapshots](docs/decisions/006-watchlist-monitoring-snapshots.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

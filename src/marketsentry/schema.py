@@ -90,10 +90,19 @@ CREATE TABLE IF NOT EXISTS property_observation_snapshots (
     price REAL,
     displayed_dom INTEGER,
     effective_dom INTEGER,
+    effective_dom_delta INTEGER,
     quiet_score REAL,
     vibrancy_score REAL,
     garage_spaces INTEGER,
     gas_service BOOLEAN,
+    listing_churn_count INTEGER,
+    dom_reset_count INTEGER,
+    sale_rent_alternation_count INTEGER,
+    cross_site_confidence_score REAL,
+    price_discrepancy_flag BOOLEAN DEFAULT 0,
+    status_discrepancy_flag BOOLEAN DEFAULT 0,
+    dom_discrepancy_flag BOOLEAN DEFAULT 0,
+    price_change_count INTEGER DEFAULT 0,
     listing_history_hash TEXT,
     property_detail_hash TEXT,
     raw_source_url TEXT,
@@ -191,6 +200,19 @@ CREATE TABLE IF NOT EXISTS cross_site_observations (
     FOREIGN KEY (property_id) REFERENCES watched_properties (property_id)
 );
 """
+
+# Migration statements for existing databases
+MIGRATE_PROPERTY_OBSERVATION_SNAPSHOTS_V2 = [
+    "ALTER TABLE property_observation_snapshots ADD COLUMN effective_dom_delta INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN listing_churn_count INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN dom_reset_count INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN sale_rent_alternation_count INTEGER;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN cross_site_confidence_score REAL;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN price_discrepancy_flag BOOLEAN DEFAULT 0;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN status_discrepancy_flag BOOLEAN DEFAULT 0;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN dom_discrepancy_flag BOOLEAN DEFAULT 0;",
+    "ALTER TABLE property_observation_snapshots ADD COLUMN price_change_count INTEGER DEFAULT 0;",
+]
 
 # Index definitions for performance
 CREATE_INDEXES = [
