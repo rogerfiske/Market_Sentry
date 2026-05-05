@@ -875,3 +875,63 @@ class EffectiveDomComparisonRow(BaseModel):
     garage_spaces: Optional[int] = None
     user_notes: Optional[str] = None
     notes: Optional[str] = None
+
+
+# Milestone 11: Workflow orchestration models
+
+
+class WorkflowOutputFile(BaseModel):
+    """A file produced by a workflow step."""
+
+    file_path: str
+    report_type: str = ""
+    row_count: Optional[int] = None
+    notes: str = ""
+
+
+class WorkflowWarning(BaseModel):
+    """A warning from a workflow step."""
+
+    step_name: str = ""
+    message: str = ""
+
+
+class WorkflowError(BaseModel):
+    """An error from a workflow step."""
+
+    step_name: str = ""
+    message: str = ""
+
+
+class WorkflowStepResult(BaseModel):
+    """Result of a single workflow step."""
+
+    step_name: str
+    status: str = "pending"  # pending, running, completed, skipped, failed
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    duration_seconds: Optional[float] = None
+    records_processed: int = 0
+    records_created: int = 0
+    records_updated: int = 0
+    records_skipped: int = 0
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+    output_files: List[WorkflowOutputFile] = Field(default_factory=list)
+    notes: str = ""
+
+
+class WorkflowRunResult(BaseModel):
+    """Result of a complete workflow run."""
+
+    workflow_name: str
+    database_path: str = ""
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    duration_seconds: Optional[float] = None
+    steps: List[WorkflowStepResult] = Field(default_factory=list)
+    output_files: List[WorkflowOutputFile] = Field(default_factory=list)
+    warnings: List[WorkflowWarning] = Field(default_factory=list)
+    errors: List[WorkflowError] = Field(default_factory=list)
+    summary_file: Optional[str] = None
+    next_recommended_action: str = ""

@@ -6,11 +6,13 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Effective DOM v2 Operational Integration (MVP 10)
+## Current Milestone: End-to-End Operating Workflow and Runbook (MVP 11)
 
-This milestone operationalizes Effective DOM v2 and Churn Index by integrating them into the recurring watchlist monitoring, candidate analysis, and scoring workflows. After Milestone 9 validated v2 as a report-only calculation, Milestone 10 persists v2 metrics into the operational database tables so they appear in normal operating reports.
+This milestone adds end-to-end workflow orchestration, a user-facing runbook, report manifests, and workflow summary generation. It makes the existing pipeline easy to use from a single command without adding live data retrieval.
 
 **Status:** ✅ Complete
+
+See [docs/RUNBOOK.md](docs/RUNBOOK.md) for the complete operating guide.
 
 ### MVP 1: Project Scaffold
 
@@ -353,6 +355,45 @@ User data: user_notes, notes
 **Churn Index in monitoring:** The Churn Index appears in monitoring reports as `recent_churn_index`, tracking changes over time via `previous_recent_churn_index` and `recent_churn_index_change`. High churn (>= 6.0) adds a neutral review flag ("high_recent_churn") to positive_flags. It is a buyer-review signal, not a seller-intent accusation.
 
 **Churn preservation:** When `county_reset_applied` is true, Effective DOM v2 may show lower exposure (post-transfer only), but Churn Index remains unchanged. The `churn_preserved_after_transfer` field is always true, ensuring churn metrics are never erased by county reset.
+
+### MVP 11: End-to-End Operating Workflow and Runbook
+
+- ✅ Workflow orchestration module (`workflow.py`) with three end-to-end workflows
+- ✅ `run_initial_review_workflow`: Import, parse, enrich, recalculate, export review CSV
+- ✅ `run_watchlist_refresh_workflow`: Enrich, cross-site, county, v2, snapshot, all reports
+- ✅ `run_full_fixture_demo_workflow`: Deterministic demo with sample data
+- ✅ Typed workflow result models (WorkflowStepResult, WorkflowRunResult, WorkflowOutputFile, WorkflowWarning, WorkflowError)
+- ✅ Report manifest (`data/exports/report_manifest.csv`) appended after each workflow run
+- ✅ Workflow summary markdown files (`data/exports/workflow_summary_YYYYMMDD_HHMMSS.md`)
+- ✅ New CLI commands: `run-initial-review-workflow`, `run-watchlist-refresh-workflow`, `run-fixture-demo-workflow`, `workflow-status`
+- ✅ User-facing runbook at `docs/RUNBOOK.md`
+- ✅ Workflow status command showing table counts and latest reports
+
+**Important:** All workflows operate on locally saved HTML fixtures and manual CSV imports. No live scraping, browser automation, or network calls are implemented. Workflows orchestrate existing modules without duplicating business logic.
+
+**Workflow CLI Commands:**
+
+```bash
+# Run initial review workflow (import, parse, enrich, export review CSV)
+marketsentry run-initial-review-workflow \
+  --redfin-urls-file data/imports/redfin_urls.csv \
+  --redfin-search-dir data/raw/redfin/search \
+  --redfin-details-dir data/raw/redfin/details \
+  --output-dir data/exports
+
+# Run watchlist refresh workflow (enrich, cross-site, county, snapshot, reports)
+marketsentry run-watchlist-refresh-workflow \
+  --redfin-details-dir data/raw/redfin/details \
+  --cross-site-root-dir data/raw/cross_site \
+  --county-records-file data/imports/county_records.csv \
+  --output-dir data/exports
+
+# Run fixture demo workflow (uses sample data, no real data needed)
+marketsentry run-fixture-demo-workflow --reset-demo-db
+
+# Check workflow status (table counts and latest reports)
+marketsentry workflow-status
+```
 
 ### Effective DOM v1 Metrics
 
@@ -1167,6 +1208,7 @@ Market_Sentry/
 │       ├── monitoring.py               # Watchlist monitoring snapshots
 │       ├── monitoring_report.py        # Monitoring report generation
 │       ├── effective_dom_v2_persistence.py  # v2 operational persistence
+│       ├── workflow.py                    # End-to-end workflow orchestration
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
     ├── fixtures/                       # Test fixtures
@@ -1196,7 +1238,8 @@ Market_Sentry/
     ├── test_cross_site_comparison.py
     ├── test_cross_site_report.py
     ├── test_monitoring.py
-    └── test_milestone_10.py           # v2 operational integration tests
+    ├── test_milestone_10.py           # v2 operational integration tests
+    └── test_milestone_11.py           # End-to-end workflow tests
 ```
 
 ## Running Tests
@@ -1242,11 +1285,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 11: (To Be Determined)
+### MVP 12: (To Be Determined)
 
-Milestones 1-10 are complete. Future milestones may include live data retrieval, automated scheduling, enhanced visualization, or additional analytical workflows.
+Milestones 1-11 are complete. Future milestones may include live data retrieval, automated scheduling, enhanced visualization, or additional analytical workflows.
 
-**Note:** Milestone 10 (Effective DOM v2 Operational Integration) is now complete.
+**Note:** Milestone 11 (End-to-End Operating Workflow and Runbook) is now complete.
 
 ## Repository
 
@@ -1260,6 +1303,7 @@ MIT
 
 - [PRD.md](PRD.md) - Product Requirements Document
 - [Architecture.md](Architecture.md) - System Architecture
+- [docs/RUNBOOK.md](docs/RUNBOOK.md) - Operating Runbook
 - [docs/prompts/](docs/prompts/) - Implementation prompts
 - [docs/decisions/](docs/decisions/) - Architecture decision records
 
@@ -1274,6 +1318,7 @@ MIT
   - [Decision 005: Cross-Site Enrichment Foundation](docs/decisions/005-cross-site-enrichment-foundation.md)
   - [Decision 006: Watchlist Monitoring Snapshots](docs/decisions/006-watchlist-monitoring-snapshots.md)
   - [Decision 009: Effective DOM v2 Operational Integration](docs/decisions/009-effective-dom-v2-operational-integration.md)
+  - [Decision 010: End-to-End Operating Workflow](docs/decisions/010-end-to-end-operating-workflow.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

@@ -1207,6 +1207,233 @@ def export_effective_dom_v2_report(
         raise typer.Exit(code=1)
 
 
+@app.command(name="run-initial-review-workflow")
+def run_initial_review_workflow_cmd(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    redfin_urls_file: Optional[str] = typer.Option(
+        None, "--redfin-urls-file", help="CSV file with Redfin URLs"
+    ),
+    redfin_search_dir: Optional[str] = typer.Option(
+        None, "--redfin-search-dir", help="Directory with Redfin search HTML fixtures"
+    ),
+    redfin_details_dir: Optional[str] = typer.Option(
+        None, "--redfin-details-dir", help="Directory with Redfin detail HTML fixtures"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Directory for output reports"
+    ),
+) -> None:
+    """Run the initial candidate review workflow end-to-end."""
+    from marketsentry.workflow import run_initial_review_workflow
+
+    try:
+        console.print("[bold blue]Running initial review workflow...[/bold blue]")
+
+        result = run_initial_review_workflow(
+            database_path=database_path,
+            redfin_urls_file=redfin_urls_file,
+            redfin_search_dir=redfin_search_dir,
+            redfin_details_dir=redfin_details_dir,
+            output_dir=output_dir,
+        )
+
+        _print_workflow_result(result)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Initial review workflow error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="run-watchlist-refresh-workflow")
+def run_watchlist_refresh_workflow_cmd(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    redfin_details_dir: Optional[str] = typer.Option(
+        None, "--redfin-details-dir", help="Directory with Redfin detail HTML fixtures"
+    ),
+    cross_site_root_dir: Optional[str] = typer.Option(
+        None, "--cross-site-root-dir", help="Root directory with cross-site fixture subdirectories"
+    ),
+    county_root_dir: Optional[str] = typer.Option(
+        None, "--county-root-dir", help="Root directory with county fixture subdirectories"
+    ),
+    county_records_file: Optional[str] = typer.Option(
+        None, "--county-records-file", help="Path to county records CSV"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Directory for output reports"
+    ),
+) -> None:
+    """Run the watchlist refresh workflow end-to-end."""
+    from marketsentry.workflow import run_watchlist_refresh_workflow
+
+    try:
+        console.print("[bold blue]Running watchlist refresh workflow...[/bold blue]")
+
+        result = run_watchlist_refresh_workflow(
+            database_path=database_path,
+            redfin_details_dir=redfin_details_dir,
+            cross_site_root_dir=cross_site_root_dir,
+            county_root_dir=county_root_dir,
+            county_records_file=county_records_file,
+            output_dir=output_dir,
+        )
+
+        _print_workflow_result(result)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Watchlist refresh workflow error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="run-fixture-demo-workflow")
+def run_fixture_demo_workflow_cmd(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Demo database path (default: db/demo_marketsentry.db)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Directory for output reports"
+    ),
+    reset_demo_db: bool = typer.Option(
+        False, "--reset-demo-db", help="Delete existing demo database before starting"
+    ),
+) -> None:
+    """Run a deterministic fixture-based demonstration workflow."""
+    from marketsentry.workflow import run_full_fixture_demo_workflow
+
+    try:
+        console.print("[bold blue]Running fixture demo workflow...[/bold blue]")
+
+        result = run_full_fixture_demo_workflow(
+            database_path=database_path,
+            output_dir=output_dir,
+            reset_demo_db=reset_demo_db,
+        )
+
+        _print_workflow_result(result)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Fixture demo workflow error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="workflow-status")
+def workflow_status_cmd(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Show workflow status with table counts and latest reports."""
+    from marketsentry.workflow import get_workflow_status
+
+    try:
+        status = get_workflow_status(database_path)
+
+        console.print(f"\n[bold blue]Database:[/bold blue] {status['database_path']}")
+        console.print(f"[bold blue]Exists:[/bold blue] {status['database_exists']}")
+
+        if not status["database_exists"]:
+            console.print(
+                "\n[yellow]Database not found. Run 'marketsentry init-database' first.[/yellow]"
+            )
+            return
+
+        # Table counts
+        table = Table(title="Table Counts")
+        table.add_column("Table", style="cyan")
+        table.add_column("Records", justify="right", style="magenta")
+
+        for table_name, count in status["tables"].items():
+            table.add_row(table_name, str(count))
+
+        console.print(table)
+
+        # Latest reports
+        if status["latest_reports"]:
+            console.print("\n[bold blue]Latest Reports:[/bold blue]")
+            for report in status["latest_reports"]:
+                console.print(f"  - {report['file']}")
+                console.print(f"    Modified: {report['modified']}")
+        else:
+            console.print("\n[dim]No reports found in exports directory.[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Workflow status error: {e}")
+        raise typer.Exit(code=1)
+
+
+def _print_workflow_result(result: "WorkflowRunResult") -> None:
+    """Print a workflow result summary to console.
+
+    Args:
+        result: The workflow run result to display.
+    """
+    # Overall status
+    failed_steps = [s for s in result.steps if s.status == "failed"]
+    if failed_steps:
+        console.print(f"\n[bold yellow]WORKFLOW COMPLETED WITH ERRORS[/bold yellow]")
+    else:
+        console.print(f"\n[bold green]WORKFLOW COMPLETED SUCCESSFULLY[/bold green]")
+
+    console.print(f"  Workflow: {result.workflow_name}")
+    if result.duration_seconds is not None:
+        console.print(f"  Duration: {result.duration_seconds:.1f}s")
+
+    # Step summary
+    table = Table(title="Step Results")
+    table.add_column("Step", style="cyan")
+    table.add_column("Status")
+    table.add_column("Processed", justify="right")
+    table.add_column("Created", justify="right")
+    table.add_column("Updated", justify="right")
+
+    for step in result.steps:
+        status_style = {
+            "completed": "[green]completed[/green]",
+            "skipped": "[dim]skipped[/dim]",
+            "failed": "[red]failed[/red]",
+        }.get(step.status, step.status)
+
+        table.add_row(
+            step.step_name,
+            status_style,
+            str(step.records_processed),
+            str(step.records_created),
+            str(step.records_updated),
+        )
+
+    console.print(table)
+
+    # Output files
+    if result.output_files:
+        console.print("\n[bold blue]Output Files:[/bold blue]")
+        for out_file in result.output_files:
+            row_str = f" ({out_file.row_count} rows)" if out_file.row_count is not None else ""
+            console.print(f"  - [{out_file.report_type}] {out_file.file_path}{row_str}")
+
+    # Summary file
+    if result.summary_file:
+        console.print(f"\n[bold blue]Summary:[/bold blue] {result.summary_file}")
+
+    # Errors
+    if result.errors:
+        console.print(f"\n[red]Errors ({len(result.errors)}):[/red]")
+        for err in result.errors:
+            console.print(f"  - [{err.step_name}] {err.message}")
+
+    # Next action
+    if result.next_recommended_action:
+        console.print(f"\n[bold]Next recommended action:[/bold]")
+        console.print(f"  {result.next_recommended_action}")
+
+
 @app.command()
 def persist_effective_dom_v2(
     database_path: Optional[str] = typer.Option(
