@@ -186,3 +186,37 @@ Windows Task Scheduler automation (Milestone 13) runs existing local workflows. 
 4. Manual fixture workflows are sufficient for current monitoring needs
 
 If live retrieval is implemented and enabled in a future milestone, scheduled tasks may optionally support it with additional safeguards (explicit opt-in, lower rate limits, extended logging).
+
+## Retrieval Safety Enforcement (Milestone 15)
+
+Milestone 15 hardens the compliance foundation from Milestone 14 with additional safety layers:
+
+### Retrieval Policy Engine
+
+Combines compliance checks, robots policy, rate limiting, and dry-run approval into a single policy decision. Use `marketsentry retrieval-policy-check` to evaluate.
+
+### Offline Robots Policy
+
+Parses locally saved robots.txt files from `data/policies/robots/`. Does NOT fetch robots.txt from the internet. Save a site's robots.txt to `data/policies/robots/{source}_robots.txt` for offline checking.
+
+### Rate Limiter
+
+Deterministic local rate limiter enforcing max requests per minute and minimum delay between requests. State is injectable and testable. No sleeping occurs in tests.
+
+### Dry-Run Approval Gate
+
+Requires a successful dry-run before any live retrieval attempt. Approval records are stored in `logs/retrieval_audit/dry_run_approvals_*.csv`.
+
+### Fixture Capture Queue
+
+When live retrieval is blocked (default), the system adds URLs to a local queue with suggested fixture paths. The user saves HTML manually and marks the request as captured.
+
+See [FIXTURE_CAPTURE_QUEUE.md](FIXTURE_CAPTURE_QUEUE.md) for the complete guide.
+
+### Retrieval Audit Report
+
+```bash
+marketsentry retrieval-audit-report
+```
+
+Summarizes all retrieval decisions from `logs/retrieval_audit/` including counts of allowed/blocked decisions, sources, modes, and reasons.

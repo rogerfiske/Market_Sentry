@@ -1919,5 +1919,266 @@ def dry_run_redfin_property_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command(name="retrieval-policy-check")
+def retrieval_policy_check_cmd(
+    source: str = typer.Option(
+        "redfin", "--source", help="Source adapter name (e.g., redfin)"
+    ),
+    url: str = typer.Option(
+        ..., "--url", help="URL to check policy for"
+    ),
+    request_type: str = typer.Option(
+        "property_detail", "--request-type", help="Request type (search, property_detail)"
+    ),
+    mode: str = typer.Option(
+        "live_http", "--mode", help="Retrieval mode to check (live_http, dry_run, etc.)"
+    ),
+) -> None:
+    """Check retrieval policy for a URL. No network calls performed."""
+    from marketsentry.source_adapters.policy import evaluate_retrieval_policy
+
+    try:
+        policy = evaluate_retrieval_policy(
+            source_name=source,
+            url=url,
+            request_type=request_type,
+            retrieval_mode=mode,
+        )
+
+        console.print("\n[bold blue]Retrieval Policy Check[/bold blue]\n")
+
+        table = Table(title="Policy Decision")
+        table.add_column("Field", style="cyan")
+        table.add_column("Value")
+
+        decision_style = (
+            "[green]" if policy.decision.value == "allowed"
+            else "[red]" if policy.is_blocked
+            else "[yellow]"
+        )
+        table.add_row("Decision", f"{decision_style}{policy.decision.value}[/]")
+        table.add_row("Source", policy.source_name)
+        table.add_row("URL", policy.url[:80])
+        table.add_row("Request Type", policy.request_type)
+        table.add_row("Mode", policy.retrieval_mode)
+        table.add_row("Compliance Passed", str(policy.compliance_passed))
+        table.add_row("Robots Passed", str(policy.robots_passed))
+        table.add_row("Robots Unknown", str(policy.robots_unknown))
+        table.add_row("Rate Limit Passed", str(policy.rate_limit_passed))
+        table.add_row("Dry-Run Approved", str(policy.dry_run_approved))
+        table.add_row("Fixture Capture Recommended", str(policy.fixture_capture_recommended))
+
+        if policy.suggested_fixture_path:
+            table.add_row("Suggested Fixture Path", policy.suggested_fixture_path)
+
+        console.print(table)
+
+        if policy.reasons:
+            console.print("\n[bold]Reasons:[/bold]")
+            for reason in policy.reasons:
+                severity_style = {
+                    "error": "[red]",
+                    "warning": "[yellow]",
+                    "info": "[dim]",
+                }.get(reason.severity, "")
+                console.print(
+                    f"  {severity_style}[{reason.severity}][/] {reason.message}"
+                )
+
+        console.print(
+            "\n[dim]No network calls performed. network_call_performed=False[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="list-fixture-capture-queue")
+def list_fixture_capture_queue_cmd(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    source: Optional[str] = typer.Option(
+        None, "--source", help="Filter by source site"
+    ),
+) -> None:
+    """List pending fixture capture requests."""
+    from marketsentry.fixture_capture_queue import (
+        get_capture_request_count,
+        list_pending_capture_requests,
+    )
+
+    try:
+        requests = list_pending_capture_requests(
+            source_site=source, database_path=db
+        )
+
+        console.print("\n[bold blue]Fixture Capture Queue (Pending)[/bold blue]\n")
+
+        if not requests:
+            console.print("[dim]No pending capture requests.[/dim]")
+            return
+
+        table = Table(title=f"Pending Capture Requests ({len(requests)})")
+        table.add_column("ID", style="cyan", justify="right")
+        table.add_column("Source")
+        table.add_column("URL")
+        table.add_column("Type")
+        table.add_column("Suggested Path")
+        table.add_column("Priority", justify="right")
+        table.add_column("Created")
+
+        for req in requests:
+            url_display = req.get("source_url", "")
+            if len(url_display) > 60:
+                url_display = url_display[:57] + "..."
+            table.add_row(
+                str(req.get("capture_request_id", "")),
+                req.get("source_site", ""),
+                url_display,
+                req.get("request_type", ""),
+                req.get("suggested_fixture_path", ""),
+                str(req.get("priority", "")),
+                str(req.get("created_at", ""))[:19],
+            )
+
+        console.print(table)
+
+        total = get_capture_request_count(database_path=db)
+        pending = get_capture_request_count(status="pending", database_path=db)
+        console.print(f"\n[dim]Total: {total} | Pending: {pending}[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="export-fixture-capture-queue")
+def export_fixture_capture_queue_cmd(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory (default: data/exports)"
+    ),
+) -> None:
+    """Export fixture capture queue to CSV."""
+    from marketsentry.fixture_capture_queue import export_capture_queue_csv
+
+    try:
+        output_path = export_capture_queue_csv(
+            output_dir=output_dir, database_path=db
+        )
+        console.print(
+            f"\n[bold green]Fixture capture queue exported to:[/bold green] {output_path}"
+        )
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="mark-fixture-captured")
+def mark_fixture_captured_cmd(
+    capture_request_id: int = typer.Option(
+        ..., "--capture-request-id", help="Capture request ID to mark"
+    ),
+    fixture_path: Optional[str] = typer.Option(
+        None, "--fixture-path", help="Path to the captured fixture file"
+    ),
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Mark a fixture capture request as captured."""
+    from marketsentry.fixture_capture_queue import mark_fixture_captured
+
+    try:
+        updated = mark_fixture_captured(
+            capture_request_id=capture_request_id,
+            fixture_path=fixture_path,
+            database_path=db,
+        )
+        if updated:
+            console.print(
+                f"\n[bold green]Capture request {capture_request_id} marked as captured.[/bold green]"
+            )
+            if fixture_path:
+                console.print(f"  Fixture path: {fixture_path}")
+        else:
+            console.print(
+                f"\n[bold yellow]Capture request {capture_request_id} not found.[/bold yellow]"
+            )
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="retrieval-audit-report")
+def retrieval_audit_report_cmd(
+    audit_dir: Optional[str] = typer.Option(
+        None, "--audit-dir", help="Audit log directory (default: logs/retrieval_audit)"
+    ),
+) -> None:
+    """Summarize retrieval audit logs."""
+    from marketsentry.source_adapters.audit_report import generate_audit_report
+
+    try:
+        report = generate_audit_report(audit_dir=audit_dir)
+
+        console.print("\n[bold blue]Retrieval Audit Report[/bold blue]\n")
+
+        table = Table(title="Audit Summary")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Count", justify="right", style="magenta")
+
+        table.add_row("Total Decisions", str(report["total_decisions"]))
+        table.add_row("Allowed", str(report["allowed_count"]))
+        table.add_row("Blocked", str(report["blocked_count"]))
+        table.add_row("Dry-Runs", str(report["dry_run_count"]))
+        table.add_row("Live Attempts", str(report["live_attempt_count"]))
+        table.add_row("Network Calls (True)", str(report["network_call_true_count"]))
+        table.add_row("Network Calls (False)", str(report["network_call_false_count"]))
+        table.add_row("Files Scanned", str(report["files_scanned"]))
+
+        console.print(table)
+
+        # Sources breakdown
+        sources = report.get("sources", {})
+        if sources:
+            src_table = Table(title="By Source")
+            src_table.add_column("Source", style="cyan")
+            src_table.add_column("Count", justify="right")
+            for src, count in sorted(sources.items()):
+                src_table.add_row(src, str(count))
+            console.print(src_table)
+
+        # Modes breakdown
+        modes = report.get("modes", {})
+        if modes:
+            mode_table = Table(title="By Mode")
+            mode_table.add_column("Mode", style="cyan")
+            mode_table.add_column("Count", justify="right")
+            for mode, count in sorted(modes.items()):
+                mode_table.add_row(mode, str(count))
+            console.print(mode_table)
+
+        # Blocked reasons
+        blocked_reasons = report.get("blocked_reasons", {})
+        if blocked_reasons:
+            console.print("\n[bold]Blocked Reasons:[/bold]")
+            for reason, count in sorted(blocked_reasons.items(), key=lambda x: -x[1]):
+                reason_display = reason[:100] if len(reason) > 100 else reason
+                console.print(f"  [{count}x] {reason_display}")
+
+        console.print(
+            "\n[dim]No network calls are performed by this command.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

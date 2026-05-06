@@ -22,6 +22,12 @@ from marketsentry.source_adapters.compliance import (
     check_retrieval_compliance,
     write_audit_record,
 )
+from marketsentry.source_adapters.dry_run_approval import record_dry_run_approval
+from marketsentry.source_adapters.policy import (
+    FixtureCaptureRequest,
+    evaluate_retrieval_policy,
+    suggest_fixture_path,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -326,6 +332,34 @@ class RedfinAdapter(SourceAdapter):
             network_call_performed=False,
         )
 
+        # Record dry-run approval for future live retrieval gate
+        compliance_summary = "blocked" if compliance.blocked else "would_be_allowed"
+        record_dry_run_approval(
+            source_site="redfin",
+            url=request.url,
+            request_type=request.request_type,
+            compliance_status=compliance_summary,
+            allowed=True,
+            blocked=compliance.blocked,
+            reasons=compliance.reasons,
+        )
+
+        # Add fixture capture request if live retrieval would be blocked
+        if compliance.blocked:
+            try:
+                from marketsentry.fixture_capture_queue import add_capture_request
+
+                add_capture_request(
+                    FixtureCaptureRequest(
+                        source_site="redfin",
+                        source_url=request.url,
+                        request_type=request.request_type,
+                        reason="Live retrieval blocked; manual fixture capture recommended.",
+                    )
+                )
+            except Exception:
+                pass  # Queue add is best-effort; don't block dry-run
+
         return result
 
     def retrieve_search(self, url: str) -> RetrievalResult:
@@ -397,6 +431,21 @@ class RedfinAdapter(SourceAdapter):
                 dry_run=False,
                 network_call_performed=False,
             )
+
+            # Add fixture capture request as fallback
+            try:
+                from marketsentry.fixture_capture_queue import add_capture_request
+
+                add_capture_request(
+                    FixtureCaptureRequest(
+                        source_site="redfin",
+                        source_url=request.url,
+                        request_type=request.request_type,
+                        reason=f"Live retrieval blocked: {reason}",
+                    )
+                )
+            except Exception:
+                pass  # Queue add is best-effort
 
             return RetrievalResult(
                 source_name="redfin",

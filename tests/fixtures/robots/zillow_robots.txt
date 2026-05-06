@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /user/
+Disallow: /myzillow/
+Disallow: /webservice/
+Allow: /homedetails/
+
+User-agent: BadBot
+Disallow: /

@@ -6,11 +6,13 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Live Retrieval Strategy and Compliance Adapters (MVP 14)
+## Current Milestone: Retrieval Safety Enforcement and Fixture Capture Queue (MVP 15)
 
-This milestone implements the compliance-aware source adapter architecture and dry-run retrieval framework. Live retrieval is disabled by default. No active scraping, network calls, or browser automation is performed.
+This milestone hardens the compliance foundation from Milestone 14 by adding retrieval policy checks, offline robots policy parsing, deterministic rate limiting, dry-run approval gating, manual fixture capture queue, and retrieval audit reporting. Live retrieval is still not implemented. No active scraping, network calls, or browser automation is performed.
 
 **Status:** ✅ Complete
+
+See [docs/FIXTURE_CAPTURE_QUEUE.md](docs/FIXTURE_CAPTURE_QUEUE.md) for the fixture capture queue guide.
 
 See [docs/LIVE_RETRIEVAL_STRATEGY.md](docs/LIVE_RETRIEVAL_STRATEGY.md) for the complete retrieval strategy guide.
 
@@ -517,6 +519,43 @@ marketsentry dry-run-redfin-property --url "https://www.redfin.com/CA/Temecula/.
 ```
 
 See [docs/LIVE_RETRIEVAL_STRATEGY.md](docs/LIVE_RETRIEVAL_STRATEGY.md) for the complete retrieval strategy guide.
+
+### MVP 15: Retrieval Safety Enforcement and Fixture Capture Queue
+
+- ✅ Retrieval policy engine combining compliance, robots, rate limiting, and dry-run approval
+- ✅ Offline robots.txt policy parser (local fixture files only, no network calls)
+- ✅ Deterministic rate limiter with injectable state (no sleeping in tests)
+- ✅ Dry-run approval/history gate with CSV-based approval records
+- ✅ Fixture capture queue (SQLite-backed) as primary safe fallback workflow
+- ✅ Redfin adapter integration with policy engine and fixture capture queue
+- ✅ Retrieval audit report summarizer
+- ✅ Robots test fixtures (redfin, zillow, empty, block-all)
+- ✅ CLI commands: `retrieval-policy-check`, `list-fixture-capture-queue`, `export-fixture-capture-queue`, `mark-fixture-captured`, `retrieval-audit-report`
+- ✅ No active scraping, network calls, or browser automation
+- ✅ Live retrieval remains disabled by default
+
+**Fixture capture queue is the primary safe fallback.** When live retrieval is blocked, the system adds URLs to a local queue and tells you exactly which pages to save manually and where to put them.
+
+**Safety CLI Commands:**
+
+```bash
+# Check retrieval policy for a URL
+marketsentry retrieval-policy-check --source redfin --url "https://www.redfin.com/..." --mode live_http
+
+# List pending fixture capture requests
+marketsentry list-fixture-capture-queue
+
+# Export fixture capture queue to CSV
+marketsentry export-fixture-capture-queue
+
+# Mark a capture request as done
+marketsentry mark-fixture-captured --capture-request-id 1 --fixture-path "data/raw/redfin/details/my_property.html"
+
+# View retrieval audit report
+marketsentry retrieval-audit-report
+```
+
+See [docs/FIXTURE_CAPTURE_QUEUE.md](docs/FIXTURE_CAPTURE_QUEUE.md) for the complete fixture capture queue guide.
 
 ### Effective DOM v1 Metrics
 
@@ -1354,7 +1393,13 @@ Market_Sentry/
 │       │   ├── realtor_adapter.py         # Realtor.com stub
 │       │   ├── homes_adapter.py           # Homes.com stub
 │       │   ├── compass_adapter.py         # Compass stub
-│       │   └── county_adapter.py          # County stub
+│       │   ├── county_adapter.py          # County stub
+│       │   ├── policy.py                  # Retrieval policy engine
+│       │   ├── robots_policy.py           # Offline robots.txt parser
+│       │   ├── rate_limiter.py            # Deterministic rate limiter
+│       │   ├── dry_run_approval.py        # Dry-run approval gate
+│       │   └── audit_report.py            # Retrieval audit reporting
+│       ├── fixture_capture_queue.py       # Fixture capture queue
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
     ├── fixtures/                       # Test fixtures
@@ -1388,7 +1433,8 @@ Market_Sentry/
     ├── test_milestone_11.py           # End-to-end workflow tests
     ├── test_milestone_12.py           # Dashboard and report viewer tests
     ├── test_milestone_13.py           # Windows Task Scheduler automation tests
-    └── test_milestone_14.py           # Live retrieval strategy tests
+    ├── test_milestone_14.py           # Live retrieval strategy tests
+    └── test_milestone_15.py           # Retrieval safety and fixture capture queue tests
 ```
 
 ## Running Tests
@@ -1434,11 +1480,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 15: (To Be Determined)
+### MVP 16: (To Be Determined)
 
-Milestones 1-14 are complete. Future milestones may include live Redfin data retrieval implementation, authorized API integrations, or enhanced analytical workflows.
+Milestones 1-15 are complete. Future milestones may include live Redfin data retrieval implementation, authorized API integrations, or enhanced analytical workflows.
 
-**Note:** Milestone 14 (Live Retrieval Strategy and Compliance Adapters) is now complete.
+**Note:** Milestone 15 (Retrieval Safety Enforcement and Fixture Capture Queue) is now complete.
 
 ## Repository
 
@@ -1471,6 +1517,7 @@ MIT
   - [Decision 011: Local Dashboard and Report Viewer](docs/decisions/011-local-dashboard-report-viewer.md)
   - [Decision 012: Windows Task Scheduler Automation](docs/decisions/012-windows-task-scheduler-automation.md)
   - [Decision 013: Live Retrieval Strategy and Compliance Adapters](docs/decisions/013-live-retrieval-strategy-and-compliance-adapters.md)
+  - [Decision 014: Retrieval Safety and Fixture Capture Queue](docs/decisions/014-retrieval-safety-and-fixture-capture-queue.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

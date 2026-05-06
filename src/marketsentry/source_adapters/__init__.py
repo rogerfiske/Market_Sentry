@@ -23,13 +23,27 @@ from marketsentry.source_adapters.compliance import (
     check_retrieval_compliance,
     get_compliance_status,
 )
+from marketsentry.source_adapters.policy import (
+    DryRunApprovalRecord,
+    FixtureCaptureQueueResult,
+    FixtureCaptureRequest,
+    RetrievalPolicy,
+    RetrievalPolicyDecision,
+    RetrievalPolicyReason,
+)
 from marketsentry.source_adapters.registry import SourceAdapterRegistry, get_registry
 
 __all__ = [
     "ComplianceCheckResult",
+    "DryRunApprovalRecord",
+    "FixtureCaptureQueueResult",
+    "FixtureCaptureRequest",
     "RateLimitConfig",
     "RetrievalComplianceConfig",
     "RetrievalMode",
+    "RetrievalPolicy",
+    "RetrievalPolicyDecision",
+    "RetrievalPolicyReason",
     "RetrievalRequest",
     "RetrievalResult",
     "RobotsCheckResult",

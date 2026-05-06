@@ -1,0 +1,11 @@
+User-agent: *
+Disallow: /account/
+Disallow: /api/
+Disallow: /stingray/
+Allow: /
+
+User-agent: MarketSentry
+Disallow: /account/
+Disallow: /api/
+Allow: /city/
+Allow: /CA/
