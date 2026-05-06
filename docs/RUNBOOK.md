@@ -325,6 +325,70 @@ marketsentry dashboard-summary
 - Low Vibrancy alone is not sufficient. Quiet must also be high.
 - The system will not recommend a property that fails the Quiet gatekeeper, even if all other metrics look favorable.
 
+## Windows Task Scheduler Automation
+
+Market_Sentry supports scheduled execution of local workflows using Windows Task Scheduler.
+
+### Checking Automation Status
+
+```bash
+marketsentry automation-status
+```
+
+Shows project root, Python executable, virtualenv, database path, available scripts, and latest scheduled log.
+
+### Running Workflows Manually via Scripts
+
+```cmd
+cd C:\Users\Minis\CascadeProjects\Market_Sentry
+
+REM Run watchlist refresh
+scripts\run_watchlist_refresh_workflow.bat
+
+REM Run dashboard summary
+scripts\run_dashboard_summary.bat
+
+REM Run initial review
+scripts\run_initial_review_workflow.bat
+
+REM Run fixture demo
+scripts\run_fixture_demo_workflow.bat
+```
+
+### Installing the Weekly Scheduled Task
+
+```powershell
+# Default: weekly Saturday 9:00 AM
+powershell -ExecutionPolicy Bypass -File scripts\install_task_scheduler_watchlist_refresh.ps1
+
+# Custom day and time
+powershell -ExecutionPolicy Bypass -File scripts\install_task_scheduler_watchlist_refresh.ps1 -DayOfWeek Monday -Time "08:00"
+```
+
+### Removing the Scheduled Task
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\uninstall_task_scheduler_watchlist_refresh.ps1
+```
+
+### Scheduled Logs
+
+Logs are written to `logs/scheduled/` with timestamped filenames:
+
+```text
+logs/scheduled/watchlist_refresh_20260506_090000.log
+logs/scheduled/dashboard_summary_20260505_143000.log
+```
+
+### What Scheduled Tasks Do NOT Do
+
+- No live web scraping or network calls.
+- No Playwright, Selenium, or browser automation.
+- No purchase recommendations.
+- All tasks operate on local data only.
+
+See [docs/WINDOWS_TASK_SCHEDULER.md](WINDOWS_TASK_SCHEDULER.md) for the complete automation guide.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any live web scraping, browser automation, or active network retrieval. All property data must be manually saved as HTML fixtures or entered as CSV imports. This is by design for the current milestone.

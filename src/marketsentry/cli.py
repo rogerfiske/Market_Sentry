@@ -1486,6 +1486,104 @@ def persist_effective_dom_v2(
         raise typer.Exit(code=1)
 
 
+@app.command(name="automation-status")
+def automation_status_cmd() -> None:
+    """Print automation environment status for scheduled task setup."""
+    from marketsentry.automation import get_automation_status
+
+    try:
+        status = get_automation_status()
+
+        console.print("\n[bold blue]Market_Sentry Automation Status[/bold blue]")
+        console.print(f"  Project Root:      {status.project_root}")
+        console.print(f"  Python Executable: {status.python_executable}")
+        console.print(
+            f"  Virtualenv:        {status.virtualenv_path or 'Not detected'}"
+        )
+        console.print(f"  Database Path:     {status.database_path}")
+        console.print(f"  Exports Directory: {status.exports_directory}")
+        console.print(f"  Scheduled Logs:    {status.scheduled_logs_directory}")
+        console.print(f"  Scripts Directory: {status.scripts_directory}")
+
+        # Script status
+        if status.scripts_found:
+            scripts_table = Table(title="Task Scheduler Scripts")
+            scripts_table.add_column("Script", style="cyan")
+            scripts_table.add_column("Status")
+
+            for script in status.scripts_found:
+                scripts_table.add_row(script, "[green]found[/green]")
+            for script in status.scripts_missing:
+                scripts_table.add_row(script, "[red]missing[/red]")
+
+            console.print(scripts_table)
+        else:
+            console.print("\n[yellow]No scripts found in scripts/ directory.[/yellow]")
+
+        # Latest scheduled log
+        if status.latest_scheduled_log:
+            console.print(f"\n[bold blue]Latest Scheduled Log:[/bold blue]")
+            console.print(f"  {status.latest_scheduled_log}")
+            if status.latest_scheduled_log_preview:
+                console.print(f"\n[dim]{status.latest_scheduled_log_preview}[/dim]")
+        else:
+            console.print("\n[dim]No scheduled logs found.[/dim]")
+
+        console.print(
+            "\n[dim]Scheduled tasks run local workflows only. "
+            "No live scraping or network calls.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Automation status error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="write-scheduler-scripts")
+def write_scheduler_scripts_cmd() -> None:
+    """Validate that expected scheduler scripts exist and print paths."""
+    from marketsentry.automation import validate_scripts_exist, get_project_root
+
+    try:
+        root = get_project_root()
+        scripts_dir = root / "scripts"
+        results = validate_scripts_exist(root)
+
+        console.print("\n[bold blue]Market_Sentry Scheduler Scripts[/bold blue]")
+        console.print(f"  Scripts Directory: {scripts_dir}\n")
+
+        all_found = True
+        for script_name, exists in results.items():
+            if exists:
+                script_path = scripts_dir / script_name
+                console.print(f"  [green]OK[/green]  {script_path}")
+            else:
+                console.print(f"  [red]MISSING[/red]  {scripts_dir / script_name}")
+                all_found = False
+
+        if all_found:
+            console.print(
+                "\n[bold green]All expected scripts are present.[/bold green]"
+            )
+            console.print(
+                "\n[dim]To install weekly watchlist refresh task:[/dim]"
+            )
+            console.print(
+                f"  powershell -ExecutionPolicy Bypass -File "
+                f'"{scripts_dir / "install_task_scheduler_watchlist_refresh.ps1"}"'
+            )
+        else:
+            console.print(
+                "\n[bold yellow]Some scripts are missing.[/bold yellow]"
+            )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Write scheduler scripts error: {e}")
+        raise typer.Exit(code=1)
+
+
 @app.command(name="launch-dashboard")
 def launch_dashboard_cmd(
     db: Optional[str] = typer.Option(

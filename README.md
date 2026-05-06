@@ -6,13 +6,13 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Local Review Dashboard and Report Viewer (MVP 12)
+## Current Milestone: Windows Task Scheduler Automation (MVP 13)
 
-This milestone adds a local Streamlit dashboard for reviewing candidates, watched properties, monitoring reports, Effective DOM v1/v2 comparison, county verification, cross-site discrepancies, report manifests, and workflow summaries in a browser interface.
+This milestone adds Windows Task Scheduler automation support for existing local workflows, including batch scripts, PowerShell install/uninstall scripts, a Python automation helper module, and CLI commands for checking automation status.
 
 **Status:** ✅ Complete
 
-The dashboard reads local SQLite database and CSV reports only. It does not scrape, fetch external data, or make purchase recommendations.
+All scheduled tasks run local workflows only. No live scraping, network calls, or browser automation is performed.
 
 See [docs/RUNBOOK.md](docs/RUNBOOK.md) for the complete operating guide.
 
@@ -434,6 +434,55 @@ marketsentry dashboard-summary
 - **Cross-Site Review**: Price/status/DOM discrepancy flags across sites
 - **Reports**: Report manifest with timestamps and row counts
 - **Workflow Summaries**: Preview of workflow summary markdown files
+
+### MVP 13: Windows Task Scheduler Automation
+
+- ✅ Python automation helper module (`automation.py`) with path detection, command building, and status reporting
+- ✅ Windows batch scripts for all workflows (`run_watchlist_refresh_workflow.bat`, `run_initial_review_workflow.bat`, `run_dashboard_summary.bat`, `run_fixture_demo_workflow.bat`)
+- ✅ PowerShell scheduled task installer (`install_task_scheduler_watchlist_refresh.ps1`)
+- ✅ PowerShell scheduled task uninstaller (`uninstall_task_scheduler_watchlist_refresh.ps1`)
+- ✅ Generic PowerShell task wrapper (`run_marketsentry_task.ps1`)
+- ✅ CLI commands: `automation-status`, `write-scheduler-scripts`
+- ✅ Timestamped scheduled log files under `logs/scheduled/`
+- ✅ Default schedule: weekly Saturday 9:00 AM (configurable)
+- ✅ No live scraping or network calls - all tasks run local workflows only
+
+**Automation reads local files/database only.** No scraping, fetching, or purchase recommendations.
+
+**Automation CLI Commands:**
+
+```bash
+# Check automation environment and script status
+marketsentry automation-status
+
+# Validate that all scheduler scripts exist
+marketsentry write-scheduler-scripts
+```
+
+**Manual Script Execution:**
+
+```cmd
+REM Run watchlist refresh manually
+scripts\run_watchlist_refresh_workflow.bat
+
+REM Run dashboard summary
+scripts\run_dashboard_summary.bat
+```
+
+**Scheduled Task Installation:**
+
+```powershell
+# Install weekly watchlist refresh (Saturday 9:00 AM)
+powershell -ExecutionPolicy Bypass -File scripts\install_task_scheduler_watchlist_refresh.ps1
+
+# Custom schedule (Monday 8:00 AM)
+powershell -ExecutionPolicy Bypass -File scripts\install_task_scheduler_watchlist_refresh.ps1 -DayOfWeek Monday -Time "08:00"
+
+# Remove scheduled task
+powershell -ExecutionPolicy Bypass -File scripts\uninstall_task_scheduler_watchlist_refresh.ps1
+```
+
+See [docs/WINDOWS_TASK_SCHEDULER.md](docs/WINDOWS_TASK_SCHEDULER.md) for the complete automation guide.
 
 ### Effective DOM v1 Metrics
 
@@ -1202,6 +1251,14 @@ Market_Sentry/
 ├── .env.example               # Example configuration
 ├── .gitignore
 ├── pyproject.toml             # Project metadata and build config
+├── scripts/                   # Automation scripts
+│   ├── run_watchlist_refresh_workflow.bat
+│   ├── run_initial_review_workflow.bat
+│   ├── run_dashboard_summary.bat
+│   ├── run_fixture_demo_workflow.bat
+│   ├── run_marketsentry_task.ps1
+│   ├── install_task_scheduler_watchlist_refresh.ps1
+│   └── uninstall_task_scheduler_watchlist_refresh.ps1
 ├── data/                      # Data directories
 │   ├── raw/
 │   ├── processed/
@@ -1209,6 +1266,7 @@ Market_Sentry/
 │   └── imports/
 ├── db/                        # SQLite database location
 ├── logs/                      # Application logs
+│   └── scheduled/             # Scheduled task logs
 ├── docs/                      # Documentation
 │   ├── prompts/
 │   ├── decisions/
@@ -1251,6 +1309,7 @@ Market_Sentry/
 │       ├── workflow.py                    # End-to-end workflow orchestration
 │       ├── dashboard.py                   # Dashboard data loading and preparation
 │       ├── dashboard_app.py               # Streamlit dashboard application
+│       ├── automation.py                  # Windows Task Scheduler automation helpers
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
     ├── fixtures/                       # Test fixtures
@@ -1282,7 +1341,8 @@ Market_Sentry/
     ├── test_monitoring.py
     ├── test_milestone_10.py           # v2 operational integration tests
     ├── test_milestone_11.py           # End-to-end workflow tests
-    └── test_milestone_12.py           # Dashboard and report viewer tests
+    ├── test_milestone_12.py           # Dashboard and report viewer tests
+    └── test_milestone_13.py           # Windows Task Scheduler automation tests
 ```
 
 ## Running Tests
@@ -1328,11 +1388,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 13: (To Be Determined)
+### MVP 14: (To Be Determined)
 
-Milestones 1-12 are complete. Future milestones may include live data retrieval, automated scheduling, or additional analytical workflows.
+Milestones 1-13 are complete. Future milestones may include live Redfin data retrieval, additional analytical workflows, or enhanced reporting.
 
-**Note:** Milestone 12 (Local Review Dashboard and Report Viewer) is now complete.
+**Note:** Milestone 13 (Windows Task Scheduler Automation) is now complete.
 
 ## Repository
 
@@ -1363,6 +1423,7 @@ MIT
   - [Decision 009: Effective DOM v2 Operational Integration](docs/decisions/009-effective-dom-v2-operational-integration.md)
   - [Decision 010: End-to-End Operating Workflow](docs/decisions/010-end-to-end-operating-workflow.md)
   - [Decision 011: Local Dashboard and Report Viewer](docs/decisions/011-local-dashboard-report-viewer.md)
+  - [Decision 012: Windows Task Scheduler Automation](docs/decisions/012-windows-task-scheduler-automation.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.
