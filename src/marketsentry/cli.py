@@ -1699,5 +1699,225 @@ def dashboard_summary_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command(name="source-adapters")
+def source_adapters_cmd() -> None:
+    """Print registered source adapters and their supported modes."""
+    from marketsentry.source_adapters.registry import get_registry
+
+    try:
+        registry = get_registry()
+        adapters = registry.list_adapters()
+
+        console.print("\n[bold blue]Market_Sentry Source Adapters[/bold blue]\n")
+
+        table = Table(title="Registered Adapters")
+        table.add_column("Source", style="cyan")
+        table.add_column("Display Name")
+        table.add_column("Current Mode")
+        table.add_column("Supported Modes")
+        table.add_column("Search")
+        table.add_column("Detail")
+        table.add_column("Notes")
+
+        for adapter in adapters:
+            modes = ", ".join(m.value for m in adapter.get_supported_modes())
+            table.add_row(
+                adapter.source_name,
+                adapter.display_name,
+                adapter.current_mode.value,
+                modes,
+                "yes" if adapter.config.supports_search else "no",
+                "yes" if adapter.config.supports_property_detail else "no",
+                adapter.config.notes[:50] if adapter.config.notes else "",
+            )
+
+        console.print(table)
+        console.print(
+            f"\n[dim]Total adapters: {len(adapters)}. "
+            "Live retrieval is disabled by default.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="retrieval-compliance-status")
+def retrieval_compliance_status_cmd() -> None:
+    """Print retrieval compliance configuration status."""
+    from marketsentry.source_adapters.compliance import get_compliance_status
+
+    try:
+        status = get_compliance_status()
+
+        console.print("\n[bold blue]Retrieval Compliance Status[/bold blue]\n")
+
+        table = Table(title="Compliance Configuration")
+        table.add_column("Setting", style="cyan")
+        table.add_column("Value")
+
+        enabled = status["live_retrieval_globally_enabled"]
+        enabled_str = (
+            "[red]ENABLED[/red]" if enabled else "[green]disabled (safe)[/green]"
+        )
+        table.add_row("Live retrieval globally enabled", enabled_str)
+
+        sources = status["allowed_live_sources"]
+        sources_str = ", ".join(sources) if sources else "(none)"
+        table.add_row("Allowed live sources", sources_str)
+
+        ua = status["user_agent_configured"]
+        table.add_row(
+            "User-Agent configured",
+            "[green]yes[/green]" if ua else "[yellow]no[/yellow]",
+        )
+        table.add_row("User-Agent", str(status["user_agent"]))
+
+        contact = status["contact_email_configured"]
+        table.add_row(
+            "Contact email configured",
+            "[green]yes[/green]" if contact else "[yellow]no[/yellow]",
+        )
+        table.add_row("Contact email", str(status["contact_email"]))
+
+        table.add_row(
+            "Max requests per minute", str(status["max_requests_per_minute"])
+        )
+
+        dry_run = status["dry_run_required_before_live"]
+        table.add_row(
+            "Dry-run required before live",
+            "[green]yes[/green]" if dry_run else "[yellow]no[/yellow]",
+        )
+
+        table.add_row("Retrieval audit directory", str(status["retrieval_audit_dir"]))
+
+        console.print(table)
+
+        # Warnings
+        warnings = status.get("warnings", [])
+        if warnings:
+            console.print("\n[bold yellow]Warnings:[/bold yellow]")
+            for warning in warnings:
+                console.print(f"  - {warning}")
+
+        # Overall status
+        blocked = status["live_retrieval_blocked"]
+        if blocked:
+            console.print(
+                "\n[bold green]Live retrieval is BLOCKED (safe default).[/bold green]"
+            )
+        else:
+            potentially = status["live_retrieval_potentially_allowed"]
+            if potentially:
+                console.print(
+                    "\n[bold red]Live retrieval is POTENTIALLY ALLOWED. "
+                    "Use with caution.[/bold red]"
+                )
+            else:
+                console.print(
+                    "\n[bold yellow]Live retrieval is enabled but missing "
+                    "required configuration.[/bold yellow]"
+                )
+
+        console.print(
+            "\n[dim]No network calls are performed by this command.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="dry-run-redfin-search")
+def dry_run_redfin_search_cmd(
+    url: str = typer.Option(
+        ..., "--url", help="Redfin search URL to preview"
+    ),
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", help="Output file path (optional)"
+    ),
+) -> None:
+    """Dry-run preview for a Redfin search page retrieval.
+
+    Validates the URL and shows what would be retrieved without
+    making any network calls.
+    """
+    from marketsentry.source_adapters.redfin_adapter import RedfinAdapter
+
+    try:
+        adapter = RedfinAdapter()
+        result = adapter.dry_run_search(url)
+
+        console.print("\n[bold blue]Redfin Search Dry-Run Preview[/bold blue]\n")
+
+        if result.blocked:
+            console.print(f"[bold red]BLOCKED:[/bold red] {result.block_reason}")
+        else:
+            console.print(result.dry_run_preview)
+
+        if result.compliance_warnings:
+            console.print("\n[bold yellow]Compliance Warnings:[/bold yellow]")
+            for warning in result.compliance_warnings:
+                console.print(f"  - {warning}")
+
+        console.print(
+            "\n[dim]No network call was performed. "
+            "network_call_performed=False[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="dry-run-redfin-property")
+def dry_run_redfin_property_cmd(
+    url: str = typer.Option(
+        ..., "--url", help="Redfin property URL to preview"
+    ),
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", help="Output file path (optional)"
+    ),
+) -> None:
+    """Dry-run preview for a Redfin property detail page retrieval.
+
+    Validates the URL and shows what would be retrieved without
+    making any network calls.
+    """
+    from marketsentry.source_adapters.redfin_adapter import RedfinAdapter
+
+    try:
+        adapter = RedfinAdapter()
+        result = adapter.dry_run_property_detail(url)
+
+        console.print("\n[bold blue]Redfin Property Detail Dry-Run Preview[/bold blue]\n")
+
+        if result.blocked:
+            console.print(f"[bold red]BLOCKED:[/bold red] {result.block_reason}")
+        else:
+            console.print(result.dry_run_preview)
+
+        if result.compliance_warnings:
+            console.print("\n[bold yellow]Compliance Warnings:[/bold yellow]")
+            for warning in result.compliance_warnings:
+                console.print(f"  - {warning}")
+
+        console.print(
+            "\n[dim]No network call was performed. "
+            "network_call_performed=False[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

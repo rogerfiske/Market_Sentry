@@ -6,13 +6,13 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Windows Task Scheduler Automation (MVP 13)
+## Current Milestone: Live Retrieval Strategy and Compliance Adapters (MVP 14)
 
-This milestone adds Windows Task Scheduler automation support for existing local workflows, including batch scripts, PowerShell install/uninstall scripts, a Python automation helper module, and CLI commands for checking automation status.
+This milestone implements the compliance-aware source adapter architecture and dry-run retrieval framework. Live retrieval is disabled by default. No active scraping, network calls, or browser automation is performed.
 
 **Status:** ✅ Complete
 
-All scheduled tasks run local workflows only. No live scraping, network calls, or browser automation is performed.
+See [docs/LIVE_RETRIEVAL_STRATEGY.md](docs/LIVE_RETRIEVAL_STRATEGY.md) for the complete retrieval strategy guide.
 
 See [docs/RUNBOOK.md](docs/RUNBOOK.md) for the complete operating guide.
 
@@ -483,6 +483,40 @@ powershell -ExecutionPolicy Bypass -File scripts\uninstall_task_scheduler_watchl
 ```
 
 See [docs/WINDOWS_TASK_SCHEDULER.md](docs/WINDOWS_TASK_SCHEDULER.md) for the complete automation guide.
+
+### MVP 14: Live Retrieval Strategy and Compliance Adapters
+
+- ✅ Source adapter architecture (`source_adapters/` package) with base abstractions
+- ✅ Compliance guardrails module with retrieval blocking, domain allowlisting, rate limit validation
+- ✅ Redfin adapter skeleton with dry-run search and property detail previews
+- ✅ Stub adapters for Zillow, Realtor.com, Homes.com, Compass, and County
+- ✅ Source adapter registry with lookup by name
+- ✅ Retrieval audit logging to `logs/retrieval_audit/` (CSV format)
+- ✅ CLI commands: `source-adapters`, `retrieval-compliance-status`, `dry-run-redfin-search`, `dry-run-redfin-property`
+- ✅ Environment variable configuration for live retrieval settings
+- ✅ Live retrieval disabled by default — requires explicit opt-in
+- ✅ All audit records have `network_call_performed=False`
+- ✅ No active scraping, network calls, or browser automation
+
+**Live retrieval is disabled by default.** Manual fixtures remain the default safe workflow.
+
+**Retrieval CLI Commands:**
+
+```bash
+# List registered source adapters
+marketsentry source-adapters
+
+# Check compliance configuration
+marketsentry retrieval-compliance-status
+
+# Preview a Redfin search retrieval (no network call)
+marketsentry dry-run-redfin-search --url "https://www.redfin.com/city/19701/CA/Temecula/filter/..."
+
+# Preview a Redfin property retrieval (no network call)
+marketsentry dry-run-redfin-property --url "https://www.redfin.com/CA/Temecula/.../home/6574263"
+```
+
+See [docs/LIVE_RETRIEVAL_STRATEGY.md](docs/LIVE_RETRIEVAL_STRATEGY.md) for the complete retrieval strategy guide.
 
 ### Effective DOM v1 Metrics
 
@@ -1310,6 +1344,17 @@ Market_Sentry/
 │       ├── dashboard.py                   # Dashboard data loading and preparation
 │       ├── dashboard_app.py               # Streamlit dashboard application
 │       ├── automation.py                  # Windows Task Scheduler automation helpers
+│       ├── source_adapters/               # Live retrieval strategy
+│       │   ├── __init__.py
+│       │   ├── base.py                    # Base abstractions
+│       │   ├── compliance.py              # Compliance guardrails
+│       │   ├── registry.py                # Adapter registry
+│       │   ├── redfin_adapter.py          # Redfin adapter with dry-run
+│       │   ├── zillow_adapter.py          # Zillow stub
+│       │   ├── realtor_adapter.py         # Realtor.com stub
+│       │   ├── homes_adapter.py           # Homes.com stub
+│       │   ├── compass_adapter.py         # Compass stub
+│       │   └── county_adapter.py          # County stub
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
     ├── fixtures/                       # Test fixtures
@@ -1342,7 +1387,8 @@ Market_Sentry/
     ├── test_milestone_10.py           # v2 operational integration tests
     ├── test_milestone_11.py           # End-to-end workflow tests
     ├── test_milestone_12.py           # Dashboard and report viewer tests
-    └── test_milestone_13.py           # Windows Task Scheduler automation tests
+    ├── test_milestone_13.py           # Windows Task Scheduler automation tests
+    └── test_milestone_14.py           # Live retrieval strategy tests
 ```
 
 ## Running Tests
@@ -1388,11 +1434,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 14: (To Be Determined)
+### MVP 15: (To Be Determined)
 
-Milestones 1-13 are complete. Future milestones may include live Redfin data retrieval, additional analytical workflows, or enhanced reporting.
+Milestones 1-14 are complete. Future milestones may include live Redfin data retrieval implementation, authorized API integrations, or enhanced analytical workflows.
 
-**Note:** Milestone 13 (Windows Task Scheduler Automation) is now complete.
+**Note:** Milestone 14 (Live Retrieval Strategy and Compliance Adapters) is now complete.
 
 ## Repository
 
@@ -1424,6 +1470,7 @@ MIT
   - [Decision 010: End-to-End Operating Workflow](docs/decisions/010-end-to-end-operating-workflow.md)
   - [Decision 011: Local Dashboard and Report Viewer](docs/decisions/011-local-dashboard-report-viewer.md)
   - [Decision 012: Windows Task Scheduler Automation](docs/decisions/012-windows-task-scheduler-automation.md)
+  - [Decision 013: Live Retrieval Strategy and Compliance Adapters](docs/decisions/013-live-retrieval-strategy-and-compliance-adapters.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

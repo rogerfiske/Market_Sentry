@@ -389,6 +389,49 @@ logs/scheduled/dashboard_summary_20260505_143000.log
 
 See [docs/WINDOWS_TASK_SCHEDULER.md](WINDOWS_TASK_SCHEDULER.md) for the complete automation guide.
 
+## Live Retrieval Strategy
+
+Market_Sentry includes a compliance-aware source adapter architecture for future live data retrieval. **Live retrieval is disabled by default.**
+
+### Checking Compliance Status
+
+```bash
+marketsentry retrieval-compliance-status
+```
+
+Shows whether live retrieval is blocked, allowed sources, User-Agent, rate limits, and warnings.
+
+### Dry-Run Preview Commands
+
+```bash
+# Preview Redfin search retrieval (no network call)
+marketsentry dry-run-redfin-search --url "https://www.redfin.com/city/19701/CA/Temecula/filter/..."
+
+# Preview Redfin property detail retrieval (no network call)
+marketsentry dry-run-redfin-property --url "https://www.redfin.com/CA/Temecula/.../home/6574263"
+
+# List all registered source adapters
+marketsentry source-adapters
+```
+
+### Retrieval Audit Logs
+
+All retrieval decisions are logged to `logs/retrieval_audit/` as CSV files. Each record shows whether a request was allowed or blocked and whether a network call was performed.
+
+### Enabling Live Retrieval (Future)
+
+Live retrieval requires explicit environment variable configuration:
+
+```ini
+MARKETSENTRY_LIVE_RETRIEVAL_ENABLED=true
+MARKETSENTRY_ALLOWED_LIVE_SOURCES=redfin
+MARKETSENTRY_LIVE_USER_AGENT=MarketSentry/1.0
+MARKETSENTRY_LIVE_CONTACT_EMAIL=user@example.com
+MARKETSENTRY_MAX_REQUESTS_PER_MINUTE=6
+```
+
+See [LIVE_RETRIEVAL_STRATEGY.md](LIVE_RETRIEVAL_STRATEGY.md) for the complete retrieval strategy guide.
+
 ## No Live Scraping Warning
 
-Market_Sentry does not perform any live web scraping, browser automation, or active network retrieval. All property data must be manually saved as HTML fixtures or entered as CSV imports. This is by design for the current milestone.
+Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval. Live retrieval is disabled by default. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled in a future milestone.
