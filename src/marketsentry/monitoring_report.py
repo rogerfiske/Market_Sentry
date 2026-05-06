@@ -31,7 +31,7 @@ def export_watchlist_monitoring_report(
     if not output_path:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = str(
-            Path(config.export_path) / f"watchlist_monitoring_{timestamp}.csv"
+            Path(config.data_exports_dir) / f"watchlist_monitoring_{timestamp}.csv"
         )
 
     # Ensure export directory exists

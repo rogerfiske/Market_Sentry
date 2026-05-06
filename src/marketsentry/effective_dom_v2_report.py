@@ -45,7 +45,7 @@ def export_effective_dom_v2_report(
     if not output_path:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = str(
-            Path(config.export_path) / f"effective_dom_v2_{timestamp}.csv"
+            Path(config.data_exports_dir) / f"effective_dom_v2_{timestamp}.csv"
         )
 
     # Ensure export directory exists

@@ -43,7 +43,7 @@ def export_county_verification_report(
     if not output_path:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = str(
-            Path(config.export_path) / f"county_verification_{timestamp}.csv"
+            Path(config.data_exports_dir) / f"county_verification_{timestamp}.csv"
         )
 
     # Ensure export directory exists

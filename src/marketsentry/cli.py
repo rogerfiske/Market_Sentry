@@ -900,7 +900,7 @@ def export_watchlist_monitoring_report(
             from datetime import datetime
             from pathlib import Path
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_path = str(Path(config.export_path) / f"watchlist_monitoring_{timestamp}.csv")
+            output_path = str(Path(config.data_exports_dir) / f"watchlist_monitoring_{timestamp}.csv")
         else:
             output_path = output
 
@@ -1097,7 +1097,7 @@ def export_county_verification_report(
             from datetime import datetime
             from pathlib import Path
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_path = str(Path(config.export_path) / f"county_verification_{timestamp}.csv")
+            output_path = str(Path(config.data_exports_dir) / f"county_verification_{timestamp}.csv")
         else:
             output_path = output
 
@@ -1190,7 +1190,7 @@ def export_effective_dom_v2_report(
             from datetime import datetime
             from pathlib import Path
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_path = str(Path(config.export_path) / f"effective_dom_v2_{timestamp}.csv")
+            output_path = str(Path(config.data_exports_dir) / f"effective_dom_v2_{timestamp}.csv")
         else:
             output_path = output
 

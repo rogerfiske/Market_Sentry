@@ -64,6 +64,11 @@ class Config(BaseModel):
             effective_dom_lookback_days=int(os.getenv("EFFECTIVE_DOM_LOOKBACK_DAYS", "365")),
         )
 
+    @property
+    def export_path(self) -> str:
+        """Alias for data_exports_dir for backward compatibility."""
+        return self.data_exports_dir
+
     def ensure_directories(self) -> None:
         """Create required directories if they don't exist."""
         dirs = [
