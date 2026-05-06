@@ -222,6 +222,60 @@ marketsentry workflow-status
 
 Shows database table counts and latest exported reports.
 
+## Using the Local Dashboard
+
+The local dashboard provides a browser-based interface for reviewing all Market_Sentry data.
+
+### Requirements
+
+Install Streamlit if not already installed:
+
+```bash
+pip install streamlit
+```
+
+### Launching the Dashboard
+
+```bash
+# Via CLI command
+marketsentry launch-dashboard
+
+# Or directly with Streamlit
+streamlit run src/marketsentry/dashboard_app.py
+
+# Custom port
+marketsentry launch-dashboard --port 8502
+```
+
+The dashboard opens in your default browser at `http://localhost:8501`.
+
+### Dashboard Summary (No Browser)
+
+For a quick text-based summary without opening a browser:
+
+```bash
+marketsentry dashboard-summary
+```
+
+### Dashboard Sections
+
+- **Overview**: Summary counts for candidates, watched properties, snapshots, county resets, churn, and quiet gatekeeper failures.
+- **Candidate Review**: Filterable table of all candidates with scoring, gatekeeper results, gas service, DOM, and churn columns. Use sidebar filters to narrow by recommendation, decision, gas service, quiet/vibrancy thresholds, and churn index.
+- **Watchlist**: Filterable table of watched properties with priority, active status, v1/v2 DOM, and churn. Filter by priority, active status, quiet score, churn threshold, and county reset.
+- **Monitoring**: Latest monitoring report showing price/status/DOM changes across snapshots.
+- **Effective DOM v2**: v1 vs v2 comparison with county reset dates and churn preservation.
+- **County Verification**: County recorder/assessor evidence for watched properties.
+- **Cross-Site Review**: Price, status, and DOM discrepancy flags across Zillow, Realtor, Homes, Compass.
+- **Reports**: Report manifest showing all generated reports with timestamps and row counts.
+- **Workflow Summaries**: Preview of workflow summary markdown files from previous runs.
+
+### What the Dashboard Does Not Do
+
+- The dashboard does not scrape websites or make network calls.
+- The dashboard does not make purchase recommendations.
+- The dashboard does not infer seller intent.
+- All data comes from the local SQLite database and CSV reports.
+
 ## How to Interpret Reports
 
 ### Candidate Analysis Report

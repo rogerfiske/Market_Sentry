@@ -1486,5 +1486,120 @@ def persist_effective_dom_v2(
         raise typer.Exit(code=1)
 
 
+@app.command(name="launch-dashboard")
+def launch_dashboard_cmd(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    exports_dir: Optional[str] = typer.Option(
+        None, "--exports-dir", help="Exports directory (default: from config)"
+    ),
+    port: int = typer.Option(
+        8501, "--port", help="Port for Streamlit server"
+    ),
+) -> None:
+    """Launch the local review dashboard in a browser.
+
+    Starts a Streamlit app that reads local database and CSV reports only.
+    No network calls or scraping.
+    """
+    import subprocess
+    import sys
+
+    app_path = Path(__file__).parent / "dashboard_app.py"
+
+    if not app_path.exists():
+        console.print(f"[bold red]Error:[/bold red] Dashboard app not found at {app_path}")
+        raise typer.Exit(code=1)
+
+    cmd = [
+        sys.executable, "-m", "streamlit", "run",
+        str(app_path),
+        "--server.port", str(port),
+        "--server.headless", "false",
+    ]
+
+    console.print(f"[bold blue]Launching dashboard...[/bold blue]")
+    console.print(f"  App: {app_path}")
+    console.print(f"  Port: {port}")
+    console.print(f"  URL: http://localhost:{port}")
+    console.print(f"\n[dim]Press Ctrl+C to stop the dashboard.[/dim]")
+
+    try:
+        subprocess.run(cmd, check=True)
+    except FileNotFoundError:
+        console.print(
+            "\n[bold red]Error:[/bold red] Streamlit is not installed."
+        )
+        console.print("Install it with: pip install streamlit")
+        raise typer.Exit(code=1)
+    except KeyboardInterrupt:
+        console.print("\n[bold blue]Dashboard stopped.[/bold blue]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"[bold red]Error:[/bold red] Dashboard exited with code {e.returncode}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="dashboard-summary")
+def dashboard_summary_cmd(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Print ASCII-safe dashboard summary without launching browser UI."""
+    from marketsentry.dashboard import get_dashboard_summary
+
+    try:
+        summary = get_dashboard_summary(database_path)
+
+        console.print(f"\n[bold blue]Market_Sentry Dashboard Summary[/bold blue]")
+        console.print(f"  Database: {summary.database_path}")
+        console.print(f"  Exists: {summary.database_exists}")
+
+        if not summary.database_exists:
+            console.print(
+                "\n[yellow]Database not found. Run 'marketsentry init-database' first.[/yellow]"
+            )
+            return
+
+        # Table counts
+        table = Table(title="Database Counts")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Count", justify="right", style="magenta")
+
+        table.add_row("Candidates in Review Queue", str(summary.candidates_total))
+        table.add_row("Watched Properties (Total)", str(summary.watched_total))
+        table.add_row("Watched Properties (Active)", str(summary.watched_active))
+        table.add_row("High Priority Watched", str(summary.high_priority_watched))
+        table.add_row("Observation Snapshots", str(summary.snapshots_total))
+        table.add_row("Cross-Site Observations", str(summary.cross_site_observations))
+        table.add_row("County Records", str(summary.county_records))
+        table.add_row("Listing Events", str(summary.listing_events))
+
+        console.print(table)
+
+        # Analytics
+        analytics = Table(title="Analytics")
+        analytics.add_column("Metric", style="cyan")
+        analytics.add_column("Count", justify="right", style="magenta")
+
+        analytics.add_row("Quiet Gatekeeper Failures", str(summary.quiet_gatekeeper_failures))
+        analytics.add_row("Strong Review Candidates", str(summary.strong_review_candidates))
+        analytics.add_row("County Reset Applied", str(summary.county_reset_applied_count))
+        analytics.add_row("High Churn (>= 6.0)", str(summary.high_churn_count))
+        analytics.add_row("Reports in Manifest", str(summary.reports_in_manifest))
+
+        console.print(analytics)
+
+        console.print(
+            "\n[dim]This is an analytical summary, not a purchase recommendation.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Dashboard summary error: {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

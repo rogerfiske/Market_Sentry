@@ -6,11 +6,13 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: End-to-End Operating Workflow and Runbook (MVP 11)
+## Current Milestone: Local Review Dashboard and Report Viewer (MVP 12)
 
-This milestone adds end-to-end workflow orchestration, a user-facing runbook, report manifests, and workflow summary generation. It makes the existing pipeline easy to use from a single command without adding live data retrieval.
+This milestone adds a local Streamlit dashboard for reviewing candidates, watched properties, monitoring reports, Effective DOM v1/v2 comparison, county verification, cross-site discrepancies, report manifests, and workflow summaries in a browser interface.
 
 **Status:** ✅ Complete
+
+The dashboard reads local SQLite database and CSV reports only. It does not scrape, fetch external data, or make purchase recommendations.
 
 See [docs/RUNBOOK.md](docs/RUNBOOK.md) for the complete operating guide.
 
@@ -394,6 +396,44 @@ marketsentry run-fixture-demo-workflow --reset-demo-db
 # Check workflow status (table counts and latest reports)
 marketsentry workflow-status
 ```
+
+### MVP 12: Local Review Dashboard and Report Viewer
+
+- ✅ Streamlit-based local dashboard for browser-based review
+- ✅ Dashboard data loading module (`dashboard.py`) with typed models
+- ✅ Dashboard sections: Overview, Candidate Review, Watchlist, Monitoring, Effective DOM v2, County Verification, Cross-Site Review, Reports, Workflow Summaries
+- ✅ Interactive sidebar filters for candidates and watchlist
+- ✅ CLI commands: `launch-dashboard`, `dashboard-summary`
+- ✅ Report manifest viewer and workflow summary preview
+- ✅ No live network calls - reads local SQLite and CSV only
+- ✅ Not a purchase recommendation tool
+
+**Dashboard reads local files/database only.** No scraping, fetching, or purchase recommendations.
+
+**Dashboard CLI Commands:**
+
+```bash
+# Launch the local Streamlit dashboard in a browser
+marketsentry launch-dashboard
+
+# Or run directly with Streamlit
+streamlit run src/marketsentry/dashboard_app.py
+
+# Print ASCII-safe dashboard summary (no browser needed)
+marketsentry dashboard-summary
+```
+
+**Dashboard Sections:**
+
+- **Overview**: Summary counts (candidates, watched, snapshots, county resets, churn, quiet failures)
+- **Candidate Review**: Filterable table with scoring, gatekeeper, gas, DOM, churn columns
+- **Watchlist**: Filterable table with priority, active status, v1/v2, churn filters
+- **Monitoring**: Latest monitoring report with price/status/DOM changes
+- **Effective DOM v2**: v1 vs v2 comparison with county reset and churn preservation
+- **County Verification**: County transfer evidence and reset support
+- **Cross-Site Review**: Price/status/DOM discrepancy flags across sites
+- **Reports**: Report manifest with timestamps and row counts
+- **Workflow Summaries**: Preview of workflow summary markdown files
 
 ### Effective DOM v1 Metrics
 
@@ -1209,6 +1249,8 @@ Market_Sentry/
 │       ├── monitoring_report.py        # Monitoring report generation
 │       ├── effective_dom_v2_persistence.py  # v2 operational persistence
 │       ├── workflow.py                    # End-to-end workflow orchestration
+│       ├── dashboard.py                   # Dashboard data loading and preparation
+│       ├── dashboard_app.py               # Streamlit dashboard application
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
     ├── fixtures/                       # Test fixtures
@@ -1239,7 +1281,8 @@ Market_Sentry/
     ├── test_cross_site_report.py
     ├── test_monitoring.py
     ├── test_milestone_10.py           # v2 operational integration tests
-    └── test_milestone_11.py           # End-to-end workflow tests
+    ├── test_milestone_11.py           # End-to-end workflow tests
+    └── test_milestone_12.py           # Dashboard and report viewer tests
 ```
 
 ## Running Tests
@@ -1285,11 +1328,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 12: (To Be Determined)
+### MVP 13: (To Be Determined)
 
-Milestones 1-11 are complete. Future milestones may include live data retrieval, automated scheduling, enhanced visualization, or additional analytical workflows.
+Milestones 1-12 are complete. Future milestones may include live data retrieval, automated scheduling, or additional analytical workflows.
 
-**Note:** Milestone 11 (End-to-End Operating Workflow and Runbook) is now complete.
+**Note:** Milestone 12 (Local Review Dashboard and Report Viewer) is now complete.
 
 ## Repository
 
@@ -1319,6 +1362,7 @@ MIT
   - [Decision 006: Watchlist Monitoring Snapshots](docs/decisions/006-watchlist-monitoring-snapshots.md)
   - [Decision 009: Effective DOM v2 Operational Integration](docs/decisions/009-effective-dom-v2-operational-integration.md)
   - [Decision 010: End-to-End Operating Workflow](docs/decisions/010-end-to-end-operating-workflow.md)
+  - [Decision 011: Local Dashboard and Report Viewer](docs/decisions/011-local-dashboard-report-viewer.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.
