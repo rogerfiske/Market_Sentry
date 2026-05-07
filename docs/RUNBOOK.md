@@ -712,6 +712,55 @@ Reports are saved to `data/exports/`.
 
 The dashboard is read-only. No retrieval actions are triggered from it.
 
+## Retrieval Health Checks
+
+Health checks surface stale items, missing configuration, audit anomalies, and next recommended actions.
+
+### Run Health Checks
+
+```bash
+marketsentry retrieval-health-check
+```
+
+Shows issue counts by severity, stale capture requests, stale approval packages, unprocessed fixtures, missing policy files, audit anomalies, and next actions.
+
+### Export Health Report
+
+```bash
+# Markdown report
+marketsentry export-retrieval-health-report
+
+# CSV report
+marketsentry export-retrieval-health-report --format csv
+```
+
+Reports are saved to `data/exports/retrieval_health_YYYYMMDD_HHMMSS.md` or `.csv`.
+
+### What Is Checked
+
+- **Stale capture requests**: Pending items older than 7 days (configurable)
+- **Stale approval packages**: Packages with unretrieved approved rows older than 24 hours
+- **Unprocessed fixtures**: Retrieved HTML files not yet in the processing manifest, older than 24 hours
+- **Missing policy files**: Missing `data/policies/robots/redfin_robots.txt` when live retrieval is enabled or capture queue has pending items
+- **Missing config**: Live retrieval enabled but User-Agent or contact email not set
+- **Audit anomalies**: Any `network_call_performed=true` in audit logs (critical)
+- **Repeated blocks**: URLs blocked 3+ times in batch retrieval items
+
+### Severity Levels
+
+| Severity | Meaning |
+|----------|---------|
+| info | Informational, no action needed |
+| warning | Stale items or minor config gaps |
+| error | Missing required config when live retrieval is enabled |
+| critical | Unexpected network calls in audit logs |
+
+### Dashboard
+
+The Health Checks tab in the Retrieval Operations dashboard section shows issue counts, the issues table, and next actions.
+
+Health checks are read-only. No write or mutation actions.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

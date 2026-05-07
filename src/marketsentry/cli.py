@@ -2894,5 +2894,77 @@ def export_retrieval_operations_report(
         raise typer.Exit(code=1)
 
 
+# ---------------------------------------------------------------------------
+# Milestone 21: Retrieval Health Checks CLI
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def retrieval_health_check(
+    db: Optional[str] = typer.Option(None, "--db", help="Path to database file."),
+    audit_dir: Optional[str] = typer.Option(None, "--audit-dir", help="Path to audit log directory."),
+    processed_dir: Optional[str] = typer.Option(None, "--processed-dir", help="Path to processed data directory."),
+    raw_dir: Optional[str] = typer.Option(None, "--raw-dir", help="Path to raw data directory."),
+) -> None:
+    """Run retrieval health checks and display results.
+
+    Checks for stale capture requests, stale approval packages, unprocessed
+    fixtures, missing policy files, audit anomalies, and repeated blocks.
+    Read-only. No network calls.
+    """
+    from marketsentry.retrieval_health import (
+        format_retrieval_health_summary,
+        run_retrieval_health_checks,
+    )
+
+    try:
+        summary = run_retrieval_health_checks(
+            database_path=db,
+            audit_dir=audit_dir,
+            processed_dir=processed_dir,
+            raw_dir=raw_dir,
+        )
+        output = format_retrieval_health_summary(summary)
+        console.print(output)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_retrieval_health_report(
+    db: Optional[str] = typer.Option(None, "--db", help="Path to database file."),
+    audit_dir: Optional[str] = typer.Option(None, "--audit-dir", help="Path to audit log directory."),
+    processed_dir: Optional[str] = typer.Option(None, "--processed-dir", help="Path to processed data directory."),
+    raw_dir: Optional[str] = typer.Option(None, "--raw-dir", help="Path to raw data directory."),
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", help="Output directory for the report."),
+    report_format: str = typer.Option("md", "--format", help="Report format: md or csv."),
+) -> None:
+    """Export a retrieval health report to a file.
+
+    Runs all health checks and exports issues and next actions as a
+    Markdown or CSV report. Read-only. No network calls.
+    """
+    from marketsentry.retrieval_health import (
+        export_retrieval_health_report as _export_report,
+    )
+
+    try:
+        report_path = _export_report(
+            database_path=db,
+            audit_dir=audit_dir,
+            processed_dir=processed_dir,
+            raw_dir=raw_dir,
+            output_dir=output_dir,
+            report_format=report_format,
+        )
+        console.print(f"Health report exported to: {report_path}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

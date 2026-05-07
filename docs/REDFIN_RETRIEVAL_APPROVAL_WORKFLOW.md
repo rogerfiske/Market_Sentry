@@ -190,6 +190,18 @@ Live retrieval remains a conscious, manual decision requiring human oversight.
 | "BLOCKED: requires --force-live" | Add `--force-live` to the command |
 | "No approved rows to retrieve" | Edit the CSV and set approved_for_live=true for desired items |
 
+## Stale Approval Package Guidance
+
+Approval packages with unretrieved approved rows older than 24 hours are flagged by the retrieval health check. Policy checks are re-evaluated at retrieval time, so stale approvals may fail if policy conditions changed.
+
+To check for stale approvals:
+
+```bash
+marketsentry retrieval-health-check
+```
+
+If an approval package is stale, re-run `marketsentry prepare-redfin-retrieval-approval` to generate a fresh package with current policy evaluations.
+
 ## Compliance Warnings
 
 - **Do not bypass access controls.** If a page requires login, do not approve it for retrieval.

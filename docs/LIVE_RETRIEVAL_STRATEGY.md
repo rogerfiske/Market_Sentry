@@ -301,3 +301,43 @@ marketsentry retrieval-audit-report
 ```
 
 Summarizes all retrieval decisions from `logs/retrieval_audit/` including counts of allowed/blocked decisions, sources, modes, and reasons.
+
+## Retrieval Health Checks (Milestone 21)
+
+Health checks surface stale items, missing configuration, audit anomalies, and operator guidance.
+
+### Health Check Command
+
+```bash
+marketsentry retrieval-health-check
+```
+
+### Health Report
+
+```bash
+marketsentry export-retrieval-health-report
+marketsentry export-retrieval-health-report --format csv
+```
+
+Reports saved to `data/exports/retrieval_health_YYYYMMDD_HHMMSS.md` or `.csv`.
+
+### Issue Severities
+
+| Severity | Examples |
+| -------- | -------- |
+| info | Informational, no action needed |
+| warning | Stale pending capture requests, stale approval packages, unprocessed fixtures |
+| error | Missing robots policy while live retrieval enabled, missing User-Agent or contact email |
+| critical | Unexpected `network_call_performed=true` in audit logs |
+
+### Stale Approval Guidance
+
+Approval packages with unretrieved approved rows older than 24 hours are flagged. Policy checks are re-evaluated at retrieval time, so stale approvals may no longer pass. Re-run `marketsentry prepare-redfin-retrieval-approval` to generate a fresh package.
+
+### Missing Robots Policy Guidance
+
+When live retrieval is enabled or the capture queue has pending Redfin items, a missing `data/policies/robots/redfin_robots.txt` file is flagged. Save Redfin's robots.txt locally before attempting live retrieval.
+
+### Audit Anomaly Guidance
+
+Any audit record with `network_call_performed=true` is flagged as critical. Network calls should only occur during explicit `--force-live` retrieval commands. Investigate the audit log entry to confirm the call was intentional.

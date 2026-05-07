@@ -147,6 +147,22 @@ Filter by source site, request type, and status. Or use the CLI:
 marketsentry retrieval-operations-summary
 ```
 
+## Stale Pending Item Guidance
+
+Pending capture requests older than 7 days are flagged by the retrieval health check. To review stale items:
+
+```bash
+marketsentry retrieval-health-check
+```
+
+For each stale pending request, you can:
+
+1. **Capture it**: Browse to the URL, save the page, and mark it captured.
+2. **Skip it**: If the URL is no longer relevant, mark it as skipped via the database or a future CLI command.
+3. **Batch retrieve**: Use `marketsentry prepare-redfin-retrieval-approval` to create an approval package for pending items.
+
+The default stale threshold is 7 days. Items in `captured`, `skipped`, `invalid`, or `archived` status are not flagged.
+
 ## What the Queue Does Not Do
 
 - Does not fetch web pages or make network calls (batch retrieval requires explicit opt-in).

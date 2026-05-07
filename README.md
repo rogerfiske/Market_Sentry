@@ -6,16 +6,26 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Retrieval Operations Dashboard (MVP 20)
+## Current Milestone: Retrieval Health Checks (MVP 21)
 
-This milestone adds read-only visibility into the retrieval ecosystem through the existing Streamlit dashboard and CLI.
+This milestone adds retrieval operations aging, alerts, and health checks as a read-only observability layer.
+
+- Health check module: `retrieval_health.py` with configurable thresholds
+- Checks: stale capture requests, stale approval packages, unprocessed fixtures, missing policy files, audit anomalies, repeated blocks
+- Severity levels: info, warning, error, critical
+- Next actions: prioritized operator guidance
+- CLI: `marketsentry retrieval-health-check`
+- CLI: `marketsentry export-retrieval-health-report`
+- Dashboard: Health Checks tab in Retrieval Operations section
+- Read-only. No scheduled live retrieval.
+
+### MVP 20: Retrieval Operations Dashboard
 
 - Dashboard section: Retrieval Operations with Overview, Fixture Capture Queue, Approval Packages, Batch Retrieval Runs, Per-Item Results, Retrieval Audit, Retrieved Fixtures
 - CLI: `marketsentry retrieval-operations-summary`
 - CLI: `marketsentry export-retrieval-operations-report`
 - Safety indicators: live retrieval enabled/disabled, allowed sources, User-Agent, rate limits
 - Read-only. No retrieval actions from the dashboard.
-- No scheduled live retrieval.
 
 ### MVP 19: Redfin Batch Retrieval Approval Workflow
 

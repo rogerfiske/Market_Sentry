@@ -393,6 +393,7 @@ def _render_retrieval_operations(db_path: str, exports_dir: str) -> None:
             "Per-Item Results",
             "Retrieval Audit",
             "Retrieved Fixtures",
+            "Health Checks",
         ],
         horizontal=True,
     )
@@ -550,6 +551,68 @@ def _render_retrieval_operations(db_path: str, exports_dir: str) -> None:
             df = pd.DataFrame(inv.rows)
             display_cols = [c for c in inv.columns if c in df.columns]
             st.dataframe(df[display_cols] if display_cols else df, use_container_width=True)
+
+    elif tab == "Health Checks":
+        from marketsentry.retrieval_health import run_retrieval_health_checks
+
+        st.subheader("Retrieval Health Checks")
+        st.caption("Read-only health check results. No write actions.")
+
+        health = run_retrieval_health_checks(database_path=db_path)
+
+        # Severity metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Issues", health.total_issues)
+        with col2:
+            st.metric("Warning", health.warning_count)
+        with col3:
+            st.metric("Error", health.error_count)
+        with col4:
+            st.metric("Critical", health.critical_count)
+
+        # Category metrics
+        st.subheader("Category Counts")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Stale Captures", health.stale_capture_request_count)
+            st.metric("Stale Approvals", health.stale_approval_package_count)
+        with col2:
+            st.metric("Unprocessed Fixtures", health.unprocessed_fixture_count)
+            st.metric("Audit Anomalies", health.audit_anomaly_count)
+        with col3:
+            st.metric("Missing Policies", health.missing_policy_count)
+            st.metric("Repeated Blocks", health.repeated_block_count)
+
+        # Issues table
+        if health.issues:
+            st.subheader("Issues")
+            issue_data = [
+                {
+                    "severity": i.severity,
+                    "category": i.category,
+                    "message": i.message,
+                    "detail": i.detail,
+                    "source": i.source,
+                }
+                for i in health.issues
+            ]
+            st.dataframe(
+                pd.DataFrame(issue_data), use_container_width=True
+            )
+        else:
+            st.success("No health issues found.")
+
+        # Next actions
+        if health.next_actions:
+            st.subheader("Next Actions")
+            for action in health.next_actions:
+                st.write(
+                    f"**{action.priority}.** {action.action} -- "
+                    f"{action.reason}"
+                )
+                if action.command:
+                    st.code(action.command, language="bash")
 
 
 if __name__ == "__main__":
