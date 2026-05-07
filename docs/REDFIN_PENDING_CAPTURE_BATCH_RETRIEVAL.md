@@ -170,3 +170,42 @@ Plus a local robots policy file at `data/policies/robots/redfin_robots.txt`.
 ## Scheduled Tasks
 
 No scheduled task invokes batch retrieval by default. Batch retrieval must be a conscious, manual decision.
+
+## Approval Workflow (Milestone 19)
+
+Milestone 19 adds a two-step approval workflow that provides per-item human review before batch live retrieval.
+
+### Prepare Approval Package
+
+```bash
+marketsentry prepare-redfin-retrieval-approval
+marketsentry prepare-redfin-retrieval-approval --max-items 10
+marketsentry prepare-redfin-retrieval-approval --request-type property_detail
+```
+
+This dry-runs pending Redfin capture items and writes:
+
+- `data/exports/retrieval_approvals/redfin_batch_approval_<run_id>.csv` - User-editable approval CSV
+- `data/exports/retrieval_approvals/redfin_batch_approval_<run_id>.md` - Markdown summary
+
+### Edit Approval CSV
+
+Open the CSV and set `approved_for_live=true` for items you want to retrieve. Save the CSV.
+
+### Retrieve Approved Items
+
+```bash
+marketsentry retrieve-approved-redfin-batch \
+    --approval-file "data/exports/retrieval_approvals/redfin_batch_approval_<run_id>.csv" \
+    --force-live
+```
+
+### Approval Safety Rules
+
+- `approved_for_live` defaults to `false` for every item.
+- `--force-live` is required for network calls.
+- All policy checks are re-evaluated at retrieval time.
+- URL and capture request validation is enforced.
+- No scheduled scripts invoke approved retrieval.
+
+See [REDFIN_RETRIEVAL_APPROVAL_WORKFLOW.md](REDFIN_RETRIEVAL_APPROVAL_WORKFLOW.md) for the complete guide.

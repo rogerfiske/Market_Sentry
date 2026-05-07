@@ -620,6 +620,53 @@ marketsentry retrieve-pending-redfin-fixtures
 
 See [REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md](REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md) for the complete guide.
 
+## Redfin Retrieval Approval Workflow
+
+The approval workflow adds a two-step human review process before batch live retrieval.
+
+### Step 1: Prepare Approval Package
+
+```bash
+marketsentry prepare-redfin-retrieval-approval
+marketsentry prepare-redfin-retrieval-approval --max-items 10
+marketsentry prepare-redfin-retrieval-approval --request-type property_detail
+```
+
+This dry-runs pending Redfin capture items and writes an approval CSV with `approved_for_live=false`. No network calls are made.
+
+### Step 2: Review and Approve
+
+Open the approval CSV in a spreadsheet editor. For items you want to retrieve, change `approved_for_live` from `false` to `true`. Save the CSV.
+
+### Step 3: Retrieve Approved Items
+
+```bash
+# Retrieve approved items only
+marketsentry retrieve-approved-redfin-batch \
+    --approval-file "data/exports/retrieval_approvals/redfin_batch_approval_<run_id>.csv" \
+    --force-live
+
+# Retrieve and process
+marketsentry retrieve-approved-redfin-batch \
+    --approval-file "data/exports/retrieval_approvals/redfin_batch_approval_<run_id>.csv" \
+    --force-live --process-after-retrieval
+
+# Validate and preview only
+marketsentry retrieve-approved-redfin-batch \
+    --approval-file "data/exports/retrieval_approvals/redfin_batch_approval_<run_id>.csv" \
+    --dry-run-only
+```
+
+### Approval Safety Rules
+
+- `approved_for_live` defaults to `false` for every item.
+- `--force-live` is required for network calls.
+- All policy checks are re-evaluated at retrieval time.
+- URL and capture request must still match the queue.
+- No scheduled scripts invoke approved retrieval.
+
+See [REDFIN_RETRIEVAL_APPROVAL_WORKFLOW.md](REDFIN_RETRIEVAL_APPROVAL_WORKFLOW.md) for the complete guide.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

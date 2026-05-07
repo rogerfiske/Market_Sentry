@@ -6,7 +6,20 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Redfin Pending Capture Batch Retrieval (MVP 18)
+## Current Milestone: Redfin Batch Retrieval Approval Workflow (MVP 19)
+
+This milestone adds a two-step approval workflow for Redfin batch live retrieval: prepare an approval CSV with dry-run results, let the user review and approve selected items, then retrieve only approved items with `--force-live`.
+
+- Prepare approval package: `marketsentry prepare-redfin-retrieval-approval`
+- User reviews CSV and sets `approved_for_live=true` for selected items
+- Retrieve approved items: `marketsentry retrieve-approved-redfin-batch --approval-file <path> --force-live`
+- All policy checks (compliance, robots, rate limit, dry-run approval) re-evaluated at retrieval time
+- `approved_for_live` defaults to `false` for every item
+- `--force-live` still required for any network calls
+- No scheduled tasks invoke approved retrieval
+- No browser automation or bypass mechanisms
+
+### MVP 18: Redfin Pending Capture Batch Retrieval
 
 This milestone adds a controlled batch orchestrator for pending Redfin fixture capture requests. The orchestrator processes capture queue items one at a time with full policy enforcement, rate limiting, and audit logging. Default mode is dry-run only.
 
@@ -23,8 +36,6 @@ See [docs/FIXTURE_CAPTURE_QUEUE.md](docs/FIXTURE_CAPTURE_QUEUE.md) for the fixtu
 See [docs/LIVE_RETRIEVAL_STRATEGY.md](docs/LIVE_RETRIEVAL_STRATEGY.md) for the complete retrieval strategy guide.
 
 See [docs/RUNBOOK.md](docs/RUNBOOK.md) for the complete operating guide.
-
-### MVP 18: Redfin Pending Capture Batch Retrieval
 
 - ✅ Batch orchestrator processes pending capture queue items one at a time
 - ✅ Three modes: dry_run_only (default), retrieve_only, retrieve_and_process

@@ -2734,5 +2734,97 @@ def retrieve_pending_redfin_fixtures_cmd(
         raise typer.Exit(code=1)
 
 
+# ---------------------------------------------------------------------------
+# Milestone 19: Redfin Batch Retrieval Approval Workflow
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def prepare_redfin_retrieval_approval(
+    max_items: int = typer.Option(0, "--max-items", help="Maximum items to include. 0 for no limit."),
+    request_type: Optional[str] = typer.Option(None, "--request-type", help="Filter by request type (search, property_detail)."),
+    db: Optional[str] = typer.Option(None, "--db", help="Path to database file."),
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", help="Output directory for approval files."),
+) -> None:
+    """Prepare a batch approval package for pending Redfin capture requests.
+
+    Dry-runs all pending Redfin capture queue items and writes an approval CSV
+    with approved_for_live=false. The user edits the CSV to approve selected
+    items, then runs retrieve-approved-redfin-batch to retrieve them.
+
+    No network calls are performed by this command.
+    """
+    from marketsentry.retrieval_approval import (
+        prepare_redfin_batch_approval_package,
+        summarize_approval_package,
+    )
+
+    try:
+        package = prepare_redfin_batch_approval_package(
+            max_items=max_items,
+            request_type=request_type,
+            database_path=db,
+            output_dir=output_dir,
+        )
+        summary = summarize_approval_package(package)
+        console.print(summary)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def retrieve_approved_redfin_batch(
+    approval_file: str = typer.Option(..., "--approval-file", help="Path to the user-edited approval CSV file."),
+    db: Optional[str] = typer.Option(None, "--db", help="Path to database file."),
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", help="Output directory for reports."),
+    force_live: bool = typer.Option(False, "--force-live", help="Enable live retrieval (required for network calls)."),
+    process_after_retrieval: bool = typer.Option(False, "--process-after-retrieval", help="Process fixtures after retrieval."),
+    dry_run_only: bool = typer.Option(False, "--dry-run-only", help="Validate and preview only, no retrieval."),
+) -> None:
+    """Retrieve only approved items from a batch approval CSV.
+
+    Loads the user-edited approval CSV, validates rows against the current
+    capture queue, and retrieves only items with approved_for_live=true.
+
+    Without --force-live, no network calls are performed.
+    With --dry-run-only, the command validates and previews only.
+    """
+    from marketsentry.retrieval_approval import (
+        retrieve_approved_redfin_batch as _retrieve_approved,
+        summarize_approved_retrieval_run,
+    )
+
+    if not force_live and not dry_run_only:
+        console.print(
+            "[bold yellow]BLOCKED:[/bold yellow] Approved retrieval requires --force-live flag.\n"
+            "\n"
+            "Without --force-live, no network calls are performed.\n"
+            "Use --dry-run-only to validate and preview the approval CSV.\n"
+            "Use --force-live to retrieve approved items (requires full config).\n"
+            "\n"
+            "All retrieval policy checks (compliance, robots, rate limit, dry-run\n"
+            "approval) are enforced per item even with --force-live.\n"
+        )
+        raise typer.Exit(code=0)
+
+    try:
+        result = _retrieve_approved(
+            approval_csv_path=approval_file,
+            force_live=force_live,
+            dry_run_only=dry_run_only,
+            process_after_retrieval=process_after_retrieval,
+            database_path=db,
+            output_dir=output_dir,
+        )
+        summary = summarize_approved_retrieval_run(result)
+        console.print(summary)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()
