@@ -2364,5 +2364,264 @@ def retrieval_audit_report_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command(name="process-redfin-retrieved-fixtures")
+def process_redfin_retrieved_fixtures_cmd(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path"
+    ),
+    search_dir: Optional[str] = typer.Option(
+        None, "--search-dir", help="Redfin search fixtures directory"
+    ),
+    details_dir: Optional[str] = typer.Option(
+        None, "--details-dir", help="Redfin detail fixtures directory"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory for reports"
+    ),
+    force_reprocess: bool = typer.Option(
+        False, "--force-reprocess", help="Reprocess even if content hash matches"
+    ),
+) -> None:
+    """Process retrieved Redfin fixtures through the local parsing pipeline.
+
+    Parses search and detail fixtures, inserts/enriches candidates,
+    recalculates metrics, exports reports. No live retrieval.
+    """
+    from marketsentry.retrieved_fixture_processor import (
+        process_redfin_retrieved_fixtures,
+    )
+
+    try:
+        result = process_redfin_retrieved_fixtures(
+            search_dir=search_dir,
+            details_dir=details_dir,
+            database_path=db,
+            output_dir=output_dir,
+            force_reprocess=force_reprocess,
+        )
+
+        console.print("\n[bold blue]Redfin Retrieved Fixture Processing[/bold blue]\n")
+
+        table = Table(title="Processing Summary")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Count", justify="right", style="magenta")
+
+        table.add_row("Search files scanned", str(result.search_files_scanned))
+        table.add_row("Search files processed", str(result.search_files_processed))
+        table.add_row("Detail files scanned", str(result.detail_files_scanned))
+        table.add_row("Detail files processed", str(result.detail_files_processed))
+        table.add_row("Candidates discovered", str(result.total_candidates_discovered))
+        table.add_row("Candidates inserted", str(result.total_candidates_inserted))
+        table.add_row("Duplicates skipped", str(result.total_duplicates_skipped))
+        table.add_row("Candidates enriched", str(result.total_candidates_enriched))
+        table.add_row("Listing events inserted", str(result.total_listing_events_inserted))
+        table.add_row("Reports exported", str(len(result.reports_exported)))
+        table.add_row("Capture queue marked", str(result.capture_queue_items_marked))
+
+        console.print(table)
+
+        if result.reports_exported:
+            console.print("\n[bold]Reports:[/bold]")
+            for rpt in result.reports_exported:
+                console.print(f"  {rpt}")
+
+        console.print(f"\nManifest: {result.manifest_path}")
+
+        if result.warnings:
+            console.print(f"\n[bold yellow]Warnings ({len(result.warnings)}):[/bold yellow]")
+            for w in result.warnings[:10]:
+                console.print(f"  - {w}")
+
+        if result.errors:
+            console.print(f"\n[bold red]Errors ({len(result.errors)}):[/bold red]")
+            for e in result.errors[:10]:
+                console.print(f"  - {e}")
+
+        console.print(
+            "\n[dim]No live retrieval was performed. "
+            "Processing uses local fixtures only.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="process-redfin-search-fixtures")
+def process_redfin_search_fixtures_cmd(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path"
+    ),
+    search_dir: Optional[str] = typer.Option(
+        None, "--search-dir", help="Redfin search fixtures directory"
+    ),
+    force_reprocess: bool = typer.Option(
+        False, "--force-reprocess", help="Reprocess even if content hash matches"
+    ),
+) -> None:
+    """Process Redfin search fixtures only. No live retrieval."""
+    from marketsentry.retrieved_fixture_processor import (
+        process_redfin_search_fixtures,
+    )
+
+    try:
+        result = process_redfin_search_fixtures(
+            search_dir=search_dir,
+            database_path=db,
+            force_reprocess=force_reprocess,
+        )
+
+        console.print("\n[bold blue]Redfin Search Fixture Processing[/bold blue]\n")
+        console.print(f"  Files scanned: {result.search_files_scanned}")
+        console.print(f"  Files processed: {result.search_files_processed}")
+        console.print(f"  Candidates discovered: {result.total_candidates_discovered}")
+        console.print(f"  Candidates inserted: {result.total_candidates_inserted}")
+        console.print(f"  Duplicates skipped: {result.total_duplicates_skipped}")
+        console.print(f"\n  Manifest: {result.manifest_path}")
+
+        if result.warnings:
+            console.print(f"\n[bold yellow]Warnings:[/bold yellow]")
+            for w in result.warnings[:5]:
+                console.print(f"  - {w}")
+
+        console.print(
+            "\n[dim]No live retrieval was performed.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="process-redfin-detail-fixtures")
+def process_redfin_detail_fixtures_cmd(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path"
+    ),
+    details_dir: Optional[str] = typer.Option(
+        None, "--details-dir", help="Redfin detail fixtures directory"
+    ),
+    force_reprocess: bool = typer.Option(
+        False, "--force-reprocess", help="Reprocess even if content hash matches"
+    ),
+) -> None:
+    """Process Redfin detail fixtures only. No live retrieval."""
+    from marketsentry.retrieved_fixture_processor import (
+        process_redfin_detail_fixtures,
+    )
+
+    try:
+        result = process_redfin_detail_fixtures(
+            details_dir=details_dir,
+            database_path=db,
+            force_reprocess=force_reprocess,
+        )
+
+        console.print("\n[bold blue]Redfin Detail Fixture Processing[/bold blue]\n")
+        console.print(f"  Files scanned: {result.detail_files_scanned}")
+        console.print(f"  Files processed: {result.detail_files_processed}")
+        console.print(f"  Candidates enriched: {result.total_candidates_enriched}")
+        console.print(f"  Listing events inserted: {result.total_listing_events_inserted}")
+        console.print(f"\n  Manifest: {result.manifest_path}")
+
+        if result.warnings:
+            console.print(f"\n[bold yellow]Warnings:[/bold yellow]")
+            for w in result.warnings[:5]:
+                console.print(f"  - {w}")
+
+        console.print(
+            "\n[dim]No live retrieval was performed.[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="retrieve-and-process-redfin-property")
+def retrieve_and_process_redfin_property_cmd(
+    url: str = typer.Option(
+        ..., "--url", help="Redfin property detail URL"
+    ),
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path"
+    ),
+    force_live: bool = typer.Option(
+        False, "--force-live", help="Attempt live HTTP retrieval"
+    ),
+    dry_run_only: bool = typer.Option(
+        False, "--dry-run-only", help="Dry-run only, no retrieval"
+    ),
+) -> None:
+    """Retrieve a Redfin property page and immediately process the fixture.
+
+    If live retrieval succeeds, the saved fixture is parsed and the
+    candidate is enriched. If blocked, a capture queue request is added.
+    No browser automation. All M16 guardrails apply.
+    """
+    from marketsentry.source_adapters.redfin_adapter import RedfinAdapter
+    from marketsentry.source_adapters.http_client import StandardLibraryHttpClient
+    from marketsentry.retrieved_fixture_processor import (
+        process_redfin_detail_fixtures,
+    )
+
+    try:
+        adapter = RedfinAdapter()
+
+        if dry_run_only:
+            result = adapter.dry_run_property_detail(url)
+            console.print("\n[bold blue]Dry-Run Preview[/bold blue]\n")
+            if result.blocked:
+                console.print(f"[bold red]BLOCKED:[/bold red] {result.block_reason}")
+            else:
+                console.print(result.dry_run_preview)
+            console.print("\n[dim]network_call_performed=False[/dim]")
+            return
+
+        if not force_live:
+            console.print("\n[bold yellow]Live retrieval requires --force-live flag.[/bold yellow]")
+            console.print(
+                "\nSee 'marketsentry retrieve-redfin-property --help' for details.\n"
+                "Use --dry-run-only to preview without network calls."
+            )
+            return
+
+        # Attempt live retrieval
+        http_client = StandardLibraryHttpClient()
+        result = adapter.retrieve_property_detail(url, http_client=http_client)
+
+        if result.blocked:
+            console.print(f"\n[bold red]BLOCKED:[/bold red] {result.block_reason}")
+            console.print(f"  network_call_performed: {result.network_call_performed}")
+            console.print(
+                "\n[dim]Run 'marketsentry list-fixture-capture-queue' to see pending requests.[/dim]"
+            )
+            return
+
+        if not result.success or not result.fixture_path:
+            console.print(f"\n[bold red]FAILED:[/bold red] {result.error_message}")
+            return
+
+        console.print(f"\n[bold green]Retrieved:[/bold green] {result.fixture_path}")
+
+        # Process the saved fixture
+        from pathlib import Path
+
+        fixture_dir = str(Path(result.fixture_path).parent)
+        proc_result = process_redfin_detail_fixtures(
+            details_dir=fixture_dir,
+            database_path=db,
+            force_reprocess=True,
+        )
+
+        console.print(f"  Candidates enriched: {proc_result.total_candidates_enriched}")
+        console.print(f"  Listing events inserted: {proc_result.total_listing_events_inserted}")
+        console.print("\n[dim]Processing complete. No additional network calls.[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

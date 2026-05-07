@@ -532,6 +532,53 @@ marketsentry enrich-redfin-details --dir data/raw/redfin/details
 
 See [REDFIN_LIVE_HTTP_PHASE_1.md](REDFIN_LIVE_HTTP_PHASE_1.md) for the complete guide.
 
+## Processing Retrieved Redfin Fixtures
+
+After retrieving or manually saving Redfin HTML fixtures, process them through the local parsing pipeline:
+
+### Process All Fixtures
+
+```bash
+marketsentry process-redfin-retrieved-fixtures
+```
+
+This command:
+
+1. Parses search fixtures and inserts candidates.
+2. Parses detail fixtures and enriches candidates.
+3. Recalculates Effective DOM metrics.
+4. Persists Effective DOM v2.
+5. Exports candidate review and analysis reports.
+6. Marks matching fixture capture queue items as captured.
+
+### Process Search Fixtures Only
+
+```bash
+marketsentry process-redfin-search-fixtures --search-dir data/raw/redfin/search
+```
+
+### Process Detail Fixtures Only
+
+```bash
+marketsentry process-redfin-detail-fixtures --details-dir data/raw/redfin/details
+```
+
+### Retrieve and Process in One Step
+
+```bash
+marketsentry retrieve-and-process-redfin-property --url "https://www.redfin.com/CA/..." --force-live
+```
+
+### Processing Manifest
+
+The manifest at `data/processed/redfin_fixture_processing_manifest.csv` tracks which fixtures have been processed. By default, unchanged fixtures (same content hash) are skipped. Use `--force-reprocess` to override.
+
+### No Live Retrieval in Processing
+
+Processing reads only local files. No network calls are made during processing.
+
+See [REDFIN_RETRIEVED_FIXTURE_PROCESSING.md](REDFIN_RETRIEVED_FIXTURE_PROCESSING.md) for the complete guide.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

@@ -6,11 +6,13 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Redfin Live HTTP Retrieval Phase 1 (MVP 16)
+## Current Milestone: Redfin Retrieved Fixture Processing Pipeline (MVP 17)
 
-This milestone adds the first actual HTTP retrieval capability, constrained to Redfin only. Live retrieval is disabled by default, requires explicit opt-in via environment variables, local robots policy, dry-run approval, rate limit compliance, and policy checks. Retrieved HTML is saved as local fixtures with sidecar metadata JSON. No browser automation, Playwright, Selenium, or bypass mechanisms are implemented.
+This milestone connects Redfin live-retrieved fixtures to the existing local fixture parsing pipeline. Processing inserts candidates, enriches details, recalculates metrics, exports reports, and integrates with the fixture capture queue. No live retrieval is performed during processing.
 
 **Status:** ✅ Complete
+
+See [docs/REDFIN_RETRIEVED_FIXTURE_PROCESSING.md](docs/REDFIN_RETRIEVED_FIXTURE_PROCESSING.md) for the fixture processing guide.
 
 See [docs/REDFIN_LIVE_HTTP_PHASE_1.md](docs/REDFIN_LIVE_HTTP_PHASE_1.md) for the Redfin Live HTTP Phase 1 guide.
 
@@ -19,6 +21,18 @@ See [docs/FIXTURE_CAPTURE_QUEUE.md](docs/FIXTURE_CAPTURE_QUEUE.md) for the fixtu
 See [docs/LIVE_RETRIEVAL_STRATEGY.md](docs/LIVE_RETRIEVAL_STRATEGY.md) for the complete retrieval strategy guide.
 
 See [docs/RUNBOOK.md](docs/RUNBOOK.md) for the complete operating guide.
+
+### MVP 17: Redfin Retrieved Fixture Processing Pipeline
+
+- ✅ Fixture metadata loader with sidecar JSON support
+- ✅ Content-hash-based processing manifest for idempotency
+- ✅ Search fixture processing (candidate insertion with deduplication)
+- ✅ Detail fixture processing (candidate enrichment with listing events)
+- ✅ Integrated processing workflow (parse, recalc, export reports)
+- ✅ Fixture capture queue integration (auto-mark captured on match)
+- ✅ CLI: process-redfin-retrieved-fixtures, process-redfin-search-fixtures, process-redfin-detail-fixtures
+- ✅ CLI: retrieve-and-process-redfin-property (convenience command)
+- ✅ No live retrieval in processing step
 
 ### MVP 16: Redfin Live HTTP Retrieval Phase 1
 

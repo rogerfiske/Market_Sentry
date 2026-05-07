@@ -118,17 +118,48 @@ The metadata file contains:
 
 Existing fixtures are never overwritten.
 
-## How to Parse Saved Fixtures Afterward
+## How Retrieved Fixtures Are Processed
 
-After retrieving and saving a fixture, use the existing fixture parsers:
+After retrieving and saving fixtures, process them through the local parsing pipeline:
 
 ```bash
-# Parse search page fixtures
-marketsentry parse-redfin-fixtures --dir data/raw/redfin/search
+# Process all retrieved fixtures (search + detail + recalc + export)
+marketsentry process-redfin-retrieved-fixtures
 
-# Parse detail page fixtures and enrich candidates
+# Or process search/detail separately
+marketsentry process-redfin-search-fixtures
+marketsentry process-redfin-detail-fixtures
+
+# Retrieve and process in one step
+marketsentry retrieve-and-process-redfin-property --url "..." --force-live
+```
+
+### How the Processing Manifest Works
+
+The manifest at `data/processed/redfin_fixture_processing_manifest.csv` tracks processed fixtures by content hash. Unchanged fixtures are skipped by default. Use `--force-reprocess` to override.
+
+### How Capture Queue Items Are Marked Captured
+
+When a processed fixture's `source_url` matches a pending fixture capture queue request, the request is automatically marked as captured. Only successfully processed fixtures trigger this.
+
+### How to Continue Using Manual Fixtures Instead
+
+You can continue saving Redfin pages manually and processing them the same way:
+
+```bash
+# Save HTML to data/raw/redfin/search/ or data/raw/redfin/details/
+# Then process:
+marketsentry process-redfin-retrieved-fixtures
+```
+
+Or use the original parsers directly:
+
+```bash
+marketsentry parse-redfin-fixtures --dir data/raw/redfin/search
 marketsentry enrich-redfin-details --dir data/raw/redfin/details
 ```
+
+See [REDFIN_RETRIEVED_FIXTURE_PROCESSING.md](REDFIN_RETRIEVED_FIXTURE_PROCESSING.md) for the complete processing guide.
 
 ## Why Scheduled Tasks Do Not Run Live Retrieval by Default
 
