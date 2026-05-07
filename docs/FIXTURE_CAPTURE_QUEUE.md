@@ -92,9 +92,50 @@ The queue deduplicates by `source_site + normalized_url + request_type + pending
 - **Audit trail.** All capture requests are tracked with timestamps.
 - **Suggested paths.** The system tells you exactly where to save files.
 
+## Batch Retrieval of Pending Items
+
+Milestone 18 adds a batch orchestrator that can process pending capture queue items for Redfin.
+
+### Batch Dry-Run
+
+```bash
+# Preview all pending Redfin items (no network calls)
+marketsentry dry-run-pending-redfin-fixtures
+
+# Filter by type
+marketsentry dry-run-pending-redfin-fixtures --request-type property_detail
+```
+
+### Batch Retrieve
+
+```bash
+# Retrieve pending items (requires full config + --force-live)
+marketsentry retrieve-pending-redfin-fixtures --force-live
+
+# Retrieve and process through parsing pipeline
+marketsentry retrieve-pending-redfin-fixtures --force-live --process-after-retrieval
+```
+
+**Force-live warning:** Without `--force-live`, no network calls are performed. The command prints a safe explanation and exits.
+
+### Process After Retrieval
+
+Use `--process-after-retrieval` with `--force-live` to automatically run the Milestone 17 processing pipeline after batch retrieval. This parses fixtures, inserts candidates, enriches details, recalculates metrics, and exports reports.
+
+### Manifest Files
+
+- Batch manifest: `data/processed/redfin_batch_retrieval_manifest.csv` (one row per batch run)
+- Per-item manifest: `data/processed/redfin_batch_retrieval_items.csv` (one row per item per run)
+
+### How Blocked Items Remain Pending
+
+When a capture request is blocked by policy checks (compliance, robots, rate limit, or dry-run approval), it remains in `pending` status in the queue. The block reason is recorded in the per-item manifest and audit log. The user can address the block condition and retry.
+
+See [REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md](REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md) for the complete guide.
+
 ## What the Queue Does Not Do
 
-- Does not fetch web pages or make network calls.
+- Does not fetch web pages or make network calls (batch retrieval requires explicit opt-in).
 - Does not automate browser actions.
 - Does not bypass paywalls, login walls, or anti-bot protections.
 - Does not make purchase recommendations.

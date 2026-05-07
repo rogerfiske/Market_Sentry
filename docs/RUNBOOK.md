@@ -579,6 +579,47 @@ Processing reads only local files. No network calls are made during processing.
 
 See [REDFIN_RETRIEVED_FIXTURE_PROCESSING.md](REDFIN_RETRIEVED_FIXTURE_PROCESSING.md) for the complete guide.
 
+## Redfin Pending Capture Batch Retrieval
+
+The batch orchestrator processes pending fixture capture queue items for Redfin one at a time with full policy enforcement.
+
+### Dry-Run Pending Items
+
+```bash
+# Preview all pending Redfin capture requests (no network calls)
+marketsentry dry-run-pending-redfin-fixtures
+
+# Filter by type or limit count
+marketsentry dry-run-pending-redfin-fixtures --request-type search --max-items 5
+```
+
+### Retrieve Pending Items
+
+```bash
+# Retrieve pending items (requires full config + --force-live)
+marketsentry retrieve-pending-redfin-fixtures --force-live
+
+# Retrieve and process through parsing pipeline
+marketsentry retrieve-pending-redfin-fixtures --force-live --process-after-retrieval
+
+# Without --force-live: prints safe explanation, no network calls
+marketsentry retrieve-pending-redfin-fixtures
+```
+
+### Batch Manifests
+
+- Batch manifest: `data/processed/redfin_batch_retrieval_manifest.csv`
+- Per-item manifest: `data/processed/redfin_batch_retrieval_items.csv`
+
+### What Batch Retrieval Does NOT Do
+
+- No scheduled tasks invoke batch retrieval by default.
+- No browser automation or bypass mechanisms.
+- Default mode is dry-run only.
+- `--force-live` is required for any network calls.
+
+See [REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md](REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md) for the complete guide.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

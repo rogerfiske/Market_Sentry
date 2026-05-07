@@ -191,6 +191,31 @@ marketsentry retrieval-policy-check --source redfin --url "https://www.redfin.co
 
 Use `marketsentry retrieval-audit-report` to review audit logs.
 
+## Batch Retrieval of Pending Capture Requests
+
+Milestone 18 adds a batch orchestrator for pending capture queue items. See [REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md](REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md) for the complete guide.
+
+### Batch Retrieval Constraints
+
+- Redfin only. No other sources are supported.
+- Default mode is dry-run only. `--force-live` is required for any network calls.
+- Full policy enforcement (compliance, robots, rate limit, dry-run approval) is applied per item.
+- No scheduled tasks invoke batch retrieval.
+- Tests use FakeHttpClient only; no real network calls.
+
+### Batch Commands
+
+```bash
+# Dry-run pending items (no network calls)
+marketsentry dry-run-pending-redfin-fixtures
+
+# Retrieve pending items (requires full config)
+marketsentry retrieve-pending-redfin-fixtures --force-live
+
+# Retrieve and process
+marketsentry retrieve-pending-redfin-fixtures --force-live --process-after-retrieval
+```
+
 ## Compliance Warnings
 
 - **Do not bypass access controls.** If a page requires login, do not attempt to access it.

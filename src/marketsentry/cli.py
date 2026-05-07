@@ -2623,5 +2623,116 @@ def retrieve_and_process_redfin_property_cmd(
         raise typer.Exit(code=1)
 
 
+# ---------------------------------------------------------------------------
+# Milestone 18 - Redfin Pending Capture Batch Retrieval
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="dry-run-pending-redfin-fixtures")
+def dry_run_pending_redfin_fixtures_cmd(
+    max_items: int = typer.Option(0, "--max-items", help="Max items to evaluate (0=all)"),
+    request_type: Optional[str] = typer.Option(None, "--request-type", help="Filter: search or property_detail"),
+    db: Optional[str] = typer.Option(None, "--db", help="Database path"),
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", help="Output directory"),
+) -> None:
+    """Dry-run preview of pending Redfin fixture capture requests.
+
+    Evaluates pending capture queue items against policy checks.
+    No network calls are performed. Queue items remain pending.
+    """
+    from marketsentry.redfin_batch_retrieval import (
+        BatchRetrievalConfig,
+        retrieve_pending_redfin_capture_batch,
+        summarize_batch_retrieval_run,
+    )
+
+    console = Console()
+    console.print("[bold]Dry-Run Pending Redfin Fixture Capture Requests[/bold]\n")
+
+    try:
+        config = BatchRetrievalConfig(
+            mode="dry_run_only",
+            max_items=max_items,
+            request_type_filter=request_type,
+            force_live=False,
+            database_path=db,
+            output_dir=output_dir,
+        )
+
+        result = retrieve_pending_redfin_capture_batch(config=config)
+        summary = summarize_batch_retrieval_run(result)
+        console.print(summary)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="retrieve-pending-redfin-fixtures")
+def retrieve_pending_redfin_fixtures_cmd(
+    max_items: int = typer.Option(0, "--max-items", help="Max items to retrieve (0=all)"),
+    request_type: Optional[str] = typer.Option(None, "--request-type", help="Filter: search or property_detail"),
+    db: Optional[str] = typer.Option(None, "--db", help="Database path"),
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", help="Output directory"),
+    force_live: bool = typer.Option(False, "--force-live", help="Attempt live HTTP retrieval (requires full config)"),
+    process_after_retrieval: bool = typer.Option(False, "--process-after-retrieval", help="Process fixtures after retrieval"),
+    dry_run_only: bool = typer.Option(False, "--dry-run-only", help="Perform dry-run preview only"),
+) -> None:
+    """Retrieve pending Redfin fixture capture requests.
+
+    By default, no retrieval occurs without --force-live.
+    Use --dry-run-only for preview mode.
+    Use --process-after-retrieval to process fixtures after batch completion.
+
+    No scheduled script should call this command by default.
+    """
+    from marketsentry.redfin_batch_retrieval import (
+        BatchRetrievalConfig,
+        retrieve_pending_redfin_capture_batch,
+        summarize_batch_retrieval_run,
+    )
+
+    console = Console()
+    console.print("[bold]Retrieve Pending Redfin Fixture Capture Requests[/bold]\n")
+
+    if dry_run_only:
+        mode = "dry_run_only"
+    elif process_after_retrieval:
+        mode = "retrieve_and_process"
+    else:
+        mode = "retrieve_only"
+
+    if not force_live and not dry_run_only:
+        console.print(
+            "[bold yellow]BLOCKED:[/bold yellow] Live retrieval requires --force-live flag.\n"
+            "\n"
+            "Without --force-live, no network calls are performed.\n"
+            "Use --dry-run-only to preview pending items.\n"
+            "Use --force-live to attempt live retrieval (requires full config).\n"
+            "\n"
+            "All retrieval policy checks (compliance, robots, rate limit, dry-run\n"
+            "approval) are enforced per item even with --force-live.\n"
+        )
+        raise typer.Exit(code=0)
+
+    try:
+        config = BatchRetrievalConfig(
+            mode=mode,
+            max_items=max_items,
+            request_type_filter=request_type,
+            force_live=force_live,
+            database_path=db,
+            output_dir=output_dir,
+        )
+
+        result = retrieve_pending_redfin_capture_batch(config=config)
+        summary = summarize_batch_retrieval_run(result)
+        console.print(summary)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

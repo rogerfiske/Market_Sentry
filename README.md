@@ -6,11 +6,13 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Redfin Retrieved Fixture Processing Pipeline (MVP 17)
+## Current Milestone: Redfin Pending Capture Batch Retrieval (MVP 18)
 
-This milestone connects Redfin live-retrieved fixtures to the existing local fixture parsing pipeline. Processing inserts candidates, enriches details, recalculates metrics, exports reports, and integrates with the fixture capture queue. No live retrieval is performed during processing.
+This milestone adds a controlled batch orchestrator for pending Redfin fixture capture requests. The orchestrator processes capture queue items one at a time with full policy enforcement, rate limiting, and audit logging. Default mode is dry-run only.
 
 **Status:** ✅ Complete
+
+See [docs/REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md](docs/REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md) for the batch retrieval guide.
 
 See [docs/REDFIN_RETRIEVED_FIXTURE_PROCESSING.md](docs/REDFIN_RETRIEVED_FIXTURE_PROCESSING.md) for the fixture processing guide.
 
@@ -21,6 +23,19 @@ See [docs/FIXTURE_CAPTURE_QUEUE.md](docs/FIXTURE_CAPTURE_QUEUE.md) for the fixtu
 See [docs/LIVE_RETRIEVAL_STRATEGY.md](docs/LIVE_RETRIEVAL_STRATEGY.md) for the complete retrieval strategy guide.
 
 See [docs/RUNBOOK.md](docs/RUNBOOK.md) for the complete operating guide.
+
+### MVP 18: Redfin Pending Capture Batch Retrieval
+
+- ✅ Batch orchestrator processes pending capture queue items one at a time
+- ✅ Three modes: dry_run_only (default), retrieve_only, retrieve_and_process
+- ✅ Full policy enforcement per item (compliance, robots, rate limit, dry-run approval)
+- ✅ Batch and per-item manifests for audit trail
+- ✅ CLI: dry-run-pending-redfin-fixtures, retrieve-pending-redfin-fixtures
+- ✅ Post-retrieval processing via Milestone 17 pipeline
+- ✅ Queue items marked captured only after successful retrieval/processing
+- ✅ Live retrieval disabled by default; --force-live required
+- ✅ No scheduled tasks invoke batch retrieval
+- ✅ No browser automation or bypass mechanisms
 
 ### MVP 17: Redfin Retrieved Fixture Processing Pipeline
 
