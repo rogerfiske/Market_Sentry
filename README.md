@@ -6,18 +6,24 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Redfin Batch Retrieval Approval Workflow (MVP 19)
+## Current Milestone: Retrieval Operations Dashboard (MVP 20)
 
-This milestone adds a two-step approval workflow for Redfin batch live retrieval: prepare an approval CSV with dry-run results, let the user review and approve selected items, then retrieve only approved items with `--force-live`.
+This milestone adds read-only visibility into the retrieval ecosystem through the existing Streamlit dashboard and CLI.
 
-- Prepare approval package: `marketsentry prepare-redfin-retrieval-approval`
-- User reviews CSV and sets `approved_for_live=true` for selected items
+- Dashboard section: Retrieval Operations with Overview, Fixture Capture Queue, Approval Packages, Batch Retrieval Runs, Per-Item Results, Retrieval Audit, Retrieved Fixtures
+- CLI: `marketsentry retrieval-operations-summary`
+- CLI: `marketsentry export-retrieval-operations-report`
+- Safety indicators: live retrieval enabled/disabled, allowed sources, User-Agent, rate limits
+- Read-only. No retrieval actions from the dashboard.
+- No scheduled live retrieval.
+
+### MVP 19: Redfin Batch Retrieval Approval Workflow
+
+- Two-step approval workflow for Redfin batch live retrieval
+- Prepare approval CSV: `marketsentry prepare-redfin-retrieval-approval`
 - Retrieve approved items: `marketsentry retrieve-approved-redfin-batch --approval-file <path> --force-live`
-- All policy checks (compliance, robots, rate limit, dry-run approval) re-evaluated at retrieval time
-- `approved_for_live` defaults to `false` for every item
-- `--force-live` still required for any network calls
+- `approved_for_live` defaults to `false`; `--force-live` required
 - No scheduled tasks invoke approved retrieval
-- No browser automation or bypass mechanisms
 
 ### MVP 18: Redfin Pending Capture Batch Retrieval
 

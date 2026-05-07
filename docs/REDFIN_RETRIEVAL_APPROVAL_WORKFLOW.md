@@ -139,6 +139,20 @@ Use the existing audit log tools:
 marketsentry retrieval-audit-report
 ```
 
+### Dashboard
+
+Open the Streamlit dashboard and navigate to "Retrieval Operations" > "Approval Packages" to view the approval manifest and latest CSV files:
+
+```bash
+streamlit run src/marketsentry/dashboard_app.py
+```
+
+Or use the CLI summary:
+
+```bash
+marketsentry retrieval-operations-summary
+```
+
 ## How to Use Manual Fixture Capture Instead
 
 You can always skip the approval workflow and use manual fixture capture:

@@ -667,6 +667,51 @@ marketsentry retrieve-approved-redfin-batch \
 
 See [REDFIN_RETRIEVAL_APPROVAL_WORKFLOW.md](REDFIN_RETRIEVAL_APPROVAL_WORKFLOW.md) for the complete guide.
 
+## Retrieval Operations Dashboard
+
+The Retrieval Operations Dashboard provides read-only visibility into the retrieval ecosystem.
+
+### Dashboard
+
+Open the Streamlit dashboard and navigate to "Retrieval Operations":
+
+```bash
+streamlit run src/marketsentry/dashboard_app.py
+```
+
+Subsections: Overview, Fixture Capture Queue, Approval Packages, Batch Retrieval Runs, Per-Item Results, Retrieval Audit, Retrieved Fixtures.
+
+### CLI Summary
+
+```bash
+marketsentry retrieval-operations-summary
+```
+
+Shows capture queue counts, approval packages, batch runs, audit decisions, safety configuration, and latest files.
+
+### Export Report
+
+```bash
+# Markdown report
+marketsentry export-retrieval-operations-report
+
+# CSV report
+marketsentry export-retrieval-operations-report --format csv
+```
+
+Reports are saved to `data/exports/`.
+
+### What It Shows
+
+- Fixture capture queue status (pending, captured, skipped, invalid, archived)
+- Approval package manifest and latest CSV files
+- Batch retrieval manifest and per-item results
+- Retrieval audit log summary (allowed, blocked, dry-run, network call counts)
+- Retrieved fixture inventory with metadata and processing status
+- Safety configuration (live retrieval enabled, allowed sources, User-Agent, rate limits)
+
+The dashboard is read-only. No retrieval actions are triggered from it.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

@@ -67,6 +67,7 @@ def main() -> None:
             "Cross-Site Review",
             "Reports",
             "Workflow Summaries",
+            "Retrieval Operations",
         ],
     )
 
@@ -88,6 +89,8 @@ def main() -> None:
         _render_reports(exports_dir)
     elif page == "Workflow Summaries":
         _render_workflow_summaries(exports_dir)
+    elif page == "Retrieval Operations":
+        _render_retrieval_operations(db_path, exports_dir)
 
 
 def _render_overview(db_path: str, exports_dir: str) -> None:
@@ -367,6 +370,186 @@ def _render_workflow_summaries(exports_dir: str) -> None:
             st.markdown(content)
         except Exception as e:
             st.error(f"Could not read summary: {e}")
+
+
+def _render_retrieval_operations(db_path: str, exports_dir: str) -> None:
+    """Render the retrieval operations section."""
+    from marketsentry.retrieval_dashboard import build_retrieval_operations_tables
+
+    st.header("Retrieval Operations")
+    st.caption("Read-only view of the retrieval ecosystem status.")
+
+    tables = build_retrieval_operations_tables(database_path=db_path)
+    s = tables.summary
+
+    # Tab navigation
+    tab = st.radio(
+        "Subsection",
+        [
+            "Overview",
+            "Fixture Capture Queue",
+            "Approval Packages",
+            "Batch Retrieval Runs",
+            "Per-Item Results",
+            "Retrieval Audit",
+            "Retrieved Fixtures",
+        ],
+        horizontal=True,
+    )
+
+    if tab == "Overview":
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Pending Captures", s.pending_capture_requests)
+            st.metric("Captured", s.captured_capture_requests)
+            st.metric("Total Queue Items", s.total_capture_requests)
+        with col2:
+            st.metric("Approval Packages", s.approval_packages_created)
+            st.metric("Batch Runs", s.batch_retrieval_runs)
+            st.metric("Retrieved Fixtures", s.retrieved_fixture_count)
+        with col3:
+            st.metric("Audit Decisions", s.audit_total_decisions)
+            st.metric("Blocked Decisions", s.blocked_retrieval_decisions)
+            st.metric("Network Calls", s.audit_records_network_true)
+
+        st.subheader("Safety Configuration")
+        safety_data = {
+            "Setting": [
+                "Live retrieval enabled",
+                "Allowed sources",
+                "User-Agent configured",
+                "Contact email configured",
+                "Dry-run required",
+                "Max requests/minute",
+            ],
+            "Value": [
+                str(s.live_retrieval_enabled),
+                s.allowed_sources,
+                str(s.user_agent_configured),
+                str(s.contact_email_configured),
+                str(s.dry_run_required),
+                str(s.max_requests_per_minute),
+            ],
+        }
+        st.table(safety_data)
+
+        st.subheader("Latest Files")
+        st.write(f"Audit file: {s.latest_audit_file or '(none)'}")
+        st.write(f"Approval package: {s.latest_approval_package or '(none)'}")
+        st.write(f"Batch manifest: {s.latest_batch_manifest or '(none)'}")
+
+    elif tab == "Fixture Capture Queue":
+        st.subheader("Fixture Capture Queue")
+        queue = tables.capture_queue
+        if not queue.rows:
+            st.info("No capture queue items found.")
+        else:
+            # Filters
+            statuses = sorted(set(r.get("status", "") for r in queue.rows))
+            sources = sorted(set(r.get("source_site", "") for r in queue.rows))
+            types = sorted(set(r.get("request_type", "") for r in queue.rows))
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                filt_status = st.selectbox("Status", ["All"] + statuses)
+            with col2:
+                filt_source = st.selectbox("Source", ["All"] + sources)
+            with col3:
+                filt_type = st.selectbox("Request Type", ["All"] + types)
+
+            filtered = queue.rows
+            if filt_status != "All":
+                filtered = [r for r in filtered if r.get("status") == filt_status]
+            if filt_source != "All":
+                filtered = [r for r in filtered if r.get("source_site") == filt_source]
+            if filt_type != "All":
+                filtered = [r for r in filtered if r.get("request_type") == filt_type]
+
+            st.write(f"Showing {len(filtered)} of {len(queue.rows)} items")
+            df = pd.DataFrame(filtered)
+            display_cols = [c for c in queue.columns if c in df.columns]
+            st.dataframe(df[display_cols] if display_cols else df, use_container_width=True)
+
+    elif tab == "Approval Packages":
+        st.subheader("Approval Package Manifest")
+        ap = tables.approval_packages
+        if not ap.rows:
+            st.info("No approval packages found.")
+        else:
+            df = pd.DataFrame(ap.rows)
+            st.dataframe(df, use_container_width=True)
+
+        if ap.latest_csv_files:
+            st.subheader("Latest Approval CSV Files")
+            for f in ap.latest_csv_files:
+                st.write(f"- {f}")
+
+    elif tab == "Batch Retrieval Runs":
+        st.subheader("Batch Retrieval Manifest")
+        bm = tables.batch_manifest
+        if not bm.rows:
+            st.info("No batch retrieval runs found.")
+        else:
+            df = pd.DataFrame(bm.rows)
+            display_cols = [c for c in bm.columns if c in df.columns]
+            st.dataframe(df[display_cols] if display_cols else df, use_container_width=True)
+
+    elif tab == "Per-Item Results":
+        st.subheader("Per-Item Retrieval Results")
+        bi = tables.batch_items
+        if not bi.rows:
+            st.info("No per-item retrieval results found.")
+        else:
+            df = pd.DataFrame(bi.rows)
+            display_cols = [c for c in bi.columns if c in df.columns]
+            st.dataframe(df[display_cols] if display_cols else df, use_container_width=True)
+
+    elif tab == "Retrieval Audit":
+        st.subheader("Retrieval Audit Summary")
+        audit = tables.audit_summary
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Records", audit.total_records)
+            st.metric("Allowed", audit.allowed)
+            st.metric("Blocked", audit.blocked)
+        with col2:
+            st.metric("Dry Runs", audit.dry_runs)
+            st.metric("Network True", audit.network_call_true)
+            st.metric("Network False", audit.network_call_false)
+
+        st.write(f"Files scanned: {audit.files_scanned}")
+        st.write(f"Latest audit file: {audit.latest_audit_file or '(none)'}")
+
+        if audit.blocked_reasons:
+            st.subheader("Blocked Reasons")
+            reasons_df = pd.DataFrame(
+                [{"reason": k, "count": v} for k, v in sorted(
+                    audit.blocked_reasons.items(), key=lambda x: -x[1]
+                )]
+            )
+            st.dataframe(reasons_df, use_container_width=True)
+
+        # Dry-run approvals
+        st.subheader("Dry-Run Approval Summary")
+        dry = tables.dry_run_summary
+        st.write(f"Total dry-run records: {dry.total_records}")
+        st.write(f"Allowed: {dry.allowed}")
+        st.write(f"Blocked: {dry.blocked}")
+        st.write(f"Files scanned: {dry.files_scanned}")
+
+    elif tab == "Retrieved Fixtures":
+        st.subheader("Retrieved Fixture Inventory")
+        inv = tables.fixture_inventory
+        if not inv.rows:
+            st.info("No retrieved fixtures found.")
+        else:
+            st.write(f"Search fixtures: {inv.total_search_fixtures}")
+            st.write(f"Detail fixtures: {inv.total_detail_fixtures}")
+            st.write(f"Total: {len(inv.rows)}")
+            df = pd.DataFrame(inv.rows)
+            display_cols = [c for c in inv.columns if c in df.columns]
+            st.dataframe(df[display_cols] if display_cols else df, use_container_width=True)
 
 
 if __name__ == "__main__":

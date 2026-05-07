@@ -2826,5 +2826,73 @@ def retrieve_approved_redfin_batch(
         raise typer.Exit(code=1)
 
 
+# ---------------------------------------------------------------------------
+# Milestone 20: Retrieval Operations Dashboard CLI
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def retrieval_operations_summary(
+    db: Optional[str] = typer.Option(None, "--db", help="Path to database file."),
+    audit_dir: Optional[str] = typer.Option(None, "--audit-dir", help="Path to audit log directory."),
+    processed_dir: Optional[str] = typer.Option(None, "--processed-dir", help="Path to processed data directory."),
+) -> None:
+    """Show a summary of retrieval operations.
+
+    Displays counts for capture queue, approval packages, batch retrieval
+    runs, audit decisions, safety configuration, and latest files.
+    Read-only. No network calls.
+    """
+    from marketsentry.retrieval_dashboard import (
+        format_retrieval_operations_summary,
+        get_retrieval_operations_summary,
+    )
+
+    try:
+        summary = get_retrieval_operations_summary(
+            database_path=db,
+            audit_dir=audit_dir,
+            processed_dir=processed_dir,
+        )
+        output = format_retrieval_operations_summary(summary)
+        console.print(output)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_retrieval_operations_report(
+    db: Optional[str] = typer.Option(None, "--db", help="Path to database file."),
+    audit_dir: Optional[str] = typer.Option(None, "--audit-dir", help="Path to audit log directory."),
+    processed_dir: Optional[str] = typer.Option(None, "--processed-dir", help="Path to processed data directory."),
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", help="Output directory for the report."),
+    report_format: str = typer.Option("md", "--format", help="Report format: md or csv."),
+) -> None:
+    """Export a retrieval operations report to a file.
+
+    Exports a summary plus key tables as a Markdown or CSV report.
+    Read-only. No network calls.
+    """
+    from marketsentry.retrieval_dashboard import (
+        export_retrieval_operations_report as _export_report,
+    )
+
+    try:
+        report_path = _export_report(
+            database_path=db,
+            audit_dir=audit_dir,
+            processed_dir=processed_dir,
+            output_dir=output_dir,
+            report_format=report_format,
+        )
+        console.print(f"Report exported to: {report_path}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

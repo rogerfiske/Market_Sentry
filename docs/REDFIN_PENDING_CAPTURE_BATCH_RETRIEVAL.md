@@ -209,3 +209,17 @@ marketsentry retrieve-approved-redfin-batch \
 - No scheduled scripts invoke approved retrieval.
 
 See [REDFIN_RETRIEVAL_APPROVAL_WORKFLOW.md](REDFIN_RETRIEVAL_APPROVAL_WORKFLOW.md) for the complete guide.
+
+## Dashboard Visibility
+
+View batch retrieval manifests and per-item results in the Streamlit dashboard under "Retrieval Operations" > "Batch Retrieval Runs" and "Per-Item Results":
+
+```bash
+streamlit run src/marketsentry/dashboard_app.py
+```
+
+Or use the CLI:
+
+```bash
+marketsentry retrieval-operations-summary
+```

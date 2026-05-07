@@ -133,6 +133,20 @@ When a capture request is blocked by policy checks (compliance, robots, rate lim
 
 See [REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md](REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md) for the complete guide.
 
+## Dashboard Visibility
+
+View the fixture capture queue in the Streamlit dashboard under "Retrieval Operations" > "Fixture Capture Queue":
+
+```bash
+streamlit run src/marketsentry/dashboard_app.py
+```
+
+Filter by source site, request type, and status. Or use the CLI:
+
+```bash
+marketsentry retrieval-operations-summary
+```
+
 ## What the Queue Does Not Do
 
 - Does not fetch web pages or make network calls (batch retrieval requires explicit opt-in).
