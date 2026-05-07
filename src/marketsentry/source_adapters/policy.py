@@ -340,15 +340,14 @@ def evaluate_retrieval_policy(
         policy.fixture_capture_recommended = True
         policy.suggested_fixture_path = suggest_fixture_path(source_name, request_type, url)
     else:
-        # All checks passed - but live_http is still not implemented
-        policy.decision = RetrievalPolicyDecision.NOT_IMPLEMENTED
+        # All checks passed - live retrieval allowed
+        policy.decision = RetrievalPolicyDecision.ALLOWED
+        policy.compliance_passed = True
         reasons.append(RetrievalPolicyReason(
-            code="live_not_implemented",
-            message="Live HTTP retrieval is not implemented in this milestone.",
+            code="all_checks_passed",
+            message="All retrieval policy checks passed. Live retrieval allowed.",
             severity="info",
         ))
-        policy.fixture_capture_recommended = True
-        policy.suggested_fixture_path = suggest_fixture_path(source_name, request_type, url)
 
     policy.reasons = reasons
     return policy

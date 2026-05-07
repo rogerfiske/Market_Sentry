@@ -421,8 +421,8 @@ class TestRedfinRetrieveBlocked:
         assert result.blocked is True
         assert result.network_call_performed is False
 
-    def test_retrieve_blocked_even_with_compliance_pass(self):
-        """Live retrieve returns not-implemented even if compliance passes."""
+    def test_retrieve_blocked_when_no_robots_policy(self):
+        """Live retrieve is blocked when no local robots policy is available."""
         cc = RetrievalComplianceConfig(
             live_retrieval_enabled=True,
             allowed_live_sources=["redfin"],
@@ -443,10 +443,10 @@ class TestRedfinRetrieveBlocked:
             result = adapter.retrieve_search(
                 "https://www.redfin.com/city/19701/CA/Temecula/filter/property-type=house"
             )
-            # Still blocked because live retrieval is not implemented
+            # Blocked because no local robots policy (M16 goes further than M14)
             assert result.blocked is True
             assert result.network_call_performed is False
-            assert "not implemented" in result.block_reason.lower()
+            assert "robots" in result.block_reason.lower()
 
 
 # ---------------------------------------------------------------------------

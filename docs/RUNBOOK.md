@@ -470,6 +470,68 @@ marketsentry retrieval-audit-report
 
 See [FIXTURE_CAPTURE_QUEUE.md](FIXTURE_CAPTURE_QUEUE.md) for the complete fixture capture queue guide.
 
+## Redfin Live HTTP Retrieval Phase 1
+
+Market_Sentry supports optional live HTTP retrieval for Redfin pages only. **Live retrieval is disabled by default** and requires explicit configuration.
+
+### Prerequisites
+
+1. Set environment variables:
+
+```ini
+MARKETSENTRY_LIVE_RETRIEVAL_ENABLED=true
+MARKETSENTRY_ALLOWED_LIVE_SOURCES=redfin
+MARKETSENTRY_LIVE_USER_AGENT=MarketSentry/1.0
+MARKETSENTRY_LIVE_CONTACT_EMAIL=user@example.com
+MARKETSENTRY_MAX_REQUESTS_PER_MINUTE=6
+```
+
+2. Save local robots policy:
+
+```bash
+# Manually save https://www.redfin.com/robots.txt to:
+data/policies/robots/redfin_robots.txt
+```
+
+3. Run dry-run first:
+
+```bash
+marketsentry dry-run-redfin-search --url "https://www.redfin.com/city/..."
+marketsentry dry-run-redfin-property --url "https://www.redfin.com/CA/..."
+```
+
+### Performing Live Retrieval
+
+```bash
+# Retrieve a search page
+marketsentry retrieve-redfin-search --url "https://www.redfin.com/city/..." --force-live
+
+# Retrieve a property detail page
+marketsentry retrieve-redfin-property --url "https://www.redfin.com/CA/..." --force-live
+
+# Dry-run only (no network call)
+marketsentry retrieve-redfin-search --url "..." --dry-run-only
+marketsentry retrieve-redfin-property --url "..." --dry-run-only
+```
+
+### What Happens After Retrieval
+
+Retrieved HTML is saved as a local fixture file with a sidecar metadata JSON. Parse it with existing commands:
+
+```bash
+marketsentry parse-redfin-fixtures --dir data/raw/redfin/search
+marketsentry enrich-redfin-details --dir data/raw/redfin/details
+```
+
+### What Live Retrieval Does NOT Do
+
+- No browser automation, Playwright, Selenium, or JavaScript execution.
+- No CAPTCHA bypass, login bypass, or anti-bot bypass.
+- No scheduled tasks invoke live retrieval by default.
+- No direct database mutation (retrieved HTML is saved as fixtures first).
+
+See [REDFIN_LIVE_HTTP_PHASE_1.md](REDFIN_LIVE_HTTP_PHASE_1.md) for the complete guide.
+
 ## No Live Scraping Warning
 
-Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval. Live retrieval is disabled by default. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled in a future milestone.
+Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

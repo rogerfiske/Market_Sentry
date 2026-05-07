@@ -150,9 +150,90 @@ Each record contains:
 
 **In the current milestone, all records have `network_call_performed=False`.**
 
+## Redfin Live HTTP Phase 1 (Milestone 16)
+
+Milestone 16 adds the first actual HTTP retrieval capability, constrained to Redfin only.
+
+### Scope
+
+- **Redfin only.** No other sources are supported for live retrieval in this phase.
+- **Disabled by default.** All environment variables must be explicitly configured.
+- **Fixture-output only.** Retrieved HTML is saved as local fixtures, not parsed directly.
+- **Rate-limited.** Enforced by the Milestone 15 rate limiter.
+- **Robots-checked.** Local robots policy must be available and allow the path.
+- **Dry-run-gated.** A recent dry-run approval is required before live retrieval.
+- **Audited.** All retrieval decisions logged to `logs/retrieval_audit/`.
+- **Never scheduled.** No scheduled task invokes live retrieval by default.
+
+### Required Environment Variables
+
+```ini
+MARKETSENTRY_LIVE_RETRIEVAL_ENABLED=true
+MARKETSENTRY_ALLOWED_LIVE_SOURCES=redfin
+MARKETSENTRY_LIVE_USER_AGENT=MarketSentry/1.0
+MARKETSENTRY_LIVE_CONTACT_EMAIL=user@example.com
+MARKETSENTRY_MAX_REQUESTS_PER_MINUTE=6
+MARKETSENTRY_REQUIRE_DRY_RUN_BEFORE_LIVE=true
+```
+
+### Local Robots Policy Requirement
+
+Save Redfin's robots.txt locally before live retrieval:
+
+```text
+data/policies/robots/redfin_robots.txt
+```
+
+The system does NOT fetch robots.txt from the internet.
+
+### Dry-Run Approval Requirement
+
+Run a dry-run command first:
+
+```bash
+marketsentry dry-run-redfin-search --url "https://www.redfin.com/city/..."
+marketsentry dry-run-redfin-property --url "https://www.redfin.com/CA/..."
+```
+
+### Rate Limit Requirement
+
+The rate limiter enforces `MARKETSENTRY_MAX_REQUESTS_PER_MINUTE` (default: 6) and a minimum delay between requests (default: 10 seconds).
+
+### Fixture Output Behavior
+
+Retrieved HTML is saved to:
+
+- Search: `data/raw/redfin/search/redfin_search_YYYYMMDD_HHMMSS.html`
+- Detail: `data/raw/redfin/details/redfin_property_<id>_YYYYMMDD_HHMMSS.html`
+
+Each fixture has a sidecar JSON metadata file with source URL, timestamps, and content length.
+
+### Audit Logging
+
+All retrieval decisions (blocked or allowed, dry-run or live) are logged to `logs/retrieval_audit/`.
+
+For live retrievals, `network_call_performed=true` appears in audit records.
+
+### How to Run Retrieve Commands
+
+```bash
+# Dry-run only (no network call)
+marketsentry retrieve-redfin-search --url "..." --dry-run-only
+
+# Live retrieval (requires full config + --force-live)
+marketsentry retrieve-redfin-search --url "..." --force-live
+marketsentry retrieve-redfin-property --url "..." --force-live
+```
+
+### How to Keep Using Manual Fixtures Instead
+
+Manual fixtures remain the default and recommended workflow. Simply continue saving HTML pages manually to `data/raw/redfin/search/` and `data/raw/redfin/details/`, then parse them with existing commands.
+
+See [REDFIN_LIVE_HTTP_PHASE_1.md](REDFIN_LIVE_HTTP_PHASE_1.md) for the complete Phase 1 guide.
+
 ## Future Live Retrieval Requirements
 
-Before implementing live retrieval, the following must be satisfied:
+Before extending live retrieval to other sources, the following must be satisfied:
 
 1. **robots.txt compliance.** Check and respect robots.txt for each domain.
 2. **Rate limiting.** Enforce configured request rate limits.

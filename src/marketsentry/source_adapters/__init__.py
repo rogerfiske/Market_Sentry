@@ -31,13 +31,24 @@ from marketsentry.source_adapters.policy import (
     RetrievalPolicyDecision,
     RetrievalPolicyReason,
 )
+from marketsentry.source_adapters.http_client import (
+    FakeHttpClient,
+    HttpClient,
+    HttpRequest,
+    HttpResponse,
+    StandardLibraryHttpClient,
+)
 from marketsentry.source_adapters.registry import SourceAdapterRegistry, get_registry
 
 __all__ = [
     "ComplianceCheckResult",
     "DryRunApprovalRecord",
+    "FakeHttpClient",
     "FixtureCaptureQueueResult",
     "FixtureCaptureRequest",
+    "HttpClient",
+    "HttpRequest",
+    "HttpResponse",
     "RateLimitConfig",
     "RetrievalComplianceConfig",
     "RetrievalMode",
@@ -50,6 +61,7 @@ __all__ = [
     "SourceAdapter",
     "SourceAdapterConfig",
     "SourceAdapterRegistry",
+    "StandardLibraryHttpClient",
     "check_retrieval_compliance",
     "get_compliance_status",
     "get_registry",

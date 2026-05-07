@@ -6,17 +6,32 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Retrieval Safety Enforcement and Fixture Capture Queue (MVP 15)
+## Current Milestone: Redfin Live HTTP Retrieval Phase 1 (MVP 16)
 
-This milestone hardens the compliance foundation from Milestone 14 by adding retrieval policy checks, offline robots policy parsing, deterministic rate limiting, dry-run approval gating, manual fixture capture queue, and retrieval audit reporting. Live retrieval is still not implemented. No active scraping, network calls, or browser automation is performed.
+This milestone adds the first actual HTTP retrieval capability, constrained to Redfin only. Live retrieval is disabled by default, requires explicit opt-in via environment variables, local robots policy, dry-run approval, rate limit compliance, and policy checks. Retrieved HTML is saved as local fixtures with sidecar metadata JSON. No browser automation, Playwright, Selenium, or bypass mechanisms are implemented.
 
 **Status:** ✅ Complete
+
+See [docs/REDFIN_LIVE_HTTP_PHASE_1.md](docs/REDFIN_LIVE_HTTP_PHASE_1.md) for the Redfin Live HTTP Phase 1 guide.
 
 See [docs/FIXTURE_CAPTURE_QUEUE.md](docs/FIXTURE_CAPTURE_QUEUE.md) for the fixture capture queue guide.
 
 See [docs/LIVE_RETRIEVAL_STRATEGY.md](docs/LIVE_RETRIEVAL_STRATEGY.md) for the complete retrieval strategy guide.
 
 See [docs/RUNBOOK.md](docs/RUNBOOK.md) for the complete operating guide.
+
+### MVP 16: Redfin Live HTTP Retrieval Phase 1
+
+- ✅ HTTP client abstraction (HttpRequest, HttpResponse, HttpClient, StandardLibraryHttpClient, FakeHttpClient)
+- ✅ Redfin live retrieval methods (retrieve_search, retrieve_property_detail, save_retrieved_fixture)
+- ✅ Full policy enforcement pipeline (compliance, robots, rate limit, dry-run approval)
+- ✅ Fixture output with sidecar metadata JSON
+- ✅ CLI commands: retrieve-redfin-search, retrieve-redfin-property
+- ✅ Policy engine updated: ALLOWED decision when all checks pass
+- ✅ Live retrieval disabled by default
+- ✅ No scheduled tasks invoke live retrieval
+- ✅ No browser automation or bypass mechanisms
+- ✅ Comprehensive tests with FakeHttpClient (no real network calls)
 
 ### MVP 1: Project Scaffold
 

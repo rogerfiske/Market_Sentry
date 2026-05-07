@@ -74,6 +74,7 @@ class RetrievalResult(BaseModel):
     network_call_performed: bool = False
     compliance_warnings: List[str] = Field(default_factory=list)
     error_message: str = ""
+    fixture_path: str = ""
 
 
 class SourceAdapter(ABC):

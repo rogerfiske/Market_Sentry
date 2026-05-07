@@ -217,7 +217,7 @@ class TestEvaluateRetrievalPolicy:
         )
         assert policy.dry_run_approved is False
 
-    def test_all_checks_pass_still_not_implemented(self):
+    def test_all_checks_pass_returns_allowed(self):
         from marketsentry.source_adapters.compliance import RetrievalComplianceConfig
         from marketsentry.source_adapters.policy import evaluate_retrieval_policy
 
@@ -239,8 +239,8 @@ class TestEvaluateRetrievalPolicy:
             rate_limit_ok=True,
             has_recent_dry_run=True,
         )
-        assert policy.decision.value == "not_implemented"
-        assert policy.fixture_capture_recommended is True
+        assert policy.decision.value == "allowed"
+        assert policy.compliance_passed is True
 
     def test_fixture_path_suggestion(self):
         from marketsentry.source_adapters.policy import suggest_fixture_path

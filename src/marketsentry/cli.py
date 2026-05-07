@@ -2114,6 +2114,190 @@ def mark_fixture_captured_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command(name="retrieve-redfin-search")
+def retrieve_redfin_search_cmd(
+    url: str = typer.Option(
+        ..., "--url", help="Redfin search URL to retrieve"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory for saved fixture"
+    ),
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    force_live: bool = typer.Option(
+        False, "--force-live", help="Attempt live HTTP retrieval (requires full config)"
+    ),
+    dry_run_only: bool = typer.Option(
+        False, "--dry-run-only", help="Perform dry-run preview only"
+    ),
+) -> None:
+    """Retrieve a Redfin search page via HTTP or preview in dry-run mode.
+
+    Live retrieval is disabled by default and requires explicit opt-in
+    via environment variables and --force-live flag. No browser automation.
+    """
+    from marketsentry.source_adapters.redfin_adapter import RedfinAdapter
+    from marketsentry.source_adapters.http_client import StandardLibraryHttpClient
+
+    try:
+        adapter = RedfinAdapter()
+
+        if dry_run_only:
+            result = adapter.dry_run_search(url)
+            console.print("\n[bold blue]Redfin Search Dry-Run Preview[/bold blue]\n")
+            if result.blocked:
+                console.print(f"[bold red]BLOCKED:[/bold red] {result.block_reason}")
+            else:
+                console.print(result.dry_run_preview)
+            if result.compliance_warnings:
+                console.print("\n[bold yellow]Compliance Warnings:[/bold yellow]")
+                for warning in result.compliance_warnings:
+                    console.print(f"  - {warning}")
+            console.print(
+                "\n[dim]No network call was performed. "
+                "network_call_performed=False[/dim]"
+            )
+            return
+
+        if not force_live:
+            console.print("\n[bold yellow]Live retrieval requires --force-live flag.[/bold yellow]")
+            console.print(
+                "\nLive HTTP retrieval is disabled by default. To attempt live retrieval:\n"
+                "  1. Set MARKETSENTRY_LIVE_RETRIEVAL_ENABLED=true\n"
+                "  2. Set MARKETSENTRY_ALLOWED_LIVE_SOURCES=redfin\n"
+                "  3. Set MARKETSENTRY_LIVE_USER_AGENT=MarketSentry/1.0\n"
+                "  4. Set MARKETSENTRY_LIVE_CONTACT_EMAIL=your@email.com\n"
+                "  5. Save robots.txt to data/policies/robots/redfin_robots.txt\n"
+                "  6. Run dry-run-redfin-search first\n"
+                "  7. Pass --force-live to this command\n"
+            )
+            console.print("[dim]Use --dry-run-only to preview without network calls.[/dim]")
+            return
+
+        # Attempt live retrieval with real HTTP client
+        http_client = StandardLibraryHttpClient()
+        result = adapter.retrieve_search(url, http_client=http_client)
+
+        console.print("\n[bold blue]Redfin Search Live Retrieval[/bold blue]\n")
+
+        if result.blocked:
+            console.print(f"[bold red]BLOCKED:[/bold red] {result.block_reason}")
+            console.print(f"  network_call_performed: {result.network_call_performed}")
+            console.print(
+                "\n[dim]A fixture capture request has been created. "
+                "Run 'marketsentry list-fixture-capture-queue' to see pending requests.[/dim]"
+            )
+        elif result.success:
+            console.print("[bold green]SUCCESS:[/bold green] Live retrieval completed.")
+            console.print(f"  Fixture saved: {result.fixture_path}")
+            console.print(f"  network_call_performed: {result.network_call_performed}")
+            console.print(
+                "\n[dim]Parse the saved fixture with existing fixture parsers.[/dim]"
+            )
+        else:
+            console.print(f"[bold red]FAILED:[/bold red] {result.error_message}")
+            console.print(f"  network_call_performed: {result.network_call_performed}")
+
+        console.print(f"\n[dim]Audit log: logs/retrieval_audit/[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="retrieve-redfin-property")
+def retrieve_redfin_property_cmd(
+    url: str = typer.Option(
+        ..., "--url", help="Redfin property detail URL to retrieve"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory for saved fixture"
+    ),
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    force_live: bool = typer.Option(
+        False, "--force-live", help="Attempt live HTTP retrieval (requires full config)"
+    ),
+    dry_run_only: bool = typer.Option(
+        False, "--dry-run-only", help="Perform dry-run preview only"
+    ),
+) -> None:
+    """Retrieve a Redfin property detail page via HTTP or preview in dry-run mode.
+
+    Live retrieval is disabled by default and requires explicit opt-in
+    via environment variables and --force-live flag. No browser automation.
+    """
+    from marketsentry.source_adapters.redfin_adapter import RedfinAdapter
+    from marketsentry.source_adapters.http_client import StandardLibraryHttpClient
+
+    try:
+        adapter = RedfinAdapter()
+
+        if dry_run_only:
+            result = adapter.dry_run_property_detail(url)
+            console.print("\n[bold blue]Redfin Property Detail Dry-Run Preview[/bold blue]\n")
+            if result.blocked:
+                console.print(f"[bold red]BLOCKED:[/bold red] {result.block_reason}")
+            else:
+                console.print(result.dry_run_preview)
+            if result.compliance_warnings:
+                console.print("\n[bold yellow]Compliance Warnings:[/bold yellow]")
+                for warning in result.compliance_warnings:
+                    console.print(f"  - {warning}")
+            console.print(
+                "\n[dim]No network call was performed. "
+                "network_call_performed=False[/dim]"
+            )
+            return
+
+        if not force_live:
+            console.print("\n[bold yellow]Live retrieval requires --force-live flag.[/bold yellow]")
+            console.print(
+                "\nLive HTTP retrieval is disabled by default. To attempt live retrieval:\n"
+                "  1. Set MARKETSENTRY_LIVE_RETRIEVAL_ENABLED=true\n"
+                "  2. Set MARKETSENTRY_ALLOWED_LIVE_SOURCES=redfin\n"
+                "  3. Set MARKETSENTRY_LIVE_USER_AGENT=MarketSentry/1.0\n"
+                "  4. Set MARKETSENTRY_LIVE_CONTACT_EMAIL=your@email.com\n"
+                "  5. Save robots.txt to data/policies/robots/redfin_robots.txt\n"
+                "  6. Run dry-run-redfin-property first\n"
+                "  7. Pass --force-live to this command\n"
+            )
+            console.print("[dim]Use --dry-run-only to preview without network calls.[/dim]")
+            return
+
+        # Attempt live retrieval with real HTTP client
+        http_client = StandardLibraryHttpClient()
+        result = adapter.retrieve_property_detail(url, http_client=http_client)
+
+        console.print("\n[bold blue]Redfin Property Detail Live Retrieval[/bold blue]\n")
+
+        if result.blocked:
+            console.print(f"[bold red]BLOCKED:[/bold red] {result.block_reason}")
+            console.print(f"  network_call_performed: {result.network_call_performed}")
+            console.print(
+                "\n[dim]A fixture capture request has been created. "
+                "Run 'marketsentry list-fixture-capture-queue' to see pending requests.[/dim]"
+            )
+        elif result.success:
+            console.print("[bold green]SUCCESS:[/bold green] Live retrieval completed.")
+            console.print(f"  Fixture saved: {result.fixture_path}")
+            console.print(f"  network_call_performed: {result.network_call_performed}")
+            console.print(
+                "\n[dim]Parse the saved fixture with existing fixture parsers.[/dim]"
+            )
+        else:
+            console.print(f"[bold red]FAILED:[/bold red] {result.error_message}")
+            console.print(f"  network_call_performed: {result.network_call_performed}")
+
+        console.print(f"\n[dim]Audit log: logs/retrieval_audit/[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
 @app.command(name="retrieval-audit-report")
 def retrieval_audit_report_cmd(
     audit_dir: Optional[str] = typer.Option(
