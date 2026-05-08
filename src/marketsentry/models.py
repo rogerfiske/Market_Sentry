@@ -944,3 +944,108 @@ class WorkflowRunResult(BaseModel):
     errors: List[WorkflowError] = Field(default_factory=list)
     summary_file: Optional[str] = None
     next_recommended_action: str = ""
+
+
+# Cross-Site Analytics Models (Milestone 24)
+
+
+class CrossSiteSourceWeight(BaseModel):
+    """Weight assigned to a single cross-site source observation."""
+
+    source_site: str
+    confidence_weight: float = 1.0
+    freshness_weight: float = 1.0
+    completeness_weight: float = 1.0
+    combined_weight: float = 1.0
+    is_stale: bool = False
+    is_low_confidence: bool = False
+    has_parse_warnings: bool = False
+    observed_at: Optional[datetime] = None
+    parse_confidence: Optional[str] = None
+    parse_status: Optional[str] = None
+
+
+class CrossSiteFieldAgreement(BaseModel):
+    """Agreement score for a single cross-site field."""
+
+    field_name: str
+    agreement_score: float = 0.0
+    contributing_sources: int = 0
+    agreeing_sources: int = 0
+    redfin_value: Optional[str] = None
+    source_values: dict = Field(default_factory=dict)
+    notes: Optional[str] = None
+
+
+class CrossSiteConfidenceMetrics(BaseModel):
+    """Aggregated confidence metrics across all cross-site sources."""
+
+    source_freshness_score: float = 0.0
+    source_completeness_score: float = 0.0
+    source_agreement_score: float = 0.0
+    overall_cross_site_confidence_score: float = 0.0
+    contributing_sources: List[str] = Field(default_factory=list)
+    low_confidence_sources: List[str] = Field(default_factory=list)
+    stale_sources: List[str] = Field(default_factory=list)
+    parse_warning_sources: List[str] = Field(default_factory=list)
+
+
+class CrossSiteDiscrepancySeverity(BaseModel):
+    """Severity assessment for cross-site discrepancies."""
+
+    severity_label: str = "none"  # none, low, medium, high, critical
+    severity_score: float = 0.0
+    price_severity: str = "none"
+    status_severity: str = "none"
+    dom_severity: str = "none"
+    gas_severity: str = "none"
+    garage_severity: str = "none"
+    flags: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class CrossSiteAnalyticsResult(BaseModel):
+    """Complete cross-site analytics result for a property."""
+
+    property_id: int
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    source_weights: List[CrossSiteSourceWeight] = Field(default_factory=list)
+    price_agreement: Optional[CrossSiteFieldAgreement] = None
+    status_agreement: Optional[CrossSiteFieldAgreement] = None
+    dom_agreement: Optional[CrossSiteFieldAgreement] = None
+    garage_agreement: Optional[CrossSiteFieldAgreement] = None
+    gas_agreement: Optional[CrossSiteFieldAgreement] = None
+    confidence_metrics: Optional[CrossSiteConfidenceMetrics] = None
+    discrepancy_severity: Optional[CrossSiteDiscrepancySeverity] = None
+    cross_site_manual_review_priority: str = "none"  # none, low, medium, high
+    notes: Optional[str] = None
+
+
+class CrossSiteAnalyticsReportRow(BaseModel):
+    """Row in the cross-site analytics CSV report."""
+
+    property_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    redfin_price: Optional[float] = None
+    redfin_dom: Optional[int] = None
+    redfin_status: Optional[str] = None
+    weighted_price_agreement_score: Optional[float] = None
+    weighted_status_agreement_score: Optional[float] = None
+    weighted_dom_agreement_score: Optional[float] = None
+    weighted_garage_agreement_score: Optional[float] = None
+    weighted_gas_agreement_score: Optional[float] = None
+    source_freshness_score: Optional[float] = None
+    source_completeness_score: Optional[float] = None
+    source_agreement_score: Optional[float] = None
+    overall_cross_site_confidence_score: Optional[float] = None
+    discrepancy_severity_score: Optional[float] = None
+    discrepancy_severity_label: Optional[str] = None
+    cross_site_manual_review_priority: Optional[str] = None
+    contributing_sources: Optional[str] = None
+    low_confidence_sources: Optional[str] = None
+    stale_sources: Optional[str] = None
+    parse_warning_sources: Optional[str] = None

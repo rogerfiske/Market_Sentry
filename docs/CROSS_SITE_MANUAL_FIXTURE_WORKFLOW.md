@@ -222,3 +222,47 @@ Cross-site observations exist to validate and compare against Redfin source-of-t
 - Redfin-sourced property facts (price, beds, baths, sqft, listing status, DOM, etc.)
 
 Discrepancy flags (price, status, DOM) are data quality indicators for human review. They are not automatic overrides or purchase recommendations.
+
+## Cross-Site Analytics (Milestone 24)
+
+### Confidence-Weighted Scoring
+
+Cross-site observations are weighted by:
+
+- **Parser confidence**: high=1.0, medium=0.7, low=0.4, failed=0.0
+- **Freshness**: Recent observations (0-7 days) have full weight; older observations are progressively downweighted (8-30d=0.8, 31-90d=0.5, >90d=0.2)
+- **Completeness**: Observations with more required fields (price, status, beds, baths, sqft) contribute more weight
+
+### Discrepancy Severity
+
+Severity uses neutral language and accounts for source reliability:
+
+- **none**: No cross-site disagreement
+- **low**: Minor differences (e.g., price >$10k, gas/garage disagreement)
+- **medium**: Moderate differences (e.g., price >$25k, DOM >30 days)
+- **high**: Significant conflicts (e.g., price >$50k, active vs sold/pending)
+
+Low-confidence sources reduce severity certainty. A price discrepancy from a low-confidence source is less alarming than one from a high-confidence source.
+
+### Manual Review Priority
+
+Based on severity and confidence:
+
+- **high**: Significant discrepancy from reliable sources
+- **medium**: Moderate discrepancy, or low discrepancy with uncertain sources
+- **low**: Minor issues or stale/low-confidence data
+- **none**: No issues, reliable data
+
+### Generating the Analytics Report
+
+```bash
+marketsentry export-cross-site-analytics-report
+```
+
+### Parser Confidence Impact on Analytics
+
+Parser confidence directly affects how much weight an observation carries in analytics. A low-confidence observation from a sparse HTML page contributes less to agreement scores and reduces discrepancy severity certainty.
+
+### Reminder: Cross-Site Data Validates but Does Not Overwrite
+
+All analytics scores, severity labels, and review priorities are informational aids for human review. They do not overwrite Redfin source-of-truth fields, user decisions, or watchlist status.

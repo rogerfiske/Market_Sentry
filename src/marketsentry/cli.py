@@ -745,6 +745,42 @@ def export_cross_site_report(
 
 
 @app.command()
+def export_cross_site_analytics_report(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output file path (default: timestamped file in data/exports/)"
+    ),
+) -> None:
+    """Export confidence-weighted cross-site analytics report to CSV."""
+    from marketsentry.cross_site_analytics_report import (
+        export_cross_site_analytics_report as _export,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting cross-site analytics report...[/bold blue]")
+
+        csv_path = _export(database_path=db_path, output_path=output)
+
+        # Count rows
+        import csv
+        with open(csv_path, "r", encoding="utf-8") as f:
+            row_count = sum(1 for row in csv.DictReader(f))
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Analytics report exported")
+        console.print(f"  - Output file: {csv_path}")
+        console.print(f"  - Properties: {row_count}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export cross-site analytics report error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def snapshot_watchlist(
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"

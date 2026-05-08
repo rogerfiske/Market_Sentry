@@ -882,6 +882,66 @@ Cross-site observations validate and compare against Redfin source-of-truth data
 - `watch_priority`
 - Redfin-sourced property facts (price, beds, baths, sqft, etc.)
 
+## Cross-Site Analytics
+
+Milestone 24 added confidence-weighted cross-site comparison analytics that weight observations by parse confidence, data freshness, and field completeness.
+
+### Confidence-Weighted Scoring
+
+Source observations are assigned a combined weight based on three factors:
+
+- **Confidence weight**: high=1.0, medium=0.7, low=0.4, failed=0.0
+- **Freshness weight**: 0-7 days=1.0, 8-30 days=0.8, 31-90 days=0.5, >90 days=0.2
+- **Completeness weight**: fraction of required fields (price, status, beds, baths, sqft) present
+
+The combined weight is the product of all three factors. A high-confidence, recent, complete observation has weight 1.0. A low-confidence, stale, incomplete observation has a much lower weight.
+
+### Agreement Scores
+
+For each field (price, status, DOM, garage, gas), a weighted agreement score indicates how well cross-site sources agree with Redfin:
+
+- **1.0**: All weighted sources agree with Redfin
+- **0.0**: No sources agree, or no Redfin baseline
+
+### Discrepancy Severity
+
+Neutral severity levels describe the magnitude of cross-site data disagreement:
+
+| Severity | Meaning |
+| -------- | ------- |
+| none | No discrepancy detected |
+| low | Minor difference (price >$10k, gas/garage disagreement) |
+| medium | Moderate difference (price >$25k, DOM >30 days, or low-conf status conflict) |
+| high | Significant conflict (price >$50k, active vs sold/pending, DOM >90 days) |
+| critical | Reserved for extreme cases |
+
+Low-confidence sources reduce severity certainty rather than exaggerating it.
+
+### Manual Review Priority
+
+| Priority | Trigger |
+| -------- | ------- |
+| high | High or critical discrepancy severity |
+| medium | Medium severity, or low severity with low-confidence sources |
+| low | Low severity, or no discrepancy with stale/low-confidence sources |
+| none | No discrepancy and all sources are reliable |
+
+### Generating the Analytics Report
+
+```bash
+marketsentry export-cross-site-analytics-report
+```
+
+Output: `data/exports/cross_site_analytics_YYYYMMDD_HHMMSS.csv`
+
+### Overall Cross-Site Confidence Score
+
+The overall score combines freshness (25%), completeness (25%), and agreement (50%). Higher scores indicate more reliable cross-site validation data.
+
+### Cross-Site Analytics in Dashboard
+
+The Cross-Site Review section of the dashboard includes an analytics subsection showing overall confidence, severity labels, review priority, and source quality flags.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

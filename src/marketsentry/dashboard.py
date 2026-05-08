@@ -251,6 +251,7 @@ def find_latest_report(
         "effective_dom_v2": "effective_dom_v2_*.csv",
         "county_verification": "county_verification_*.csv",
         "cross_site_report": "cross_site_report_*.csv",
+        "cross_site_analytics": "cross_site_analytics_*.csv",
         "workflow_summary": "workflow_summary_*.md",
     }
 
@@ -548,6 +549,41 @@ def build_cross_site_table(
         "has_dom_discrepancy",
         "redfin_price", "zillow_price", "realtor_price",
         "homes_price", "compass_price",
+    ]
+    available = [c for c in desired if c in df.columns]
+    if available:
+        return df[available]
+    return df
+
+
+def build_cross_site_analytics_table(
+    exports_dir: Optional[Union[Path, str]] = None,
+) -> pd.DataFrame:
+    """Build cross-site analytics table from latest analytics report.
+
+    Args:
+        exports_dir: Directory containing reports.
+
+    Returns:
+        DataFrame with analytics data, or empty DataFrame.
+    """
+    report_path = find_latest_report("cross_site_analytics", exports_dir)
+    if not report_path:
+        return pd.DataFrame()
+
+    df = load_report_csv(report_path)
+    if df.empty:
+        return df
+
+    desired = [
+        "property_id", "address", "city",
+        "overall_cross_site_confidence_score",
+        "discrepancy_severity_label",
+        "cross_site_manual_review_priority",
+        "contributing_sources",
+        "low_confidence_sources",
+        "stale_sources",
+        "parse_warning_sources",
     ]
     available = [c for c in desired if c in df.columns]
     if available:

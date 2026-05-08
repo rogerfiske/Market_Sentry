@@ -24,6 +24,7 @@ from marketsentry.config import config
 from marketsentry.dashboard import (
     build_candidate_table,
     build_county_verification_table,
+    build_cross_site_analytics_table,
     build_cross_site_table,
     build_effective_dom_v2_table,
     build_monitoring_table,
@@ -327,6 +328,32 @@ def _render_cross_site(exports_dir: str) -> None:
             st.write(f"  {flag_col}: {flagged} flagged")
 
     st.dataframe(df, use_container_width=True)
+
+    # Cross-site analytics section
+    st.subheader("Cross-Site Analytics")
+    st.caption(
+        "Confidence-weighted analytics: source agreement, "
+        "discrepancy severity, and manual review priority."
+    )
+
+    analytics_df = build_cross_site_analytics_table(exports_dir)
+    if analytics_df.empty:
+        st.info(
+            "No cross-site analytics report found. Run: "
+            "marketsentry export-cross-site-analytics-report"
+        )
+        return
+
+    st.write(f"Showing {len(analytics_df)} properties")
+
+    # Summary metrics
+    for col_name in ["discrepancy_severity_label", "cross_site_manual_review_priority"]:
+        if col_name in analytics_df.columns:
+            counts = analytics_df[col_name].value_counts()
+            if not counts.empty:
+                st.write(f"  {col_name}: {counts.to_dict()}")
+
+    st.dataframe(analytics_df, use_container_width=True)
 
 
 def _render_reports(exports_dir: str) -> None:

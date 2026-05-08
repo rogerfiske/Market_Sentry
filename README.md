@@ -6,19 +6,29 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Cross-Site Parser Quality and Fixture Corpus Expansion (MVP 23)
+## Current Milestone: Confidence-Weighted Cross-Site Analytics (MVP 24)
 
-This milestone improves cross-site parser quality and fixture coverage for Zillow, Realtor.com, Homes.com, and Compass using local saved/synthetic fixtures only.
+This milestone leverages Milestone 23 parser confidence fields to improve cross-site comparison analytics with weighted scoring.
+
+- Confidence-weighted agreement scores for price, status, DOM, garage, and gas
+- Source freshness scoring (observations age out: 0-7d=1.0, 8-30d=0.8, 31-90d=0.5, >90d=0.2)
+- Source completeness scoring based on field availability
+- Overall cross-site confidence score (25% freshness + 25% completeness + 50% agreement)
+- Discrepancy severity scoring (none/low/medium/high/critical) with neutral language
+- Low-confidence sources are downweighted, not exaggerated
+- Manual review priority (none/low/medium/high) based on severity and confidence
+- New CLI: `marketsentry export-cross-site-analytics-report`
+- New report: `data/exports/cross_site_analytics_YYYYMMDD_HHMMSS.csv`
+- Dashboard: Cross-Site Analytics subsection with confidence and severity display
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 23: Cross-Site Parser Quality and Fixture Corpus Expansion
 
 - All 4 parsers extract 19 fields including listing agent, listing broker, MLS number, source MLS, lot size
 - Parse confidence model (high/medium/low) indicates extraction reliability
 - Missing required field tracking for diagnostic purposes
-- Normalization helpers for price ($850K, $1.2M), sqft ("square feet"), lot size ("0.25 acres"), DOM ("Listed 45 days ago"), status ("contingent", "coming soon"), garage ("3-car garage"), gas evidence
+- Normalization helpers for price, sqft, lot size, DOM, status, garage, gas evidence
 - 32+ synthetic fixture files providing comprehensive parser test coverage
-- Cross-site comparison reports include parse quality summary (lowest_parse_confidence, sources_with_parse_warnings, sources_with_partial_parse)
-- No live retrieval. No browser automation. Cross-site data remains validation-only.
-
-See [docs/CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md](docs/CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md) for the cross-site manual fixture workflow guide.
 
 ### MVP 22: Cross-Site Adapter Parity and Manual Fixtures
 
@@ -1529,7 +1539,8 @@ Market_Sentry/
     ├── test_milestone_13.py           # Windows Task Scheduler automation tests
     ├── test_milestone_14.py           # Live retrieval strategy tests
     ├── test_milestone_15.py           # Retrieval safety and fixture capture queue tests
-    └── test_milestone_23.py           # Cross-site parser quality and fixture corpus tests
+    ├── test_milestone_23.py           # Cross-site parser quality and fixture corpus tests
+    └── test_milestone_24.py           # Confidence-weighted cross-site analytics tests
 ```
 
 ## Running Tests
@@ -1575,11 +1586,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 24: (To Be Determined)
+### MVP 25: (To Be Determined)
 
-Milestones 1-23 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
+Milestones 1-24 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-**Note:** Milestone 23 (Cross-Site Parser Quality and Fixture Corpus Expansion) is now complete.
+**Note:** Milestone 24 (Confidence-Weighted Cross-Site Analytics) is now complete.
 
 ## Repository
 
@@ -1614,6 +1625,7 @@ MIT
   - [Decision 013: Live Retrieval Strategy and Compliance Adapters](docs/decisions/013-live-retrieval-strategy-and-compliance-adapters.md)
   - [Decision 014: Retrieval Safety and Fixture Capture Queue](docs/decisions/014-retrieval-safety-and-fixture-capture-queue.md)
   - [Decision 022: Cross-Site Parser Quality and Fixture Corpus](docs/decisions/022-cross-site-parser-quality-fixture-corpus.md)
+  - [Decision 023: Confidence-Weighted Cross-Site Analytics](docs/decisions/023-confidence-weighted-cross-site-analytics.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.
