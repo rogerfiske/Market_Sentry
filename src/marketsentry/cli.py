@@ -868,6 +868,235 @@ def export_cross_site_trend_report(
 
 
 @app.command()
+def generate_cross_site_trend_alerts(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory (optional)"
+    ),
+) -> None:
+    """Generate cross-site trend alerts from snapshot comparisons."""
+    from marketsentry.cross_site_trend_alerts import (
+        generate_cross_site_trend_alerts as _generate,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Generating cross-site trend alerts...[/bold blue]")
+
+        result = _generate(database_path=db_path, output_dir=output_dir)
+
+        console.print(f"\n[bold green]Alert generation complete[/bold green]")
+        console.print(f"  - Properties scanned: {result.properties_scanned}")
+        console.print(f"  - Alerts generated: {result.alerts_generated}")
+        console.print(f"  - Duplicates skipped: {result.duplicates_skipped}")
+
+        if result.warnings:
+            console.print(f"  - Warnings: {len(result.warnings)}")
+            for w in result.warnings:
+                console.print(f"    [yellow]{w}[/yellow]")
+
+        if result.errors:
+            console.print(f"  - Errors: {len(result.errors)}")
+            for e in result.errors:
+                console.print(f"    [red]{e}[/red]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Generate cross-site trend alerts error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def list_cross_site_trend_alerts(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    status: Optional[str] = typer.Option(
+        None, "--status", help="Filter by alert status (default: open)"
+    ),
+    severity: Optional[str] = typer.Option(
+        None, "--severity", help="Filter by severity"
+    ),
+    property_id: Optional[int] = typer.Option(
+        None, "--property-id", "-p", help="Filter by property ID"
+    ),
+) -> None:
+    """List cross-site trend alerts with optional filters."""
+    from marketsentry.cross_site_trend_alerts import (
+        list_cross_site_trend_alerts as _list_alerts,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        alerts = _list_alerts(
+            database_path=db_path,
+            status_filter=status,
+            severity_filter=severity,
+            property_id=property_id,
+        )
+
+        if not alerts:
+            console.print("[dim]No alerts found matching filters.[/dim]")
+            return
+
+        table = Table(title="Cross-Site Trend Alerts")
+        table.add_column("ID", style="cyan")
+        table.add_column("Property", style="white")
+        table.add_column("Type", style="white")
+        table.add_column("Severity", style="white")
+        table.add_column("Status", style="white")
+        table.add_column("Message", style="white")
+        table.add_column("Created", style="dim")
+
+        for alert in alerts:
+            sev_style = {
+                "critical": "bold red",
+                "high": "red",
+                "warning": "yellow",
+                "info": "green",
+            }.get(alert.severity, "white")
+
+            table.add_row(
+                str(alert.alert_id),
+                str(alert.property_id),
+                alert.alert_type,
+                f"[{sev_style}]{alert.severity}[/{sev_style}]",
+                alert.alert_status,
+                (alert.message or "")[:60],
+                str(alert.created_at)[:19] if alert.created_at else "",
+            )
+
+        console.print(table)
+        console.print(f"\n[dim]Total: {len(alerts)} alerts[/dim]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"List cross-site trend alerts error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def acknowledge_cross_site_trend_alert(
+    alert_id: int = typer.Option(..., "--alert-id", help="Alert ID to acknowledge"),
+    notes: Optional[str] = typer.Option(
+        None, "--notes", help="Optional notes"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Acknowledge a cross-site trend alert."""
+    from marketsentry.cross_site_trend_alerts import (
+        acknowledge_cross_site_trend_alert as _ack,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        updated = _ack(alert_id=alert_id, notes=notes, database_path=db_path)
+
+        if updated:
+            console.print(
+                f"[bold green]Alert {alert_id} acknowledged[/bold green]"
+            )
+        else:
+            console.print(
+                f"[bold yellow]Alert {alert_id} not found or already updated[/bold yellow]"
+            )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Acknowledge cross-site trend alert error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def resolve_cross_site_trend_alert(
+    alert_id: int = typer.Option(..., "--alert-id", help="Alert ID to resolve"),
+    notes: Optional[str] = typer.Option(
+        None, "--notes", help="Optional notes"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Resolve a cross-site trend alert."""
+    from marketsentry.cross_site_trend_alerts import (
+        resolve_cross_site_trend_alert as _resolve,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        updated = _resolve(alert_id=alert_id, notes=notes, database_path=db_path)
+
+        if updated:
+            console.print(
+                f"[bold green]Alert {alert_id} resolved[/bold green]"
+            )
+        else:
+            console.print(
+                f"[bold yellow]Alert {alert_id} not found or already updated[/bold yellow]"
+            )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Resolve cross-site trend alert error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_cross_site_trend_alerts_report(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory"
+    ),
+    status: Optional[str] = typer.Option(
+        None, "--status", help="Filter by alert status"
+    ),
+) -> None:
+    """Export cross-site trend alerts report to CSV."""
+    from marketsentry.cross_site_trend_alerts import (
+        export_cross_site_trend_alerts_report as _export,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting cross-site trend alerts report...[/bold blue]")
+
+        output_path = None
+        if output_dir:
+            from datetime import datetime as dt
+            ts = dt.now().strftime("%Y%m%d_%H%M%S")
+            output_path = str(Path(output_dir) / f"cross_site_trend_alerts_{ts}.csv")
+
+        csv_path = _export(
+            database_path=db_path, output_path=output_path, status_filter=status
+        )
+
+        # Count rows
+        import csv
+        with open(csv_path, "r", encoding="utf-8") as f:
+            row_count = sum(1 for row in csv.DictReader(f))
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Alerts report exported")
+        console.print(f"  - Output file: {csv_path}")
+        console.print(f"  - Alerts: {row_count}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export cross-site trend alerts report error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def snapshot_watchlist(
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"

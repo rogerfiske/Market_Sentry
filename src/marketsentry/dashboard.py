@@ -253,6 +253,7 @@ def find_latest_report(
         "cross_site_report": "cross_site_report_*.csv",
         "cross_site_analytics": "cross_site_analytics_*.csv",
         "cross_site_trends": "cross_site_trends_*.csv",
+        "cross_site_trend_alerts": "cross_site_trend_alerts_*.csv",
         "workflow_summary": "workflow_summary_*.md",
     }
 
@@ -632,6 +633,72 @@ def build_cross_site_trends_table(
     if available:
         return df[available]
     return df
+
+
+def build_cross_site_trend_alerts_table(
+    exports_dir: Optional[Union[Path, str]] = None,
+) -> pd.DataFrame:
+    """Build cross-site trend alerts table from latest alerts report.
+
+    Args:
+        exports_dir: Directory containing reports.
+
+    Returns:
+        DataFrame with trend alert data, or empty DataFrame.
+    """
+    report_path = find_latest_report("cross_site_trend_alerts", exports_dir)
+    if not report_path:
+        return pd.DataFrame()
+
+    df = load_report_csv(report_path)
+    if df.empty:
+        return df
+
+    desired = [
+        "alert_id", "property_id", "address", "city",
+        "alert_type", "severity", "alert_status",
+        "trend_direction", "current_value", "previous_value",
+        "delta_value", "message", "recommended_action",
+        "created_at",
+    ]
+    available = [c for c in desired if c in df.columns]
+    if available:
+        return df[available]
+    return df
+
+
+def build_cross_site_trend_alerts_from_db(
+    db_path: Optional[Union[Path, str]] = None,
+) -> pd.DataFrame:
+    """Build cross-site trend alerts table directly from database.
+
+    Args:
+        db_path: Path to database.
+
+    Returns:
+        DataFrame with open alert data, or empty DataFrame.
+    """
+    database = str(db_path) if db_path else config.database_path
+
+    if not Path(database).exists() or not table_exists("cross_site_trend_alerts", database):
+        return pd.DataFrame()
+
+    query = """
+    SELECT a.alert_id, a.property_id, wp.address, wp.city,
+           a.alert_type, a.severity, a.alert_status,
+           a.trend_direction, a.message, a.recommended_action,
+           a.created_at
+    FROM cross_site_trend_alerts a
+    LEFT JOIN watched_properties wp ON a.property_id = wp.property_id
+    ORDER BY a.created_at DESC
+    """
+    try:
+        rows = execute_query(query, database_path=database)
+        if not rows:
+            return pd.DataFrame()
+        return pd.DataFrame([dict(row) for row in rows])
+    except Exception:
+        return pd.DataFrame()
 
 
 # ---------------------------------------------------------------------------

@@ -296,3 +296,63 @@ The trend report CSV compares current vs previous snapshots and includes trend d
 ### Reminder: Cross-Site Data Validates but Does Not Overwrite
 
 All analytics scores, severity labels, review priorities, and trend snapshots are informational aids for human review. They do not overwrite Redfin source-of-truth fields, user decisions, or watchlist status.
+
+## Cross-Site Trend Alerts (Milestone 26)
+
+### What Trend Alerts Mean
+
+Cross-site trend alerts flag material changes between consecutive analytics snapshots that may warrant human review. They cover confidence score changes, discrepancy severity shifts, manual review priority changes, agreement score degradation, and source quality changes.
+
+Alerts are neutral review signals. They are not purchase recommendations and do not infer seller intent.
+
+### Generating Alerts
+
+After creating trend snapshots (Milestone 25), generate alerts:
+
+```bash
+# Generate alerts from latest vs previous snapshots
+marketsentry generate-cross-site-trend-alerts
+```
+
+Alerts are only created when trend rules are triggered. Duplicate open alerts for the same property, alert type, and snapshot are automatically skipped.
+
+### Listing Alerts
+
+```bash
+# List open alerts (default)
+marketsentry list-cross-site-trend-alerts
+
+# Filter by severity
+marketsentry list-cross-site-trend-alerts --severity high
+
+# Filter by property
+marketsentry list-cross-site-trend-alerts --property-id 42
+```
+
+### Acknowledging and Resolving Alerts
+
+```bash
+# Acknowledge an alert
+marketsentry acknowledge-cross-site-trend-alert --alert-id 1 --notes "Reviewed data"
+
+# Resolve an alert
+marketsentry resolve-cross-site-trend-alert --alert-id 1 --notes "Data corrected"
+```
+
+### Exporting Alert Reports
+
+```bash
+marketsentry export-cross-site-trend-alerts-report
+marketsentry export-cross-site-trend-alerts-report --status open
+```
+
+### Alert Severity Definitions
+
+- **info**: Positive or neutral change (confidence improved, severity decreased). No immediate action needed.
+- **warning**: Moderate change (confidence dropped 0.10-0.24, price/DOM agreement degraded, stale/low-confidence sources increased). Monitor for further trends.
+- **high**: Significant change (confidence dropped >= 0.25, status agreement degraded, severity increased to high, review priority increased to high). Review cross-site data and validate against Redfin source.
+- **critical**: Severe change (discrepancy severity reached critical). Validate immediately.
+
+### Reminder: Alerts Are Review Aids
+
+Cross-site trend alerts are analytical review aids for human operators. They do not overwrite Redfin source-of-truth fields, change watchlist status, modify Quiet Score gatekeeper results, or make purchase recommendations.

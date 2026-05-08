@@ -26,6 +26,8 @@ from marketsentry.dashboard import (
     build_county_verification_table,
     build_cross_site_analytics_table,
     build_cross_site_table,
+    build_cross_site_trend_alerts_from_db,
+    build_cross_site_trend_alerts_table,
     build_cross_site_trends_table,
     build_effective_dom_v2_table,
     build_monitoring_table,
@@ -86,7 +88,7 @@ def main() -> None:
     elif page == "County Verification":
         _render_county_verification(exports_dir)
     elif page == "Cross-Site Review":
-        _render_cross_site(exports_dir)
+        _render_cross_site(exports_dir, db_path)
     elif page == "Reports":
         _render_reports(exports_dir)
     elif page == "Workflow Summaries":
@@ -304,7 +306,7 @@ def _render_county_verification(exports_dir: str) -> None:
     st.dataframe(df, use_container_width=True)
 
 
-def _render_cross_site(exports_dir: str) -> None:
+def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
     """Render the cross-site review section from latest report."""
     st.header("Cross-Site Review")
     st.caption(
@@ -386,6 +388,56 @@ def _render_cross_site(exports_dir: str) -> None:
                 st.write(f"  {col_name}: {changed} properties")
 
         st.dataframe(trends_df, use_container_width=True)
+
+    # Cross-site trend alerts section
+    st.subheader("Cross-Site Trend Alerts")
+    st.caption(
+        "Alerts generated from cross-site trend changes. "
+        "These are neutral review signals, not purchase recommendations."
+    )
+
+    alerts_df = build_cross_site_trend_alerts_from_db(db_path)
+    if alerts_df.empty:
+        alerts_df = build_cross_site_trend_alerts_table(exports_dir)
+
+    if alerts_df.empty:
+        st.info(
+            "No cross-site trend alerts found. Run: "
+            "marketsentry generate-cross-site-trend-alerts"
+        )
+    else:
+        # Open alert count
+        if "alert_status" in alerts_df.columns:
+            open_count = int((alerts_df["alert_status"] == "open").sum())
+            st.write(f"Open alerts: {open_count}")
+
+        # Severity counts
+        if "severity" in alerts_df.columns:
+            sev_counts = alerts_df["severity"].value_counts()
+            if not sev_counts.empty:
+                st.write(f"  Severity: {sev_counts.to_dict()}")
+
+        # Latest alert date
+        if "created_at" in alerts_df.columns:
+            latest = alerts_df["created_at"].max()
+            if latest:
+                st.write(f"  Latest alert: {str(latest)[:19]}")
+
+        # Status filter
+        if "alert_status" in alerts_df.columns:
+            status_values = ["All"] + sorted(
+                alerts_df["alert_status"].dropna().unique().tolist()
+            )
+            alert_status_filter = st.selectbox(
+                "Alert Status Filter", status_values
+            )
+            if alert_status_filter != "All":
+                alerts_df = alerts_df[
+                    alerts_df["alert_status"] == alert_status_filter
+                ]
+
+        st.write(f"Showing {len(alerts_df)} alerts")
+        st.dataframe(alerts_df, use_container_width=True)
 
 
 def _render_reports(exports_dir: str) -> None:

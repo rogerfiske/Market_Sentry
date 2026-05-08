@@ -6,22 +6,32 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Cross-Site Analytics Trend Snapshots (MVP 25)
+## Current Milestone: Cross-Site Trend Alerts and Watchlist Monitoring Integration (MVP 26)
 
-This milestone adds point-in-time snapshot persistence and trend tracking for cross-site analytics.
+This milestone turns Milestone 25 trend snapshots into practical local operator alerts and watchlist monitoring signals.
 
-- New `cross_site_analytics_snapshots` database table for historical analytics
-- Append-only snapshots preserve analytics at each capture time
-- Material change detection skips duplicate same-day/no-change snapshots
-- Change thresholds: severity/priority label change, confidence delta >= 0.10, agreement delta >= 0.10, source count changes, discrepancy flag changes
-- Trend direction classification: improving, degrading, or stable
-- Recommended next actions based on trend direction
-- Cross-site trend summary with aggregate counts across all properties
-- New CLI: `marketsentry snapshot-cross-site-analytics` (with `--force` flag)
-- New CLI: `marketsentry export-cross-site-trend-report`
-- New report: `data/exports/cross_site_trends_YYYYMMDD_HHMMSS.csv`
-- Dashboard: Cross-Site Analytics Trends subsection with trend direction and change counts
+- New `cross_site_trend_alerts` database table with alert lifecycle (open/acknowledged/resolved/archived)
+- 12 alert types: confidence_drop, confidence_improvement, severity_increase, severity_decrease, manual_review_priority_increase/decrease, price/status/dom_agreement_degraded, stale_sources_increased, low_confidence_sources_increased, source_quality_improved
+- 4 severity levels: info, warning, high, critical with centralized rules
+- Duplicate open alert prevention (same property + alert_type + snapshot_id)
+- Alert lifecycle management: acknowledge and resolve with notes
+- Watchlist monitoring integration with alert summary fields
+- New CLI: `marketsentry generate-cross-site-trend-alerts`
+- New CLI: `marketsentry list-cross-site-trend-alerts` (with --status, --severity, --property-id filters)
+- New CLI: `marketsentry acknowledge-cross-site-trend-alert`
+- New CLI: `marketsentry resolve-cross-site-trend-alert`
+- New CLI: `marketsentry export-cross-site-trend-alerts-report`
+- New report: `data/exports/cross_site_trend_alerts_YYYYMMDD_HHMMSS.csv`
+- Dashboard: Cross-Site Trend Alerts subsection with severity counts, status filters, and alert table
+- Cross-site trend alerts are neutral review signals, not purchase recommendations
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 25: Cross-Site Analytics Trend Snapshots
+
+- Point-in-time snapshot persistence and trend tracking for cross-site analytics
+- Material change detection, trend direction classification, recommended next actions
+- CLI: `marketsentry snapshot-cross-site-analytics`, `marketsentry export-cross-site-trend-report`
+- Dashboard trends subsection
 
 ### MVP 24: Confidence-Weighted Cross-Site Analytics
 

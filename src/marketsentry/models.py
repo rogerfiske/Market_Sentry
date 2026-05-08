@@ -1181,3 +1181,75 @@ class CrossSiteTrendReportRow(BaseModel):
     trend_direction: str = "stable"
     trend_summary: Optional[str] = None
     recommended_next_action: Optional[str] = None
+
+
+# Cross-Site Trend Alert Models (Milestone 26)
+
+
+class CrossSiteTrendAlert(BaseModel):
+    """A cross-site trend alert generated from snapshot comparison."""
+
+    alert_id: Optional[int] = None
+    property_id: int
+    candidate_id: Optional[int] = None
+    snapshot_id: Optional[int] = None
+    previous_snapshot_id: Optional[int] = None
+    created_at: datetime = Field(default_factory=datetime.now)
+    alert_type: str
+    severity: str = "info"  # info, warning, high, critical
+    alert_status: str = "open"  # open, acknowledged, resolved, archived
+    trend_direction: Optional[str] = None
+    current_value: Optional[str] = None
+    previous_value: Optional[str] = None
+    delta_value: Optional[str] = None
+    message: Optional[str] = None
+    recommended_action: Optional[str] = None
+    source_context: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class CrossSiteTrendAlertRule(BaseModel):
+    """A rule that defines when to generate a trend alert."""
+
+    alert_type: str
+    description: str = ""
+    field_name: str = ""
+    threshold: Optional[float] = None
+    direction: str = "any"  # increase, decrease, any
+    default_severity: str = "warning"
+    message_template: str = ""
+
+
+class CrossSiteTrendAlertRunResult(BaseModel):
+    """Result of a cross-site trend alert generation run."""
+
+    run_date: datetime = Field(default_factory=datetime.now)
+    properties_scanned: int = 0
+    alerts_generated: int = 0
+    duplicates_skipped: int = 0
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class CrossSiteTrendAlertReportRow(BaseModel):
+    """Row in the cross-site trend alerts CSV report."""
+
+    alert_id: Optional[int] = None
+    property_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    alert_type: Optional[str] = None
+    severity: Optional[str] = None
+    alert_status: Optional[str] = None
+    trend_direction: Optional[str] = None
+    current_value: Optional[str] = None
+    previous_value: Optional[str] = None
+    delta_value: Optional[str] = None
+    message: Optional[str] = None
+    recommended_action: Optional[str] = None
+    source_context: Optional[str] = None
+    created_at: Optional[str] = None
+    notes: Optional[str] = None

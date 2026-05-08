@@ -350,6 +350,32 @@ CREATE TABLE IF NOT EXISTS cross_site_analytics_snapshots (
 );
 """
 
+# Milestone 26: Cross-site trend alerts table
+CREATE_CROSS_SITE_TREND_ALERTS_TABLE = """
+CREATE TABLE IF NOT EXISTS cross_site_trend_alerts (
+    alert_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    property_id INTEGER NOT NULL,
+    candidate_id INTEGER,
+    snapshot_id INTEGER,
+    previous_snapshot_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    alert_type TEXT NOT NULL,
+    severity TEXT NOT NULL DEFAULT 'info',
+    alert_status TEXT NOT NULL DEFAULT 'open',
+    trend_direction TEXT,
+    current_value TEXT,
+    previous_value TEXT,
+    delta_value TEXT,
+    message TEXT,
+    recommended_action TEXT,
+    source_context TEXT,
+    notes TEXT,
+    FOREIGN KEY (property_id) REFERENCES watched_properties (property_id),
+    FOREIGN KEY (snapshot_id) REFERENCES cross_site_analytics_snapshots (snapshot_id),
+    FOREIGN KEY (previous_snapshot_id) REFERENCES cross_site_analytics_snapshots (snapshot_id)
+);
+"""
+
 # Index definitions for performance
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_candidates_review_status ON candidate_review_queue(review_status);",
@@ -378,6 +404,12 @@ CREATE_INDEXES = [
     # Milestone 25: Cross-site analytics snapshots indexes
     "CREATE INDEX IF NOT EXISTS idx_cs_analytics_snapshots_property ON cross_site_analytics_snapshots(property_id);",
     "CREATE INDEX IF NOT EXISTS idx_cs_analytics_snapshots_captured ON cross_site_analytics_snapshots(captured_at);",
+    # Milestone 26: Cross-site trend alerts indexes
+    "CREATE INDEX IF NOT EXISTS idx_cs_trend_alerts_property ON cross_site_trend_alerts(property_id);",
+    "CREATE INDEX IF NOT EXISTS idx_cs_trend_alerts_status ON cross_site_trend_alerts(alert_status);",
+    "CREATE INDEX IF NOT EXISTS idx_cs_trend_alerts_severity ON cross_site_trend_alerts(severity);",
+    "CREATE INDEX IF NOT EXISTS idx_cs_trend_alerts_type ON cross_site_trend_alerts(alert_type);",
+    "CREATE INDEX IF NOT EXISTS idx_cs_trend_alerts_created ON cross_site_trend_alerts(created_at);",
 ]
 
 # All schema statements in order
@@ -391,4 +423,5 @@ ALL_SCHEMA_STATEMENTS = [
     CREATE_CROSS_SITE_OBSERVATIONS_TABLE,
     CREATE_COUNTY_RECORD_OBSERVATIONS_TABLE,
     CREATE_CROSS_SITE_ANALYTICS_SNAPSHOTS_TABLE,
+    CREATE_CROSS_SITE_TREND_ALERTS_TABLE,
 ] + CREATE_INDEXES
