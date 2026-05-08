@@ -6,9 +6,22 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Retrieval Health Checks (MVP 21)
+## Current Milestone: Cross-Site Adapter Parity and Manual Fixtures (MVP 22)
 
-This milestone adds retrieval operations aging, alerts, and health checks as a read-only observability layer.
+This milestone brings non-Redfin cross-site sources (Zillow, Realtor.com, Homes.com, Compass) up to full operational parity for manual fixture workflows.
+
+- Cross-site adapters with dry-run preview, URL validation, fixture capture queue integration, and audit logging
+- Cross-site fixture processor with content-hash deduplication and append-only manifest
+- CLI: `marketsentry dry-run-cross-site-property --source <source> --url <url>`
+- CLI: `marketsentry process-cross-site-fixtures`
+- CLI: `marketsentry process-cross-site-source-fixtures --source <source>`
+- Dashboard: Cross-Site Fixtures tab in Retrieval Operations section
+- Health checks: unprocessed cross-site fixtures, stale cross-site capture requests, missing parsers
+- No live retrieval for non-Redfin sources. Redfin remains the only Live HTTP Phase 1 source.
+
+See [docs/CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md](docs/CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md) for the cross-site manual fixture workflow guide.
+
+### MVP 21: Retrieval Health Checks
 
 - Health check module: `retrieval_health.py` with configurable thresholds
 - Checks: stale capture requests, stale approval packages, unprocessed fixtures, missing policy files, audit anomalies, repeated blocks

@@ -135,10 +135,14 @@ class FixtureCaptureQueueResult(BaseModel):
 FIXTURE_PATH_MAP = {
     ("redfin", "search"): "data/raw/redfin/search",
     ("redfin", "property_detail"): "data/raw/redfin/details",
-    ("zillow", "property_detail"): "data/raw/cross_site/zillow",
-    ("realtor", "property_detail"): "data/raw/cross_site/realtor",
-    ("homes", "property_detail"): "data/raw/cross_site/homes",
-    ("compass", "property_detail"): "data/raw/cross_site/compass",
+    ("zillow", "property_detail"): "data/raw/zillow/details",
+    ("zillow", "search"): "data/raw/zillow/search",
+    ("realtor", "property_detail"): "data/raw/realtor/details",
+    ("realtor", "search"): "data/raw/realtor/search",
+    ("homes", "property_detail"): "data/raw/homes/details",
+    ("homes", "search"): "data/raw/homes/search",
+    ("compass", "property_detail"): "data/raw/compass/details",
+    ("compass", "search"): "data/raw/compass/search",
     ("county", "assessor"): "data/raw/county/assessor",
     ("county", "recorder"): "data/raw/county/recorder",
 }

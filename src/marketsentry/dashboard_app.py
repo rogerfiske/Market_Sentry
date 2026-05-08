@@ -393,6 +393,7 @@ def _render_retrieval_operations(db_path: str, exports_dir: str) -> None:
             "Per-Item Results",
             "Retrieval Audit",
             "Retrieved Fixtures",
+            "Cross-Site Fixtures",
             "Health Checks",
         ],
         horizontal=True,
@@ -552,6 +553,9 @@ def _render_retrieval_operations(db_path: str, exports_dir: str) -> None:
             display_cols = [c for c in inv.columns if c in df.columns]
             st.dataframe(df[display_cols] if display_cols else df, use_container_width=True)
 
+    elif tab == "Cross-Site Fixtures":
+        _render_cross_site_fixture_processing(db_path, exports_dir)
+
     elif tab == "Health Checks":
         from marketsentry.retrieval_health import run_retrieval_health_checks
 
@@ -584,6 +588,25 @@ def _render_retrieval_operations(db_path: str, exports_dir: str) -> None:
             st.metric("Missing Policies", health.missing_policy_count)
             st.metric("Repeated Blocks", health.repeated_block_count)
 
+        # Cross-site health metrics
+        st.subheader("Cross-Site Health")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(
+                "Unprocessed Cross-Site Fixtures",
+                health.unprocessed_cross_site_fixture_count,
+            )
+        with col2:
+            st.metric(
+                "Stale Cross-Site Captures",
+                health.stale_cross_site_capture_request_count,
+            )
+        with col3:
+            st.metric(
+                "Missing Parsers",
+                health.missing_parser_count,
+            )
+
         # Issues table
         if health.issues:
             st.subheader("Issues")
@@ -613,6 +636,128 @@ def _render_retrieval_operations(db_path: str, exports_dir: str) -> None:
                 )
                 if action.command:
                     st.code(action.command, language="bash")
+
+
+def _render_cross_site_fixture_processing(
+    db_path: str, exports_dir: str,
+) -> None:
+    """Render cross-site fixture processing manifest data.
+
+    Shows cross-site fixtures processed, errors, source breakdown,
+    and unprocessed fixture warnings. Read-only, no write actions.
+    """
+    import csv as _csv
+
+    st.subheader("Cross-Site Fixture Processing")
+    st.caption(
+        "Manual fixture processing status for Zillow, Realtor.com, "
+        "Homes.com, and Compass. Read-only view."
+    )
+
+    manifest_path = Path("data/processed") / (
+        "cross_site_fixture_processing_manifest.csv"
+    )
+
+    if not manifest_path.exists():
+        st.info(
+            "No cross-site fixture processing manifest found. "
+            "Run 'marketsentry process-cross-site-fixtures' to process "
+            "saved HTML fixtures."
+        )
+        return
+
+    # Load manifest
+    rows = []
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            reader = _csv.DictReader(f)
+            for row in reader:
+                rows.append(row)
+    except Exception as e:
+        st.error(f"Could not read manifest: {e}")
+        return
+
+    if not rows:
+        st.info("Manifest exists but contains no rows.")
+        return
+
+    df = pd.DataFrame(rows)
+
+    # Summary metrics
+    processed_count = len(df[df.get("status", pd.Series()) == "processed"]) if "status" in df.columns else 0
+    failed_count = len(df[df.get("status", pd.Series()) == "failed"]) if "status" in df.columns else 0
+    total_obs = 0
+    if "observations_inserted" in df.columns:
+        total_obs = pd.to_numeric(
+            df["observations_inserted"], errors="coerce",
+        ).fillna(0).astype(int).sum()
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Records", len(df))
+    with col2:
+        st.metric("Processed", processed_count)
+    with col3:
+        st.metric("Failed", failed_count)
+    with col4:
+        st.metric("Observations Inserted", int(total_obs))
+
+    # Source breakdown
+    st.subheader("Source Breakdown")
+    cross_site_sources = ["zillow", "realtor", "homes", "compass"]
+    if "source_site" in df.columns:
+        source_counts = df["source_site"].value_counts()
+        breakdown_data = []
+        for src in cross_site_sources:
+            count = int(source_counts.get(src, 0))
+            src_df = df[df["source_site"] == src]
+            src_processed = len(
+                src_df[src_df["status"] == "processed"]
+            ) if "status" in src_df.columns else 0
+            src_failed = len(
+                src_df[src_df["status"] == "failed"]
+            ) if "status" in src_df.columns else 0
+            breakdown_data.append({
+                "Source": src,
+                "Total": count,
+                "Processed": src_processed,
+                "Failed": src_failed,
+            })
+        st.table(breakdown_data)
+    else:
+        st.info("No source_site column found in manifest.")
+
+    # Errors detail
+    if "status" in df.columns:
+        errors_df = df[df["status"] == "failed"]
+        if not errors_df.empty:
+            st.subheader("Processing Errors")
+            error_cols = [
+                c for c in ["source_site", "fixture_path", "errors"]
+                if c in errors_df.columns
+            ]
+            st.dataframe(
+                errors_df[error_cols] if error_cols else errors_df,
+                use_container_width=True,
+            )
+
+    # Unprocessed fixture count from health checks
+    try:
+        from marketsentry.retrieval_health import run_retrieval_health_checks
+
+        health = run_retrieval_health_checks(database_path=db_path)
+        if health.unprocessed_cross_site_fixture_count > 0:
+            st.warning(
+                f"{health.unprocessed_cross_site_fixture_count} "
+                "cross-site fixture(s) found that have not been processed. "
+                "Run 'marketsentry process-cross-site-fixtures' to process."
+            )
+    except Exception:
+        pass
+
+    # Full manifest table
+    st.subheader("Processing Manifest")
+    st.dataframe(df, use_container_width=True)
 
 
 if __name__ == "__main__":

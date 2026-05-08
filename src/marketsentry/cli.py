@@ -2966,5 +2966,139 @@ def export_retrieval_health_report(
         raise typer.Exit(code=1)
 
 
+# ---------------------------------------------------------------------------
+# Milestone 22: Cross-Site Adapter Parity CLI
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def dry_run_cross_site_property(
+    source: str = typer.Option(..., "--source", help="Source site (zillow, realtor, homes, compass)."),
+    url: str = typer.Option(..., "--url", help="Property URL to dry-run."),
+    db: Optional[str] = typer.Option(None, "--db", help="Path to database file."),
+    output: Optional[str] = typer.Option(None, "--output", help="Output directory."),
+) -> None:
+    """Dry-run preview for a cross-site property URL.
+
+    Validates the URL, infers request type, creates a fixture capture queue
+    request, and shows a dry-run preview. No network calls.
+    """
+    from marketsentry.source_adapters.base import RetrievalRequest
+
+    source_lower = source.lower()
+    valid_sources = ["zillow", "realtor", "homes", "compass"]
+    if source_lower not in valid_sources:
+        console.print(
+            f"[bold red]Error:[/bold red] Unknown source '{source}'. "
+            f"Valid sources: {', '.join(valid_sources)}"
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        if source_lower == "zillow":
+            from marketsentry.source_adapters.zillow_adapter import ZillowAdapter
+            adapter = ZillowAdapter()
+        elif source_lower == "realtor":
+            from marketsentry.source_adapters.realtor_adapter import RealtorAdapter
+            adapter = RealtorAdapter()
+        elif source_lower == "homes":
+            from marketsentry.source_adapters.homes_adapter import HomesAdapter
+            adapter = HomesAdapter()
+        else:
+            from marketsentry.source_adapters.compass_adapter import CompassAdapter
+            adapter = CompassAdapter()
+
+        request = RetrievalRequest(
+            source_name=source_lower,
+            url=url,
+        )
+
+        result = adapter.dry_run(request)
+
+        if result.blocked:
+            console.print(f"[bold yellow]BLOCKED:[/bold yellow] {result.block_reason}")
+        else:
+            console.print(result.dry_run_preview)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def process_cross_site_fixtures(
+    root_dir: Optional[str] = typer.Option(None, "--root-dir", help="Root data directory."),
+    db: Optional[str] = typer.Option(None, "--db", help="Path to database file."),
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", help="Output directory for manifest."),
+    force_reprocess: bool = typer.Option(False, "--force-reprocess", help="Reprocess even if unchanged."),
+) -> None:
+    """Process all cross-site fixtures from all supported sources.
+
+    Scans Zillow, Realtor.com, Homes.com, and Compass fixture directories,
+    parses HTML files, inserts observations, writes manifest. No network calls.
+    """
+    from marketsentry.cross_site_fixture_processor import (
+        format_cross_site_processing_summary,
+        process_cross_site_fixtures as _process,
+    )
+
+    try:
+        run = _process(
+            root_dir=root_dir,
+            database_path=db,
+            output_dir=output_dir,
+            force_reprocess=force_reprocess,
+        )
+        summary = format_cross_site_processing_summary(run)
+        console.print(summary)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def process_cross_site_source_fixtures(
+    source: str = typer.Option(..., "--source", help="Source site (zillow, realtor, homes, compass)."),
+    dir: Optional[str] = typer.Option(None, "--dir", help="Directory containing fixtures."),
+    db: Optional[str] = typer.Option(None, "--db", help="Path to database file."),
+    output_dir: Optional[str] = typer.Option(None, "--output-dir", help="Output directory for manifest."),
+    force_reprocess: bool = typer.Option(False, "--force-reprocess", help="Reprocess even if unchanged."),
+) -> None:
+    """Process cross-site fixtures for a single source.
+
+    Scans the specified source fixture directory, parses HTML files,
+    inserts observations, writes manifest. No network calls.
+    """
+    from marketsentry.cross_site_fixture_processor import (
+        format_cross_site_processing_summary,
+        process_cross_site_source_fixtures as _process_source,
+    )
+
+    source_lower = source.lower()
+    valid_sources = ["zillow", "realtor", "homes", "compass"]
+    if source_lower not in valid_sources:
+        console.print(
+            f"[bold red]Error:[/bold red] Unknown source '{source}'. "
+            f"Valid sources: {', '.join(valid_sources)}"
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        run = _process_source(
+            source_site=source_lower,
+            fixture_dir=dir,
+            database_path=db,
+            output_dir=output_dir,
+            force_reprocess=force_reprocess,
+        )
+        summary = format_cross_site_processing_summary(run)
+        console.print(summary)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

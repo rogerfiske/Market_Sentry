@@ -302,6 +302,38 @@ marketsentry retrieval-audit-report
 
 Summarizes all retrieval decisions from `logs/retrieval_audit/` including counts of allowed/blocked decisions, sources, modes, and reasons.
 
+## Cross-Site Adapter Parity (Milestone 22)
+
+Non-Redfin source adapters (Zillow, Realtor.com, Homes.com, Compass) are dry-run and manual-fixture only. They do not implement live HTTP retrieval.
+
+### What Non-Redfin Adapters Do
+
+- Validate URL domain and pattern
+- Infer request type (property_detail, search, unknown)
+- Provide dry-run preview
+- Create fixture capture queue requests
+- Write retrieval audit records with `network_call_performed=false`
+- Return `blocked`/`not_implemented` for live retrieval attempts
+
+### What Non-Redfin Adapters Do NOT Do
+
+- No live HTTP retrieval
+- No network calls of any kind
+- No browser automation
+- No CAPTCHA, login, paywall, or anti-bot bypass
+
+### Cross-Site Fixture Processing
+
+Saved HTML fixtures are processed through source-specific parsers and tracked in an append-only manifest at `data/processed/cross_site_fixture_processing_manifest.csv`.
+
+```bash
+marketsentry dry-run-cross-site-property --source zillow --url "https://www.zillow.com/homedetails/..."
+marketsentry process-cross-site-fixtures
+marketsentry process-cross-site-source-fixtures --source realtor
+```
+
+See [CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md](CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md) for the complete guide.
+
 ## Retrieval Health Checks (Milestone 21)
 
 Health checks surface stale items, missing configuration, audit anomalies, and operator guidance.

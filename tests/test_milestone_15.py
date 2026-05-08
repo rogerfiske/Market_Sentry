@@ -247,7 +247,7 @@ class TestEvaluateRetrievalPolicy:
 
         assert suggest_fixture_path("redfin", "search") == "data/raw/redfin/search"
         assert suggest_fixture_path("redfin", "property_detail") == "data/raw/redfin/details"
-        assert suggest_fixture_path("zillow", "property_detail") == "data/raw/cross_site/zillow"
+        assert suggest_fixture_path("zillow", "property_detail") == "data/raw/zillow/details"
         assert suggest_fixture_path("county", "assessor") == "data/raw/county/assessor"
         assert suggest_fixture_path("county", "recorder") == "data/raw/county/recorder"
         # Unknown fallback

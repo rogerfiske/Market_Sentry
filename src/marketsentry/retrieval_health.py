@@ -81,6 +81,9 @@ class RetrievalHealthSummary(BaseModel):
     audit_anomaly_count: int = 0
     missing_policy_count: int = 0
     repeated_block_count: int = 0
+    unprocessed_cross_site_fixture_count: int = 0
+    stale_cross_site_capture_request_count: int = 0
+    missing_parser_count: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +151,17 @@ def run_retrieval_health_checks(
             database_path=database_path, config=config,
         )
     )
+    summary.issues.extend(
+        check_cross_site_fixture_processing_gaps(
+            processed_dir=processed_dir, raw_dir=raw_dir,
+            config=config, now=now,
+        )
+    )
+    summary.issues.extend(
+        check_cross_site_parser_availability(
+            database_path=database_path,
+        )
+    )
 
     # Count by severity
     for issue in summary.issues:
@@ -179,6 +193,18 @@ def run_retrieval_health_checks(
     )
     summary.repeated_block_count = sum(
         1 for i in summary.issues if i.category == "repeated_block"
+    )
+    summary.unprocessed_cross_site_fixture_count = sum(
+        1 for i in summary.issues
+        if i.category == "unprocessed_cross_site_fixture"
+    )
+    summary.stale_cross_site_capture_request_count = sum(
+        1 for i in summary.issues
+        if i.category == "stale_capture_request"
+        and i.source in ("zillow", "realtor", "homes", "compass")
+    )
+    summary.missing_parser_count = sum(
+        1 for i in summary.issues if i.category == "missing_parser"
     )
 
     # Build aging buckets for capture queue
@@ -631,6 +657,164 @@ def check_local_policy_files(
     return issues
 
 
+def check_cross_site_fixture_processing_gaps(
+    processed_dir: Optional[str] = None,
+    raw_dir: Optional[str] = None,
+    config: Optional[RetrievalHealthCheckConfig] = None,
+    now: Optional[datetime] = None,
+) -> List[RetrievalHealthIssue]:
+    """Check for unprocessed cross-site fixtures.
+
+    Compares HTML fixtures in cross-site source directories against the
+    cross-site processing manifest to find unprocessed files.
+
+    Args:
+        processed_dir: Path to processed data directory.
+        raw_dir: Path to raw data directory.
+        config: Health check configuration.
+        now: Current time for age calculation.
+
+    Returns:
+        List of health issues for unprocessed cross-site fixtures.
+    """
+    if config is None:
+        config = RetrievalHealthCheckConfig()
+    if now is None:
+        now = datetime.now()
+
+    issues: List[RetrievalHealthIssue] = []
+
+    cross_site_sources = ["zillow", "realtor", "homes", "compass"]
+
+    # Load processed fixture hashes from cross-site manifest
+    manifest_path = Path(
+        processed_dir or "data/processed"
+    ) / "cross_site_fixture_processing_manifest.csv"
+
+    processed_hashes: set = set()
+    if manifest_path.exists():
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    h = row.get("content_hash", "")
+                    status = row.get("status", "")
+                    if h and status == "processed":
+                        processed_hashes.add(h)
+        except Exception as e:
+            logger.debug(f"Could not load cross-site manifest: {e}")
+
+    # Scan cross-site directories for HTML files
+    raw_path = Path(raw_dir or "data/raw")
+
+    threshold = timedelta(hours=config.retrieved_fixture_unprocessed_hours)
+
+    for source in cross_site_sources:
+        source_dirs = [
+            raw_path / source / "details",
+            Path(f"data/raw/cross_site/{source}"),
+        ]
+        for fixture_dir in source_dirs:
+            if not fixture_dir.exists():
+                continue
+            for html_file in fixture_dir.glob("*.html"):
+                # Compute content hash
+                try:
+                    import hashlib
+
+                    content = html_file.read_text(
+                        encoding="utf-8", errors="replace",
+                    )
+                    content_hash = hashlib.sha256(
+                        content.encode("utf-8")
+                    ).hexdigest()
+                except Exception:
+                    continue
+
+                if content_hash in processed_hashes:
+                    continue
+
+                # Check age
+                try:
+                    mtime = datetime.fromtimestamp(html_file.stat().st_mtime)
+                    age = now - mtime
+                    if age > threshold:
+                        age_hours = age.total_seconds() / 3600.0
+                        issues.append(RetrievalHealthIssue(
+                            category="unprocessed_cross_site_fixture",
+                            severity="warning",
+                            message=(
+                                f"Cross-site {source} fixture unprocessed "
+                                f"for {age_hours:.1f} hours"
+                            ),
+                            detail=f"Path: {html_file}",
+                            source=source,
+                            item_id=str(html_file),
+                            age_days=age.total_seconds() / 86400.0,
+                        ))
+                except Exception as e:
+                    logger.debug(
+                        f"Could not stat cross-site fixture {html_file}: {e}"
+                    )
+
+    return issues
+
+
+def check_cross_site_parser_availability(
+    database_path: Optional[str] = None,
+) -> List[RetrievalHealthIssue]:
+    """Check that parsers are available for cross-site sources with pending requests.
+
+    Only flags a missing parser warning when there are pending capture
+    requests for a source that lacks a parser.
+
+    Args:
+        database_path: Path to the SQLite database.
+
+    Returns:
+        List of health issues for missing parsers.
+    """
+    issues: List[RetrievalHealthIssue] = []
+
+    cross_site_sources = ["zillow", "realtor", "homes", "compass"]
+
+    # Check which sources have pending capture requests
+    sources_with_pending: set = set()
+    try:
+        from marketsentry.fixture_capture_queue import list_all_capture_requests
+
+        rows = list_all_capture_requests(database_path=database_path)
+        for row in rows:
+            if row.get("status") == "pending":
+                src = row.get("source_site", "")
+                if src in cross_site_sources:
+                    sources_with_pending.add(src)
+    except Exception:
+        pass
+
+    if not sources_with_pending:
+        return issues
+
+    # Check parser availability
+    from marketsentry.cross_site_fixture_processor import _get_parser
+
+    for source in sources_with_pending:
+        parser = _get_parser(source)
+        if parser is None:
+            issues.append(RetrievalHealthIssue(
+                category="missing_parser",
+                severity="warning",
+                message=f"No parser available for {source}",
+                detail=(
+                    f"Source {source} has pending capture requests "
+                    f"but no parser is available to process fixtures."
+                ),
+                source=source,
+            ))
+
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Next actions
 # ---------------------------------------------------------------------------
@@ -728,6 +912,45 @@ def generate_retrieval_next_actions(
         ))
         priority += 1
 
+    # Unprocessed cross-site fixtures
+    if summary.unprocessed_cross_site_fixture_count > 0:
+        actions.append(RetrievalNextAction(
+            priority=priority,
+            action="Process unprocessed cross-site fixtures",
+            reason=(
+                f"{summary.unprocessed_cross_site_fixture_count} "
+                "cross-site fixture(s) awaiting processing"
+            ),
+            command="marketsentry process-cross-site-fixtures",
+        ))
+        priority += 1
+
+    # Stale cross-site capture requests
+    if summary.stale_cross_site_capture_request_count > 0:
+        actions.append(RetrievalNextAction(
+            priority=priority,
+            action="Save cross-site manual fixtures for stale capture requests",
+            reason=(
+                f"{summary.stale_cross_site_capture_request_count} "
+                "cross-site capture request(s) older than threshold"
+            ),
+            command="marketsentry list-fixture-capture-queue",
+        ))
+        priority += 1
+
+    # Missing parsers
+    if summary.missing_parser_count > 0:
+        actions.append(RetrievalNextAction(
+            priority=priority,
+            action="Investigate missing cross-site parsers",
+            reason=(
+                f"{summary.missing_parser_count} source(s) with pending "
+                "requests lack a parser"
+            ),
+            command="marketsentry retrieval-health-check",
+        ))
+        priority += 1
+
     # If no issues, recommend routine check
     if not actions:
         actions.append(RetrievalNextAction(
@@ -785,6 +1008,17 @@ def format_retrieval_health_summary(
     )
     lines.append(
         f"  Repeated blocks:            {summary.repeated_block_count}"
+    )
+    lines.append(
+        f"  Unprocessed cross-site:     "
+        f"{summary.unprocessed_cross_site_fixture_count}"
+    )
+    lines.append(
+        f"  Stale cross-site captures:  "
+        f"{summary.stale_cross_site_capture_request_count}"
+    )
+    lines.append(
+        f"  Missing parsers:            {summary.missing_parser_count}"
     )
     lines.append("")
 
@@ -898,6 +1132,15 @@ def _export_md_report(
         f"- Missing policies/config: {summary.missing_policy_count}"
     )
     lines.append(f"- Repeated blocks: {summary.repeated_block_count}")
+    lines.append(
+        f"- Unprocessed cross-site fixtures: "
+        f"{summary.unprocessed_cross_site_fixture_count}"
+    )
+    lines.append(
+        f"- Stale cross-site capture requests: "
+        f"{summary.stale_cross_site_capture_request_count}"
+    )
+    lines.append(f"- Missing parsers: {summary.missing_parser_count}")
     lines.append("")
 
     if summary.issues:

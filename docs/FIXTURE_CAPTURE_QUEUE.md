@@ -63,10 +63,14 @@ Shows whether a URL would be allowed or blocked and recommends fixture capture i
 |--------|-------------|----------------|
 | redfin | search | `data/raw/redfin/search/` |
 | redfin | property_detail | `data/raw/redfin/details/` |
-| zillow | property_detail | `data/raw/cross_site/zillow/` |
-| realtor | property_detail | `data/raw/cross_site/realtor/` |
-| homes | property_detail | `data/raw/cross_site/homes/` |
-| compass | property_detail | `data/raw/cross_site/compass/` |
+| zillow | property_detail | `data/raw/zillow/details/` |
+| zillow | search | `data/raw/zillow/search/` |
+| realtor | property_detail | `data/raw/realtor/details/` |
+| realtor | search | `data/raw/realtor/search/` |
+| homes | property_detail | `data/raw/homes/details/` |
+| homes | search | `data/raw/homes/search/` |
+| compass | property_detail | `data/raw/compass/details/` |
+| compass | search | `data/raw/compass/search/` |
 | county | assessor | `data/raw/county/assessor/` |
 | county | recorder | `data/raw/county/recorder/` |
 
@@ -162,6 +166,26 @@ For each stale pending request, you can:
 3. **Batch retrieve**: Use `marketsentry prepare-redfin-retrieval-approval` to create an approval package for pending items.
 
 The default stale threshold is 7 days. Items in `captured`, `skipped`, `invalid`, or `archived` status are not flagged.
+
+## Cross-Site Capture Queue Examples
+
+Cross-site adapters (Zillow, Realtor.com, Homes.com, Compass) automatically create capture queue requests during dry-run previews:
+
+```bash
+# Dry-run a Zillow property URL (creates capture request)
+marketsentry dry-run-cross-site-property --source zillow --url "https://www.zillow.com/homedetails/123-Main-St/12345678_zpid/"
+
+# Dry-run a Realtor.com property URL
+marketsentry dry-run-cross-site-property --source realtor --url "https://www.realtor.com/realestateandhomes-detail/123-Main-St_Temecula_CA_92592_M12345-67890"
+
+# View pending capture requests for all sources
+marketsentry list-fixture-capture-queue
+
+# Process saved cross-site fixtures and mark queue items captured
+marketsentry process-cross-site-fixtures
+```
+
+Cross-site capture requests work the same as Redfin capture requests: save the HTML page manually and process it through the cross-site fixture processor. The processor automatically marks matching queue items as captured after successful processing.
 
 ## What the Queue Does Not Do
 

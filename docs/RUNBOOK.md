@@ -761,6 +761,57 @@ The Health Checks tab in the Retrieval Operations dashboard section shows issue 
 
 Health checks are read-only. No write or mutation actions.
 
+## Cross-Site Manual Fixture Workflow
+
+Non-Redfin sources (Zillow, Realtor.com, Homes.com, Compass) support manual fixture workflows only. No live retrieval is implemented for these sources.
+
+### Dry-Run Cross-Site Property
+
+Preview a cross-site property URL:
+
+```bash
+marketsentry dry-run-cross-site-property --source zillow --url "https://www.zillow.com/homedetails/..."
+marketsentry dry-run-cross-site-property --source realtor --url "https://www.realtor.com/realestateandhomes-detail/..."
+marketsentry dry-run-cross-site-property --source homes --url "https://www.homes.com/property/..."
+marketsentry dry-run-cross-site-property --source compass --url "https://www.compass.com/listing/..."
+```
+
+No network calls are performed. The dry-run creates a fixture capture queue request.
+
+### Save Cross-Site Fixtures
+
+Save property detail pages as HTML to:
+
+- `data/raw/zillow/details/`
+- `data/raw/realtor/details/`
+- `data/raw/homes/details/`
+- `data/raw/compass/details/`
+
+### Process Cross-Site Fixtures
+
+```bash
+# Process all sources
+marketsentry process-cross-site-fixtures
+
+# Process one source
+marketsentry process-cross-site-source-fixtures --source zillow
+
+# Force reprocess unchanged files
+marketsentry process-cross-site-fixtures --force-reprocess
+```
+
+### Processing Manifest
+
+The append-only manifest at `data/processed/cross_site_fixture_processing_manifest.csv` tracks all processing results with content hashes for deduplication.
+
+### Cross-Site Dashboard and Health Checks
+
+The Retrieval Operations dashboard includes a "Cross-Site Fixtures" tab showing manifest data, source breakdown, errors, and unprocessed fixture warnings.
+
+Health checks include unprocessed cross-site fixture warnings and stale cross-site capture request warnings.
+
+See [CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md](CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md) for the complete guide.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.
