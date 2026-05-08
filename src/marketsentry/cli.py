@@ -1097,6 +1097,148 @@ def export_cross_site_trend_alerts_report(
 
 
 @app.command()
+def cross_site_alert_analytics_summary(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Show cross-site alert analytics summary across all properties."""
+    from marketsentry.cross_site_alert_analytics import (
+        summarize_alert_history_for_all_properties,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Computing cross-site alert analytics...[/bold blue]")
+
+        agg = summarize_alert_history_for_all_properties(database_path=db_path)
+
+        console.print(f"\n[bold green]Alert Analytics Summary[/bold green]")
+        console.print(f"  - Total properties with alerts: {agg.total_properties_with_alerts}")
+        console.print(f"  - Properties with open alerts: {agg.properties_with_open_alerts}")
+        console.print(f"  - Properties with high/critical alerts: {agg.properties_with_high_critical_alerts}")
+        console.print(f"  - Properties with repeated patterns: {agg.properties_with_repeated_patterns}")
+
+        if agg.top_alert_types:
+            console.print(f"  - Top alert types: {', '.join(agg.top_alert_types)}")
+
+        if agg.top_burden_properties:
+            console.print(f"  - Top burden properties: {', '.join(str(p) for p in agg.top_burden_properties)}")
+
+        if agg.oldest_open_alert_age_days is not None:
+            console.print(f"  - Oldest open alert: {agg.oldest_open_alert_age_days} days")
+
+        # Per-property burden table
+        if agg.summaries:
+            table = Table(title="Property Alert Burden")
+            table.add_column("Property", style="cyan")
+            table.add_column("Address", style="white")
+            table.add_column("Open", style="white")
+            table.add_column("High/Crit", style="white")
+            table.add_column("Burden", style="white")
+            table.add_column("Patterns", style="white")
+            table.add_column("Action", style="dim")
+
+            for s in sorted(
+                agg.summaries,
+                key=lambda x: x.burden.alert_burden_score,
+                reverse=True,
+            ):
+                burden_style = {
+                    "elevated_review": "bold red",
+                    "high": "red",
+                    "moderate": "yellow",
+                    "low": "green",
+                    "none": "dim",
+                }.get(s.burden.alert_burden_label, "white")
+
+                table.add_row(
+                    str(s.property_id),
+                    s.address or "",
+                    str(s.burden.open_alert_count),
+                    str(s.burden.high_or_critical_open_alert_count),
+                    f"[{burden_style}]{s.burden.alert_burden_label}[/{burden_style}]",
+                    str(len(s.patterns)),
+                    (s.recommended_review_action or "")[:50],
+                )
+
+            console.print(table)
+
+        # Recommended next actions
+        if agg.properties_with_high_critical_alerts > 0:
+            console.print(
+                f"\n[yellow]Recommended:[/yellow] Review {agg.properties_with_high_critical_alerts} "
+                f"properties with high/critical alerts"
+            )
+        if agg.properties_with_repeated_patterns > 0:
+            console.print(
+                f"[yellow]Recommended:[/yellow] Investigate {agg.properties_with_repeated_patterns} "
+                f"properties with repeated alert patterns"
+            )
+
+        if agg.errors:
+            for e in agg.errors:
+                console.print(f"  [red]{e}[/red]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Cross-site alert analytics summary error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_cross_site_alert_analytics_report(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory"
+    ),
+    include_resolved: bool = typer.Option(
+        True, "--include-resolved", help="Include resolved alerts"
+    ),
+) -> None:
+    """Export cross-site alert analytics report to CSV."""
+    from marketsentry.cross_site_alert_analytics import (
+        export_cross_site_alert_analytics_report as _export,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting cross-site alert analytics report...[/bold blue]")
+
+        output_path = None
+        if output_dir:
+            from datetime import datetime as dt
+            ts = dt.now().strftime("%Y%m%d_%H%M%S")
+            output_path = str(
+                Path(output_dir) / f"cross_site_alert_analytics_{ts}.csv"
+            )
+
+        csv_path = _export(
+            database_path=db_path,
+            output_path=output_path,
+            include_resolved=include_resolved,
+        )
+
+        # Count rows
+        import csv
+        with open(csv_path, "r", encoding="utf-8") as f:
+            row_count = sum(1 for row in csv.DictReader(f))
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Alert analytics report exported")
+        console.print(f"  - Output file: {csv_path}")
+        console.print(f"  - Properties: {row_count}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export cross-site alert analytics report error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def snapshot_watchlist(
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"

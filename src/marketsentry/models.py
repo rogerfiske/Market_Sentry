@@ -1253,3 +1253,94 @@ class CrossSiteTrendAlertReportRow(BaseModel):
     source_context: Optional[str] = None
     created_at: Optional[str] = None
     notes: Optional[str] = None
+
+
+# Cross-Site Alert Analytics Models (Milestone 27)
+
+
+class CrossSiteAlertBurdenMetrics(BaseModel):
+    """Property-level alert burden metrics."""
+
+    property_id: int
+    candidate_id: Optional[int] = None
+    total_alert_count: int = 0
+    open_alert_count: int = 0
+    high_or_critical_open_alert_count: int = 0
+    acknowledged_alert_count: int = 0
+    resolved_alert_count: int = 0
+    oldest_open_alert_age_days: Optional[int] = None
+    latest_alert_at: Optional[str] = None
+    repeated_alert_type_count: int = 0
+    most_common_alert_type: Optional[str] = None
+    most_common_severity: Optional[str] = None
+    alert_burden_score: float = 0.0
+    alert_burden_label: str = "none"
+
+
+class CrossSiteAlertPattern(BaseModel):
+    """A repeated alert pattern identified for a property."""
+
+    property_id: int
+    pattern_type: str
+    count: int = 0
+    first_seen: Optional[str] = None
+    latest_seen: Optional[str] = None
+    severity_summary: Optional[str] = None
+    status_summary: Optional[str] = None
+    message: Optional[str] = None
+    recommended_review_action: Optional[str] = None
+
+
+class CrossSiteAlertHistorySummary(BaseModel):
+    """Property-level alert history summary combining burden and patterns."""
+
+    property_id: int
+    candidate_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    burden: CrossSiteAlertBurdenMetrics = Field(
+        default_factory=lambda: CrossSiteAlertBurdenMetrics(property_id=0)
+    )
+    patterns: List[CrossSiteAlertPattern] = Field(default_factory=list)
+    recommended_review_action: Optional[str] = None
+
+
+class CrossSiteAlertAggregationResult(BaseModel):
+    """Result of running alert aggregation across all properties."""
+
+    run_date: datetime = Field(default_factory=datetime.now)
+    total_properties_with_alerts: int = 0
+    properties_with_open_alerts: int = 0
+    properties_with_high_critical_alerts: int = 0
+    properties_with_repeated_patterns: int = 0
+    top_alert_types: List[str] = Field(default_factory=list)
+    top_burden_properties: List[int] = Field(default_factory=list)
+    oldest_open_alert_age_days: Optional[int] = None
+    summaries: List[CrossSiteAlertHistorySummary] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+
+
+class CrossSiteAlertAnalyticsReportRow(BaseModel):
+    """Row in the cross-site alert analytics CSV report."""
+
+    property_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    total_alert_count: int = 0
+    open_alert_count: int = 0
+    high_or_critical_open_alert_count: int = 0
+    oldest_open_alert_age_days: Optional[int] = None
+    latest_alert_at: Optional[str] = None
+    most_common_alert_type: Optional[str] = None
+    most_common_severity: Optional[str] = None
+    repeated_patterns: Optional[str] = None
+    alert_burden_score: float = 0.0
+    alert_burden_label: str = "none"
+    recommended_review_action: Optional[str] = None
+    unresolved_alert_types: Optional[str] = None
+    resolved_alert_count: int = 0
+    acknowledged_alert_count: int = 0

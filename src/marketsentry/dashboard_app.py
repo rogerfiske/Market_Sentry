@@ -24,6 +24,7 @@ from marketsentry.config import config
 from marketsentry.dashboard import (
     build_candidate_table,
     build_county_verification_table,
+    build_cross_site_alert_analytics_table,
     build_cross_site_analytics_table,
     build_cross_site_table,
     build_cross_site_trend_alerts_from_db,
@@ -438,6 +439,45 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
 
         st.write(f"Showing {len(alerts_df)} alerts")
         st.dataframe(alerts_df, use_container_width=True)
+
+    # Cross-site alert analytics section
+    st.subheader("Cross-Site Alert Analytics")
+    st.caption(
+        "Aggregated alert burden and repeated pattern analysis. "
+        "These are neutral review signals, not purchase recommendations."
+    )
+
+    analytics_alert_df = build_cross_site_alert_analytics_table(exports_dir)
+    if analytics_alert_df.empty:
+        st.info(
+            "No alert analytics report found. Run: "
+            "marketsentry export-cross-site-alert-analytics-report"
+        )
+    else:
+        # Top burden properties
+        if "alert_burden_label" in analytics_alert_df.columns:
+            burden_counts = analytics_alert_df["alert_burden_label"].value_counts()
+            if not burden_counts.empty:
+                st.write(f"  Alert burden distribution: {burden_counts.to_dict()}")
+
+        # Open high/critical counts
+        if "high_or_critical_open_alert_count" in analytics_alert_df.columns:
+            high_crit = int(
+                analytics_alert_df["high_or_critical_open_alert_count"]
+                .fillna(0).astype(int).sum()
+            )
+            st.write(f"  Total open high/critical alerts: {high_crit}")
+
+        # Resolved vs open
+        if "open_alert_count" in analytics_alert_df.columns:
+            total_open = int(
+                analytics_alert_df["open_alert_count"]
+                .fillna(0).astype(int).sum()
+            )
+            st.write(f"  Total open alerts: {total_open}")
+
+        st.write(f"Showing {len(analytics_alert_df)} properties")
+        st.dataframe(analytics_alert_df, use_container_width=True)
 
 
 def _render_reports(exports_dir: str) -> None:

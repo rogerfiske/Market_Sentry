@@ -1083,6 +1083,83 @@ These fields are informational only. They do not change watchlist status or Quie
 
 Cross-site trend alerts are analytical review signals for human operators. They are not purchase recommendations and do not infer seller intent. Alerts do not overwrite Redfin source-of-truth fields, user decisions, or watchlist status.
 
+## Cross-Site Alert Analytics
+
+Milestone 27 aggregates individual cross-site trend alerts (Milestone 26) into property-level burden metrics and repeated discrepancy patterns. These are neutral analytical review signals for watchlist review.
+
+### Viewing Alert Analytics Summary
+
+```bash
+# Show summary of alert burden across all properties
+marketsentry cross-site-alert-analytics-summary
+
+# Specify a database
+marketsentry cross-site-alert-analytics-summary --db db/marketsentry.db
+```
+
+The summary shows total properties with alerts, open/high-critical counts, repeated patterns, top alert types, top properties by burden, oldest open alert, and recommended next actions.
+
+### Exporting Alert Analytics Report
+
+```bash
+# Export analytics report to CSV
+marketsentry export-cross-site-alert-analytics-report
+
+# Specify output directory
+marketsentry export-cross-site-alert-analytics-report --output-dir data/exports
+
+# Exclude resolved alerts
+marketsentry export-cross-site-alert-analytics-report --include-resolved false
+```
+
+The report includes: property_id, address, city, zip, total/open/high-critical alert counts, oldest open alert age, latest alert timestamp, most common type/severity, repeated patterns, burden score/label, recommended review action, unresolved alert types, resolved/acknowledged counts.
+
+### Alert Burden Levels
+
+| Burden Label | Criteria |
+| --- | --- |
+| none | No open alerts |
+| low | 1-2 low/warning open alerts |
+| moderate | 3+ open alerts or any high open alert |
+| high | 2+ high/critical open alerts or any critical open alert |
+| elevated_review | Repeated high/critical alerts from different snapshots |
+
+Burden scoring: each open alert = 1.0 x severity weight, acknowledged = 0.5 x weight, resolved = 0.1 x weight. Severity weights: info=1, warning=2, high=4, critical=8.
+
+### Repeated Alert Patterns
+
+Patterns require at least 2 matching events:
+
+| Pattern Type | Trigger |
+| --- | --- |
+| repeated_confidence_drop | 2+ confidence_drop alerts |
+| repeated_status_discrepancy | 2+ status_agreement_degraded alerts |
+| repeated_price_agreement_degraded | 2+ price_agreement_degraded alerts |
+| repeated_dom_agreement_degraded | 2+ dom_agreement_degraded alerts |
+| repeated_stale_sources | 2+ stale_sources_increased alerts |
+| repeated_low_confidence_sources | 2+ low_confidence_sources_increased alerts |
+| recurring_high_severity_alerts | 2+ high/critical alerts of any type |
+| improving_source_quality_pattern | 2+ source_quality_improved alerts |
+
+### Cross-Site Alert Analytics in Dashboard
+
+The Cross-Site Review section of the dashboard includes an alert analytics subsection showing top properties by alert burden, open high/critical counts, repeated patterns table, burden labels, recommended review actions, and resolved vs open counts.
+
+### Alert Analytics Watchlist Monitoring Fields
+
+Alert analytics fields are available per property for watchlist monitoring reports:
+
+- `cross_site_alert_burden_label`
+- `cross_site_alert_burden_score`
+- `cross_site_repeated_patterns`
+- `cross_site_oldest_open_alert_age_days`
+
+These fields are informational only. They do not change watchlist status, active_watch_status, or Quiet Score gatekeeper results.
+
+### Reminder: Analytics Are Review Aids
+
+Cross-site alert analytics are analytical review aids for human operators. They are not purchase recommendations and do not infer seller intent. Analytics do not overwrite Redfin source-of-truth fields, user decisions, or watchlist status.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

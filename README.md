@@ -6,24 +6,29 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Cross-Site Trend Alerts and Watchlist Monitoring Integration (MVP 26)
+## Current Milestone: Cross-Site Alert Aggregation and Historical Pattern Analysis (MVP 27)
 
-This milestone turns Milestone 25 trend snapshots into practical local operator alerts and watchlist monitoring signals.
+This milestone aggregates individual cross-site trend alerts into property-level burden metrics and repeated discrepancy patterns for watchlist review.
 
-- New `cross_site_trend_alerts` database table with alert lifecycle (open/acknowledged/resolved/archived)
-- 12 alert types: confidence_drop, confidence_improvement, severity_increase, severity_decrease, manual_review_priority_increase/decrease, price/status/dom_agreement_degraded, stale_sources_increased, low_confidence_sources_increased, source_quality_improved
-- 4 severity levels: info, warning, high, critical with centralized rules
-- Duplicate open alert prevention (same property + alert_type + snapshot_id)
+- Property-level alert burden scoring (total, open, high/critical counts, oldest open age, burden score and label)
+- Burden labels: none, low, moderate, high, elevated_review
+- 8 repeated pattern types: confidence drops, status/price/DOM discrepancies, stale/low-confidence sources, recurring high severity, improving quality
+- Patterns require 2+ matching events to trigger
+- Alert analytics report: `data/exports/cross_site_alert_analytics_YYYYMMDD_HHMMSS.csv`
+- New CLI: `marketsentry cross-site-alert-analytics-summary`
+- New CLI: `marketsentry export-cross-site-alert-analytics-report`
+- Dashboard: Cross-Site Alert Analytics subsection with burden table, pattern display, review actions
+- Watchlist monitoring integration with alert burden fields (read-only, does not change watchlist state)
+- Analytics are neutral review signals, not purchase recommendations
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 26: Cross-Site Trend Alerts and Watchlist Monitoring Integration
+
+- Cross-site trend alerts with alert lifecycle (open/acknowledged/resolved/archived)
+- 12 alert types, 4 severity levels, centralized rules, deduplication
 - Alert lifecycle management: acknowledge and resolve with notes
-- Watchlist monitoring integration with alert summary fields
-- New CLI: `marketsentry generate-cross-site-trend-alerts`
-- New CLI: `marketsentry list-cross-site-trend-alerts` (with --status, --severity, --property-id filters)
-- New CLI: `marketsentry acknowledge-cross-site-trend-alert`
-- New CLI: `marketsentry resolve-cross-site-trend-alert`
-- New CLI: `marketsentry export-cross-site-trend-alerts-report`
-- New report: `data/exports/cross_site_trend_alerts_YYYYMMDD_HHMMSS.csv`
-- Dashboard: Cross-Site Trend Alerts subsection with severity counts, status filters, and alert table
-- Cross-site trend alerts are neutral review signals, not purchase recommendations
+- CLI: `marketsentry generate-cross-site-trend-alerts`, `list-cross-site-trend-alerts`, `acknowledge-cross-site-trend-alert`, `resolve-cross-site-trend-alert`, `export-cross-site-trend-alerts-report`
+- Dashboard: Cross-Site Trend Alerts subsection
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
 ### MVP 25: Cross-Site Analytics Trend Snapshots

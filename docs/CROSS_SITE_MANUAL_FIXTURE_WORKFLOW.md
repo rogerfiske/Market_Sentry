@@ -356,3 +356,58 @@ marketsentry export-cross-site-trend-alerts-report --status open
 ### Reminder: Alerts Are Review Aids
 
 Cross-site trend alerts are analytical review aids for human operators. They do not overwrite Redfin source-of-truth fields, change watchlist status, modify Quiet Score gatekeeper results, or make purchase recommendations.
+
+## Cross-Site Alert Analytics (Milestone 27)
+
+### What Alert Burden Means
+
+Alert burden measures the cumulative weight of cross-site trend alerts for a property. It helps operators identify which properties have the most unresolved cross-site discrepancies and may benefit from priority review.
+
+Burden labels:
+
+- **none**: No open alerts. No action needed.
+- **low**: 1-2 low or warning open alerts. Routine monitoring sufficient.
+- **moderate**: 3+ open alerts or any high open alert. Monitor cross-site data.
+- **high**: 2+ high/critical open alerts or any critical open alert. Review cross-site data.
+- **elevated_review**: Repeated high/critical alerts from different snapshots over time. Prioritize review.
+
+Alert burden is a neutral analytical measure. It does not indicate seller intent, property quality, or purchase suitability. Higher burden means more unresolved cross-site discrepancies need human attention.
+
+### What Repeated Patterns Mean
+
+Repeated patterns identify recurring alert types for a property over multiple snapshots. A pattern requires at least 2 matching events to trigger.
+
+Examples:
+
+- **repeated_confidence_drop**: Confidence scores have dropped across multiple snapshots, suggesting unstable cross-site data.
+- **repeated_status_discrepancy**: Listing status disagreement has recurred, possibly indicating data lag or stale fixtures.
+- **repeated_price_agreement_degraded**: Price disagreement has recurred across sources.
+- **repeated_dom_agreement_degraded**: DOM value disagreement has recurred across sources.
+- **improving_source_quality_pattern**: Source quality has improved across multiple snapshots.
+
+Patterns are informational. They help operators understand whether an issue is one-time or recurring.
+
+### Alert Analytics Report
+
+```bash
+# Export alert analytics report
+marketsentry export-cross-site-alert-analytics-report
+
+# View summary
+marketsentry cross-site-alert-analytics-summary
+```
+
+The analytics report includes per-property: total/open/high-critical alert counts, oldest open alert age, latest alert timestamp, most common alert type and severity, repeated patterns, burden score and label, recommended review action, unresolved alert types, and resolved/acknowledged counts.
+
+### How to Use Alert Analytics During Watchlist Review
+
+1. Run `marketsentry cross-site-alert-analytics-summary` to see which properties have the highest alert burden.
+2. Focus review time on properties labeled **high** or **elevated_review**.
+3. Check repeated patterns to understand whether discrepancies are one-time or recurring.
+4. Use `marketsentry export-cross-site-alert-analytics-report` to export a CSV for offline review.
+5. Acknowledge or resolve individual alerts using the Milestone 26 alert management commands.
+6. Re-run analytics after resolving alerts to see updated burden levels.
+
+### Reminder: Analytics Are Review Aids, Not Recommendations
+
+Cross-site alert analytics are analytical review aids for human operators. They help identify where to focus review effort based on alert burden and recurring patterns. They are not purchase recommendations, do not infer seller intent, and do not overwrite Redfin source-of-truth fields, watchlist status, or Quiet Score gatekeeper results.

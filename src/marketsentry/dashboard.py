@@ -254,6 +254,7 @@ def find_latest_report(
         "cross_site_analytics": "cross_site_analytics_*.csv",
         "cross_site_trends": "cross_site_trends_*.csv",
         "cross_site_trend_alerts": "cross_site_trend_alerts_*.csv",
+        "cross_site_alert_analytics": "cross_site_alert_analytics_*.csv",
         "workflow_summary": "workflow_summary_*.md",
     }
 
@@ -660,6 +661,41 @@ def build_cross_site_trend_alerts_table(
         "trend_direction", "current_value", "previous_value",
         "delta_value", "message", "recommended_action",
         "created_at",
+    ]
+    available = [c for c in desired if c in df.columns]
+    if available:
+        return df[available]
+    return df
+
+
+def build_cross_site_alert_analytics_table(
+    exports_dir: Optional[Union[Path, str]] = None,
+) -> pd.DataFrame:
+    """Build cross-site alert analytics table from latest analytics report.
+
+    Args:
+        exports_dir: Directory containing reports.
+
+    Returns:
+        DataFrame with alert analytics data, or empty DataFrame.
+    """
+    report_path = find_latest_report("cross_site_alert_analytics", exports_dir)
+    if not report_path:
+        return pd.DataFrame()
+
+    df = load_report_csv(report_path)
+    if df.empty:
+        return df
+
+    desired = [
+        "property_id", "address", "city",
+        "total_alert_count", "open_alert_count",
+        "high_or_critical_open_alert_count",
+        "oldest_open_alert_age_days",
+        "most_common_alert_type",
+        "repeated_patterns",
+        "alert_burden_score", "alert_burden_label",
+        "recommended_review_action",
     ]
     available = [c for c in desired if c in df.columns]
     if available:
