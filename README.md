@@ -6,9 +6,21 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Cross-Site Adapter Parity and Manual Fixtures (MVP 22)
+## Current Milestone: Cross-Site Parser Quality and Fixture Corpus Expansion (MVP 23)
 
-This milestone brings non-Redfin cross-site sources (Zillow, Realtor.com, Homes.com, Compass) up to full operational parity for manual fixture workflows.
+This milestone improves cross-site parser quality and fixture coverage for Zillow, Realtor.com, Homes.com, and Compass using local saved/synthetic fixtures only.
+
+- All 4 parsers extract 19 fields including listing agent, listing broker, MLS number, source MLS, lot size
+- Parse confidence model (high/medium/low) indicates extraction reliability
+- Missing required field tracking for diagnostic purposes
+- Normalization helpers for price ($850K, $1.2M), sqft ("square feet"), lot size ("0.25 acres"), DOM ("Listed 45 days ago"), status ("contingent", "coming soon"), garage ("3-car garage"), gas evidence
+- 32+ synthetic fixture files providing comprehensive parser test coverage
+- Cross-site comparison reports include parse quality summary (lowest_parse_confidence, sources_with_parse_warnings, sources_with_partial_parse)
+- No live retrieval. No browser automation. Cross-site data remains validation-only.
+
+See [docs/CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md](docs/CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md) for the cross-site manual fixture workflow guide.
+
+### MVP 22: Cross-Site Adapter Parity and Manual Fixtures
 
 - Cross-site adapters with dry-run preview, URL validation, fixture capture queue integration, and audit logging
 - Cross-site fixture processor with content-hash deduplication and append-only manifest
@@ -18,8 +30,6 @@ This milestone brings non-Redfin cross-site sources (Zillow, Realtor.com, Homes.
 - Dashboard: Cross-Site Fixtures tab in Retrieval Operations section
 - Health checks: unprocessed cross-site fixtures, stale cross-site capture requests, missing parsers
 - No live retrieval for non-Redfin sources. Redfin remains the only Live HTTP Phase 1 source.
-
-See [docs/CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md](docs/CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md) for the cross-site manual fixture workflow guide.
 
 ### MVP 21: Retrieval Health Checks
 
@@ -186,11 +196,11 @@ See [docs/RUNBOOK.md](docs/RUNBOOK.md) for the complete operating guide.
 
 **Important:** Continues the saved HTML approach from Milestones 3-5. No live scraping. Users manually save property detail pages from multiple sites and run enrichment commands. Cross-site observations are stored separately from the primary Redfin data to maintain single source of truth.
 
-**Cross-Site Parsers:**
-- **Zillow**: Price, beds, baths, sqft, lot size, listing status, DOM, property description
-- **Realtor.com**: Price, beds, baths, sqft, lot size, listing status, DOM, MLS info
-- **Homes.com**: Price, beds, baths, sqft, lot size, listing status, DOM
-- **Compass**: Price, beds, baths, sqft, lot size, listing status, DOM
+**Cross-Site Parsers (19 fields each, improved in MVP 23):**
+- **Zillow**: Price, beds, baths, sqft, lot size, listing status, DOM, garage spaces, gas evidence, listing agent, listing broker, MLS number, source MLS, property description, parse confidence, parse warnings
+- **Realtor.com**: Price, beds, baths, sqft, lot size, listing status, DOM, garage spaces, gas evidence, listing agent, listing broker, MLS number, source MLS, property description, parse confidence, parse warnings
+- **Homes.com**: Price, beds, baths, sqft, lot size, listing status, DOM, garage spaces, gas evidence, listing agent, listing broker, MLS number, source MLS, property description, parse confidence, parse warnings
+- **Compass**: Price, beds, baths, sqft, lot size, listing status, DOM, garage spaces, gas evidence, listing agent, listing broker, MLS number, source MLS, property description, parse confidence, parse warnings
 
 **Discrepancy Detection:**
 - **Price Discrepancy**: Flagged when any site's price differs from Redfin by more than $10,000
@@ -1518,7 +1528,8 @@ Market_Sentry/
     ├── test_milestone_12.py           # Dashboard and report viewer tests
     ├── test_milestone_13.py           # Windows Task Scheduler automation tests
     ├── test_milestone_14.py           # Live retrieval strategy tests
-    └── test_milestone_15.py           # Retrieval safety and fixture capture queue tests
+    ├── test_milestone_15.py           # Retrieval safety and fixture capture queue tests
+    └── test_milestone_23.py           # Cross-site parser quality and fixture corpus tests
 ```
 
 ## Running Tests
@@ -1564,11 +1575,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 16: (To Be Determined)
+### MVP 24: (To Be Determined)
 
-Milestones 1-15 are complete. Future milestones may include live Redfin data retrieval implementation, authorized API integrations, or enhanced analytical workflows.
+Milestones 1-23 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-**Note:** Milestone 15 (Retrieval Safety Enforcement and Fixture Capture Queue) is now complete.
+**Note:** Milestone 23 (Cross-Site Parser Quality and Fixture Corpus Expansion) is now complete.
 
 ## Repository
 
@@ -1602,6 +1613,7 @@ MIT
   - [Decision 012: Windows Task Scheduler Automation](docs/decisions/012-windows-task-scheduler-automation.md)
   - [Decision 013: Live Retrieval Strategy and Compliance Adapters](docs/decisions/013-live-retrieval-strategy-and-compliance-adapters.md)
   - [Decision 014: Retrieval Safety and Fixture Capture Queue](docs/decisions/014-retrieval-safety-and-fixture-capture-queue.md)
+  - [Decision 022: Cross-Site Parser Quality and Fixture Corpus](docs/decisions/022-cross-site-parser-quality-fixture-corpus.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

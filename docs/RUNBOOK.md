@@ -812,6 +812,76 @@ Health checks include unprocessed cross-site fixture warnings and stale cross-si
 
 See [CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md](CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md) for the complete guide.
 
+## Cross-Site Parser Quality
+
+Milestone 23 improved cross-site parser extraction, normalization, and confidence scoring for all four non-Redfin sources (Zillow, Realtor.com, Homes.com, Compass).
+
+### Parse Confidence Levels
+
+Each cross-site parse result includes a confidence level:
+
+| Confidence | Meaning |
+| ---------- | ------- |
+| high | Address extracted and at least price/status/property facts present |
+| medium | Address extracted and some facts present, but important fields missing |
+| low | Sparse or uncertain parse (missing address or minimal useful data) |
+
+### Missing Required Fields
+
+The parser tracks which required fields are absent from a given parse:
+
+- address
+- price
+- listing_status
+- beds
+- baths
+- sqft
+
+Missing fields are listed in the `missing_required_fields` attribute and stored as parse warnings.
+
+### Parse Warnings
+
+Parse warnings are diagnostic messages attached to observations. They indicate extraction issues such as missing fields, ambiguous values, or format problems. Warnings do not prevent insertion but are visible in reports.
+
+### How to Interpret Parse Quality in Reports
+
+The cross-site comparison report includes:
+
+- **lowest_parse_confidence**: The lowest confidence level across all source observations for a property. If this is "low", treat the cross-site data with caution.
+- **sources_with_parse_warnings**: Which sources had parse warnings.
+- **sources_with_partial_parse**: Which sources had partial (not fully successful) parses.
+
+### Recommended Manual Review for Low-Confidence Parses
+
+When a cross-site observation has **low** confidence:
+
+1. Check the saved HTML fixture to confirm it contains property data.
+2. Re-save the page if it was a temporary error page or redirect.
+3. Do not weight low-confidence cross-site data equally in comparison analysis.
+4. Consider the observation informational only until a higher-confidence parse is available.
+
+### Normalization
+
+Parsers normalize common format variations:
+
+- **Price**: $850,000 / $850K / $1.2M / 850000
+- **Sqft**: "2,450 sqft" / "2450 square feet"
+- **Lot size**: "0.25 acres" / "7,405 sqft lot" (normalized to acres)
+- **DOM**: "12 days on market" / "Listed 45 days ago" / "On site 17 days"
+- **Status**: active / pending / contingent / sold / off market / coming soon
+- **Garage**: "3-car garage" / "2 garage spaces" / "attached garage"
+- **Gas evidence**: gas fireplace / gas range / natural gas / gas dryer hookup / gas heating
+
+### Cross-Site Data Remains Validation-Only
+
+Cross-site observations validate and compare against Redfin source-of-truth data. They do not overwrite:
+
+- `user_decision`
+- `user_notes`
+- `active_watch_status`
+- `watch_priority`
+- Redfin-sourced property facts (price, beds, baths, sqft, etc.)
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

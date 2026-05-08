@@ -63,6 +63,9 @@ def compare_property_cross_site(
         result = detect_status_discrepancy(result)
         result = detect_dom_discrepancy(result)
 
+        # Build parse quality summary
+        result = _populate_parse_quality_summary(result, cross_site_data)
+
         # Build comparison notes
         notes = []
         if result.has_price_discrepancy:
@@ -268,7 +271,8 @@ def _get_cross_site_observations(
     try:
         # Get latest observation from each source site
         query = """
-        SELECT source_site, price, displayed_dom, listing_status
+        SELECT source_site, price, displayed_dom, listing_status,
+               parse_status, parse_warnings
         FROM cross_site_observations
         WHERE property_id = ?
         AND observed_at = (
@@ -284,10 +288,13 @@ def _get_cross_site_observations(
         )
 
         for row in results:
-            observations[row["source_site"]] = {
-                "price": row["price"],
-                "displayed_dom": row["displayed_dom"],
-                "listing_status": row["listing_status"],
+            row_dict = dict(row)
+            observations[row_dict["source_site"]] = {
+                "price": row_dict.get("price"),
+                "displayed_dom": row_dict.get("displayed_dom"),
+                "listing_status": row_dict.get("listing_status"),
+                "parse_status": row_dict.get("parse_status", "success"),
+                "parse_warnings": row_dict.get("parse_warnings"),
             }
 
     except Exception as e:
@@ -296,6 +303,54 @@ def _get_cross_site_observations(
         )
 
     return observations
+
+
+def _populate_parse_quality_summary(
+    result: CrossSiteComparisonResult,
+    cross_site_data: Dict[str, Dict],
+) -> CrossSiteComparisonResult:
+    """
+    Populate parse quality summary fields on the comparison result.
+
+    Sets lowest_parse_confidence, sources_with_parse_warnings,
+    and sources_with_partial_parse based on cross-site observation data.
+
+    Args:
+        result: Comparison result to update.
+        cross_site_data: Cross-site observation data by source site.
+
+    Returns:
+        Updated comparison result.
+    """
+    confidence_rank = {"high": 3, "medium": 2, "low": 1}
+    lowest_confidence = "high"
+    warnings_sources: List[str] = []
+    partial_sources: List[str] = []
+
+    for site, data in cross_site_data.items():
+        parse_status = data.get("parse_status", "success")
+        parse_warnings = data.get("parse_warnings")
+
+        if parse_status == "partial":
+            partial_sources.append(site)
+        if parse_status == "failed":
+            partial_sources.append(site)
+            if confidence_rank.get("low", 1) < confidence_rank.get(lowest_confidence, 3):
+                lowest_confidence = "low"
+        if parse_warnings:
+            warnings_sources.append(site)
+
+    # Partial parse implies medium confidence at best
+    if partial_sources:
+        if confidence_rank.get("medium", 2) < confidence_rank.get(lowest_confidence, 3):
+            lowest_confidence = "medium"
+
+    if cross_site_data:
+        result.lowest_parse_confidence = lowest_confidence
+    result.sources_with_parse_warnings = warnings_sources
+    result.sources_with_partial_parse = partial_sources
+
+    return result
 
 
 def _normalize_status(status: Optional[str]) -> str:

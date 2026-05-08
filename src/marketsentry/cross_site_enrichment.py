@@ -222,10 +222,12 @@ def insert_cross_site_observation(
             match_method, address, normalized_address, city, state, zip,
             price, beds, baths, sqft, lot_size, listing_status,
             displayed_dom, garage_spaces, gas_service, gas_evidence,
+            listing_agent, listing_broker, mls_number, source_mls,
             property_description, parse_status, parse_warnings, notes
         ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?, ?, ?, ?
         )
@@ -257,6 +259,10 @@ def insert_cross_site_observation(
             facts.garage_spaces,
             facts.gas_service,
             facts.gas_evidence,
+            facts.listing_agent,
+            facts.listing_broker,
+            facts.mls_number,
+            facts.source_mls,
             facts.property_description,
             parse_result.parse_status,
             parse_warnings,

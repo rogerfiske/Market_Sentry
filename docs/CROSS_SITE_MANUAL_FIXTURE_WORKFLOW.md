@@ -167,3 +167,58 @@ The Health Checks tab includes:
 ```bash
 streamlit run src/marketsentry/dashboard_app.py
 ```
+
+## Cross-Site Parser Quality (Milestone 23)
+
+### Fixture Variants
+
+Each source (Zillow, Realtor.com, Homes.com, Compass) has at least 8 test fixture variants in `tests/fixtures/cross_site/<source>/`:
+
+| Fixture | Purpose |
+| ------- | ------- |
+| `normal_property.html` | Full property data with all fields |
+| `price_discrepancy.html` | Price difference from Redfin baseline |
+| `status_pending.html` | Pending listing status |
+| `sold_or_off_market.html` | Sold or off-market status |
+| `missing_optional_fields.html` | Partial data, some fields absent |
+| `gas_evidence.html` | Multiple gas service keywords |
+| `garage_evidence.html` | Garage spaces (e.g., 3-car garage) |
+| `sparse_or_malformed.html` | Minimal/broken HTML, graceful handling |
+
+### Parser Confidence
+
+Each parse result includes a confidence level indicating extraction reliability:
+
+- **high**: Address extracted and at least price/status/property facts present. The observation is suitable for cross-site comparison.
+- **medium**: Address extracted and some facts present, but important fields (price, status, beds, baths, sqft) are missing. Use with caution in comparisons.
+- **low**: Sparse or uncertain parse. Missing address or minimal useful data extracted. Do not weight equally in comparison analysis.
+
+### Parse Warnings
+
+Parse warnings are diagnostic messages listing issues encountered during extraction. Common warnings include:
+
+- Missing required fields (e.g., "missing: price, listing_status")
+- Format ambiguity or unrecognized patterns
+- Partial extraction from malformed HTML
+
+Warnings are stored with the observation and visible in cross-site comparison reports via `sources_with_parse_warnings`.
+
+### Recommended Manual Review for Low-Confidence Parses
+
+When a cross-site observation has **low** parse confidence:
+
+1. Open the saved HTML fixture and verify it contains actual property data (not an error page, redirect, or CAPTCHA challenge).
+2. Re-save the page from the source site if the original fixture was incomplete.
+3. Do not use low-confidence observations as evidence of price, status, or DOM discrepancies.
+4. Treat the observation as informational only until a higher-confidence parse is available.
+5. Check the `missing_required_fields` list to understand what data is absent.
+
+### Cross-Site Data Validates Redfin (Does Not Overwrite)
+
+Cross-site observations exist to validate and compare against Redfin source-of-truth data. They do **not** overwrite:
+
+- `user_decision` or `user_notes`
+- `active_watch_status` or `watch_priority`
+- Redfin-sourced property facts (price, beds, baths, sqft, listing status, DOM, etc.)
+
+Discrepancy flags (price, status, DOM) are data quality indicators for human review. They are not automatic overrides or purchase recommendations.

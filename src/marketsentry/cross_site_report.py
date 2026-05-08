@@ -106,6 +106,16 @@ def export_cross_site_comparison_report(
                 "status_discrepancy_details": comparison.status_discrepancy_details,
                 "dom_discrepancy_details": comparison.dom_discrepancy_details,
                 "comparison_notes": comparison.comparison_notes,
+                # Parse quality summary
+                "lowest_parse_confidence": comparison.lowest_parse_confidence,
+                "sources_with_parse_warnings": (
+                    "; ".join(comparison.sources_with_parse_warnings)
+                    if comparison.sources_with_parse_warnings else None
+                ),
+                "sources_with_partial_parse": (
+                    "; ".join(comparison.sources_with_partial_parse)
+                    if comparison.sources_with_partial_parse else None
+                ),
             }
 
             rows.append(row)
@@ -263,6 +273,10 @@ def _write_csv(output_file: Path, rows: List[dict]) -> None:
         "status_discrepancy_details",
         "dom_discrepancy_details",
         "comparison_notes",
+        # Parse quality summary
+        "lowest_parse_confidence",
+        "sources_with_parse_warnings",
+        "sources_with_partial_parse",
     ]
 
     with open(output_file, "w", newline="", encoding="utf-8") as f:

@@ -441,6 +441,10 @@ class CrossSitePropertyFacts(BaseModel):
     garage_spaces: Optional[int] = None
     gas_service: Optional[bool] = None
     gas_evidence: Optional[str] = None
+    listing_agent: Optional[str] = None
+    listing_broker: Optional[str] = None
+    mls_number: Optional[str] = None
+    source_mls: Optional[str] = None
     property_description: Optional[str] = None
 
 
@@ -450,6 +454,7 @@ class CrossSiteParseResult(BaseModel):
     source_file: Optional[str] = None
     source_site: str
     parse_status: str  # success, partial, failed
+    parse_confidence: str = Field(default="high")  # high, medium, low
     property_facts: Optional[CrossSitePropertyFacts] = None
     source_url: Optional[str] = None
     address: Optional[str] = None
@@ -459,6 +464,7 @@ class CrossSiteParseResult(BaseModel):
     zip: Optional[str] = None
     warnings: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
+    missing_required_fields: List[str] = Field(default_factory=list)
 
 
 class CrossSiteComparisonResult(BaseModel):
@@ -487,6 +493,9 @@ class CrossSiteComparisonResult(BaseModel):
     status_discrepancy_details: Optional[str] = None
     dom_discrepancy_details: Optional[str] = None
     comparison_notes: Optional[str] = None
+    lowest_parse_confidence: Optional[str] = None  # high, medium, low
+    sources_with_parse_warnings: List[str] = Field(default_factory=list)
+    sources_with_partial_parse: List[str] = Field(default_factory=list)
 
 
 class CrossSiteEnrichmentResult(BaseModel):
