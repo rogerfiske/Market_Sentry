@@ -942,6 +942,51 @@ The overall score combines freshness (25%), completeness (25%), and agreement (5
 
 The Cross-Site Review section of the dashboard includes an analytics subsection showing overall confidence, severity labels, review priority, and source quality flags.
 
+## Cross-Site Analytics Trend Snapshots
+
+Milestone 25 adds point-in-time snapshot persistence for cross-site analytics. Snapshots track how analytics change over time for each watched property.
+
+### Creating Trend Snapshots
+
+```bash
+# Create snapshots for all active watched properties
+marketsentry snapshot-cross-site-analytics
+
+# Force snapshot even when no material change detected
+marketsentry snapshot-cross-site-analytics --force
+```
+
+Snapshots are stored in the `cross_site_analytics_snapshots` table and are append-only. By default, a new snapshot is only created when a material change is detected:
+
+- Discrepancy severity label changed
+- Manual review priority changed
+- Overall confidence score changed by >= 0.10
+- Agreement score (price, status, DOM) changed by >= 0.10
+- Low-confidence or stale source count changed
+- Discrepancy flag (price, status, DOM) changed
+
+### Exporting Trend Reports
+
+```bash
+# Export trend report comparing current vs previous snapshots
+marketsentry export-cross-site-trend-report
+
+# Export to a specific directory
+marketsentry export-cross-site-trend-report --output-dir data/exports
+```
+
+The trend report CSV includes current and previous analytics values, change deltas, trend direction (improving/degrading/stable), and recommended next actions.
+
+### Trend Direction Classification
+
+- **improving**: Confidence increasing, severity decreasing, or agreement scores improving
+- **degrading**: Confidence decreasing, severity increasing, or agreement scores degrading
+- **stable**: No significant changes detected
+
+### Cross-Site Trends in Dashboard
+
+The Cross-Site Review section of the dashboard includes a trends subsection showing trend direction distribution, severity and priority change counts, and per-property trend data.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

@@ -1049,3 +1049,135 @@ class CrossSiteAnalyticsReportRow(BaseModel):
     low_confidence_sources: Optional[str] = None
     stale_sources: Optional[str] = None
     parse_warning_sources: Optional[str] = None
+
+
+# Cross-Site Analytics Trend Models (Milestone 25)
+
+
+class CrossSiteAnalyticsSnapshot(BaseModel):
+    """A point-in-time snapshot of cross-site analytics for a property."""
+
+    snapshot_id: Optional[int] = None
+    property_id: int
+    candidate_id: Optional[int] = None
+    captured_at: datetime = Field(default_factory=datetime.now)
+    overall_cross_site_confidence_score: Optional[float] = None
+    discrepancy_severity_score: Optional[float] = None
+    discrepancy_severity_label: Optional[str] = None
+    cross_site_manual_review_priority: Optional[str] = None
+    weighted_price_agreement_score: Optional[float] = None
+    weighted_status_agreement_score: Optional[float] = None
+    weighted_dom_agreement_score: Optional[float] = None
+    weighted_garage_agreement_score: Optional[float] = None
+    weighted_gas_agreement_score: Optional[float] = None
+    source_freshness_score: Optional[float] = None
+    source_completeness_score: Optional[float] = None
+    source_agreement_score: Optional[float] = None
+    contributing_sources: Optional[str] = None
+    low_confidence_sources: Optional[str] = None
+    stale_sources: Optional[str] = None
+    parse_warning_sources: Optional[str] = None
+    source_count: int = 0
+    high_confidence_source_count: int = 0
+    low_confidence_source_count: int = 0
+    stale_source_count: int = 0
+    price_discrepancy_flag: bool = False
+    status_discrepancy_flag: bool = False
+    dom_discrepancy_flag: bool = False
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class CrossSiteTrendChange(BaseModel):
+    """Change detected between two consecutive snapshots."""
+
+    property_id: int
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    current_snapshot_id: Optional[int] = None
+    previous_snapshot_id: Optional[int] = None
+    current_captured_at: Optional[datetime] = None
+    previous_captured_at: Optional[datetime] = None
+    overall_confidence_change: Optional[float] = None
+    severity_label_changed: bool = False
+    current_severity_label: Optional[str] = None
+    previous_severity_label: Optional[str] = None
+    manual_review_priority_changed: bool = False
+    current_manual_review_priority: Optional[str] = None
+    previous_manual_review_priority: Optional[str] = None
+    price_agreement_change: Optional[float] = None
+    status_agreement_change: Optional[float] = None
+    dom_agreement_change: Optional[float] = None
+    low_confidence_source_count_changed: bool = False
+    stale_source_count_changed: bool = False
+    discrepancy_flag_changed: bool = False
+    has_material_change: bool = False
+    trend_direction: str = "stable"  # improving, degrading, stable
+    trend_summary: Optional[str] = None
+    recommended_next_action: Optional[str] = None
+
+
+class CrossSiteTrendSummary(BaseModel):
+    """Summary of trend changes across all properties."""
+
+    total_properties: int = 0
+    properties_with_trends: int = 0
+    properties_improving: int = 0
+    properties_degrading: int = 0
+    properties_stable: int = 0
+    severity_upgrades: int = 0
+    severity_downgrades: int = 0
+    priority_upgrades: int = 0
+    priority_downgrades: int = 0
+    new_discrepancy_flags: int = 0
+    resolved_discrepancy_flags: int = 0
+
+
+class CrossSiteTrendRunResult(BaseModel):
+    """Result of a cross-site trend snapshot run."""
+
+    run_date: datetime = Field(default_factory=datetime.now)
+    properties_scanned: int = 0
+    analytics_computed: int = 0
+    snapshots_created: int = 0
+    snapshots_skipped_no_change: int = 0
+    trend_changes_detected: int = 0
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class CrossSiteTrendReportRow(BaseModel):
+    """Row in the cross-site trend CSV report."""
+
+    property_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    current_overall_cross_site_confidence_score: Optional[float] = None
+    previous_overall_cross_site_confidence_score: Optional[float] = None
+    overall_cross_site_confidence_change: Optional[float] = None
+    current_discrepancy_severity_label: Optional[str] = None
+    previous_discrepancy_severity_label: Optional[str] = None
+    discrepancy_severity_changed: bool = False
+    current_manual_review_priority: Optional[str] = None
+    previous_manual_review_priority: Optional[str] = None
+    manual_review_priority_changed: bool = False
+    current_weighted_price_agreement_score: Optional[float] = None
+    previous_weighted_price_agreement_score: Optional[float] = None
+    price_agreement_change: Optional[float] = None
+    current_weighted_status_agreement_score: Optional[float] = None
+    previous_weighted_status_agreement_score: Optional[float] = None
+    status_agreement_change: Optional[float] = None
+    current_weighted_dom_agreement_score: Optional[float] = None
+    previous_weighted_dom_agreement_score: Optional[float] = None
+    dom_agreement_change: Optional[float] = None
+    current_low_confidence_sources: Optional[str] = None
+    previous_low_confidence_sources: Optional[str] = None
+    current_stale_sources: Optional[str] = None
+    previous_stale_sources: Optional[str] = None
+    trend_direction: str = "stable"
+    trend_summary: Optional[str] = None
+    recommended_next_action: Optional[str] = None

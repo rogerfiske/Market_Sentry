@@ -26,6 +26,7 @@ from marketsentry.dashboard import (
     build_county_verification_table,
     build_cross_site_analytics_table,
     build_cross_site_table,
+    build_cross_site_trends_table,
     build_effective_dom_v2_table,
     build_monitoring_table,
     build_watchlist_table,
@@ -354,6 +355,37 @@ def _render_cross_site(exports_dir: str) -> None:
                 st.write(f"  {col_name}: {counts.to_dict()}")
 
     st.dataframe(analytics_df, use_container_width=True)
+
+    # Cross-site trends section
+    st.subheader("Cross-Site Analytics Trends")
+    st.caption(
+        "Trend snapshots showing how cross-site analytics change over time. "
+        "Run: marketsentry snapshot-cross-site-analytics"
+    )
+
+    trends_df = build_cross_site_trends_table(exports_dir)
+    if trends_df.empty:
+        st.info(
+            "No cross-site trend report found. Run: "
+            "marketsentry snapshot-cross-site-analytics && "
+            "marketsentry export-cross-site-trend-report"
+        )
+    else:
+        st.write(f"Showing {len(trends_df)} properties with trend data")
+
+        # Trend direction summary
+        if "trend_direction" in trends_df.columns:
+            direction_counts = trends_df["trend_direction"].value_counts()
+            if not direction_counts.empty:
+                st.write(f"  Trend directions: {direction_counts.to_dict()}")
+
+        # Severity/priority change counts
+        for col_name in ["discrepancy_severity_changed", "manual_review_priority_changed"]:
+            if col_name in trends_df.columns:
+                changed = int(trends_df[col_name].sum())
+                st.write(f"  {col_name}: {changed} properties")
+
+        st.dataframe(trends_df, use_container_width=True)
 
 
 def _render_reports(exports_dir: str) -> None:

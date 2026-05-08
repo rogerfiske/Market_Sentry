@@ -781,6 +781,93 @@ def export_cross_site_analytics_report(
 
 
 @app.command()
+def snapshot_cross_site_analytics(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Force snapshot even without material change"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory for reports"
+    ),
+) -> None:
+    """Create cross-site analytics trend snapshots for all watched properties."""
+    from marketsentry.cross_site_trends import create_cross_site_analytics_snapshots
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Creating cross-site analytics snapshots...[/bold blue]")
+
+        result = create_cross_site_analytics_snapshots(
+            database_path=db_path, force=force
+        )
+
+        console.print(f"\n[bold green]Snapshot run complete[/bold green]")
+        console.print(f"  - Properties scanned: {result.properties_scanned}")
+        console.print(f"  - Analytics computed: {result.analytics_computed}")
+        console.print(f"  - Snapshots created: {result.snapshots_created}")
+        console.print(f"  - Snapshots skipped (no change): {result.snapshots_skipped_no_change}")
+        console.print(f"  - Trend changes detected: {result.trend_changes_detected}")
+
+        if result.warnings:
+            console.print(f"  - Warnings: {len(result.warnings)}")
+            for w in result.warnings:
+                console.print(f"    [yellow]{w}[/yellow]")
+
+        if result.errors:
+            console.print(f"  - Errors: {len(result.errors)}")
+            for e in result.errors:
+                console.print(f"    [red]{e}[/red]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Snapshot cross-site analytics error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_cross_site_trend_report(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory"
+    ),
+) -> None:
+    """Export cross-site analytics trend report to CSV."""
+    from marketsentry.cross_site_trends import export_cross_site_trend_report as _export
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting cross-site trend report...[/bold blue]")
+
+        output_path = None
+        if output_dir:
+            from datetime import datetime as dt
+            ts = dt.now().strftime("%Y%m%d_%H%M%S")
+            output_path = str(Path(output_dir) / f"cross_site_trends_{ts}.csv")
+
+        csv_path = _export(database_path=db_path, output_path=output_path)
+
+        # Count rows
+        import csv
+        with open(csv_path, "r", encoding="utf-8") as f:
+            row_count = sum(1 for row in csv.DictReader(f))
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Trend report exported")
+        console.print(f"  - Output file: {csv_path}")
+        console.print(f"  - Properties: {row_count}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export cross-site trend report error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def snapshot_watchlist(
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"

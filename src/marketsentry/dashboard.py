@@ -252,6 +252,7 @@ def find_latest_report(
         "county_verification": "county_verification_*.csv",
         "cross_site_report": "cross_site_report_*.csv",
         "cross_site_analytics": "cross_site_analytics_*.csv",
+        "cross_site_trends": "cross_site_trends_*.csv",
         "workflow_summary": "workflow_summary_*.md",
     }
 
@@ -584,6 +585,48 @@ def build_cross_site_analytics_table(
         "low_confidence_sources",
         "stale_sources",
         "parse_warning_sources",
+    ]
+    available = [c for c in desired if c in df.columns]
+    if available:
+        return df[available]
+    return df
+
+
+def build_cross_site_trends_table(
+    exports_dir: Optional[Union[Path, str]] = None,
+) -> pd.DataFrame:
+    """Build cross-site trends table from latest trend report.
+
+    Args:
+        exports_dir: Directory containing reports.
+
+    Returns:
+        DataFrame with trend data, or empty DataFrame.
+    """
+    report_path = find_latest_report("cross_site_trends", exports_dir)
+    if not report_path:
+        return pd.DataFrame()
+
+    df = load_report_csv(report_path)
+    if df.empty:
+        return df
+
+    desired = [
+        "property_id", "address", "city",
+        "current_overall_cross_site_confidence_score",
+        "overall_cross_site_confidence_change",
+        "current_discrepancy_severity_label",
+        "discrepancy_severity_changed",
+        "current_manual_review_priority",
+        "manual_review_priority_changed",
+        "price_agreement_change",
+        "status_agreement_change",
+        "dom_agreement_change",
+        "current_low_confidence_sources",
+        "current_stale_sources",
+        "trend_direction",
+        "trend_summary",
+        "recommended_next_action",
     ]
     available = [c for c in desired if c in df.columns]
     if available:

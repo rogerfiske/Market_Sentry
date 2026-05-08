@@ -263,6 +263,36 @@ marketsentry export-cross-site-analytics-report
 
 Parser confidence directly affects how much weight an observation carries in analytics. A low-confidence observation from a sparse HTML page contributes less to agreement scores and reduces discrepancy severity certainty.
 
+## Cross-Site Analytics Trend Snapshots (Milestone 25)
+
+### Creating Trend Snapshots
+
+After cross-site analytics are available (Milestone 24), create point-in-time snapshots to track how analytics change over time:
+
+```bash
+# Create snapshots for all active watched properties
+marketsentry snapshot-cross-site-analytics
+
+# Force snapshot even when no material change detected
+marketsentry snapshot-cross-site-analytics --force
+```
+
+Snapshots are only created when material changes are detected (severity/priority label changes, confidence delta >= 0.10, agreement delta >= 0.10, source count changes, or discrepancy flag changes). Use `--force` to override this behavior.
+
+### Exporting Trend Reports
+
+```bash
+marketsentry export-cross-site-trend-report
+```
+
+The trend report CSV compares current vs previous snapshots and includes trend direction (improving/degrading/stable) and recommended next actions.
+
+### Trend Direction
+
+- **improving**: Confidence increasing, severity decreasing, or agreement scores improving
+- **degrading**: Confidence decreasing, severity increasing, or agreement scores degrading
+- **stable**: No significant changes detected
+
 ### Reminder: Cross-Site Data Validates but Does Not Overwrite
 
-All analytics scores, severity labels, and review priorities are informational aids for human review. They do not overwrite Redfin source-of-truth fields, user decisions, or watchlist status.
+All analytics scores, severity labels, review priorities, and trend snapshots are informational aids for human review. They do not overwrite Redfin source-of-truth fields, user decisions, or watchlist status.

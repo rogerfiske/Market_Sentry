@@ -314,6 +314,42 @@ ALL_V2_OPERATIONAL_MIGRATIONS = {
     "candidate_review_queue": MIGRATE_CANDIDATE_REVIEW_QUEUE_V2_OPERATIONAL,
 }
 
+# Milestone 25: Cross-site analytics trend snapshots table
+CREATE_CROSS_SITE_ANALYTICS_SNAPSHOTS_TABLE = """
+CREATE TABLE IF NOT EXISTS cross_site_analytics_snapshots (
+    snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    property_id INTEGER NOT NULL,
+    candidate_id INTEGER,
+    captured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    overall_cross_site_confidence_score REAL,
+    discrepancy_severity_score REAL,
+    discrepancy_severity_label TEXT,
+    cross_site_manual_review_priority TEXT,
+    weighted_price_agreement_score REAL,
+    weighted_status_agreement_score REAL,
+    weighted_dom_agreement_score REAL,
+    weighted_garage_agreement_score REAL,
+    weighted_gas_agreement_score REAL,
+    source_freshness_score REAL,
+    source_completeness_score REAL,
+    source_agreement_score REAL,
+    contributing_sources TEXT,
+    low_confidence_sources TEXT,
+    stale_sources TEXT,
+    parse_warning_sources TEXT,
+    source_count INTEGER DEFAULT 0,
+    high_confidence_source_count INTEGER DEFAULT 0,
+    low_confidence_source_count INTEGER DEFAULT 0,
+    stale_source_count INTEGER DEFAULT 0,
+    price_discrepancy_flag BOOLEAN DEFAULT 0,
+    status_discrepancy_flag BOOLEAN DEFAULT 0,
+    dom_discrepancy_flag BOOLEAN DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (property_id) REFERENCES watched_properties (property_id)
+);
+"""
+
 # Index definitions for performance
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_candidates_review_status ON candidate_review_queue(review_status);",
@@ -339,6 +375,9 @@ CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_county_record_date ON county_record_observations(record_date);",
     "CREATE INDEX IF NOT EXISTS idx_county_normalized_record_type ON county_record_observations(normalized_record_type);",
     "CREATE INDEX IF NOT EXISTS idx_county_document_number ON county_record_observations(document_number);",
+    # Milestone 25: Cross-site analytics snapshots indexes
+    "CREATE INDEX IF NOT EXISTS idx_cs_analytics_snapshots_property ON cross_site_analytics_snapshots(property_id);",
+    "CREATE INDEX IF NOT EXISTS idx_cs_analytics_snapshots_captured ON cross_site_analytics_snapshots(captured_at);",
 ]
 
 # All schema statements in order
@@ -351,4 +390,5 @@ ALL_SCHEMA_STATEMENTS = [
     CREATE_USER_REVIEW_ACTIONS_TABLE,
     CREATE_CROSS_SITE_OBSERVATIONS_TABLE,
     CREATE_COUNTY_RECORD_OBSERVATIONS_TABLE,
+    CREATE_CROSS_SITE_ANALYTICS_SNAPSHOTS_TABLE,
 ] + CREATE_INDEXES

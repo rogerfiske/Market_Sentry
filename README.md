@@ -6,9 +6,24 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Confidence-Weighted Cross-Site Analytics (MVP 24)
+## Current Milestone: Cross-Site Analytics Trend Snapshots (MVP 25)
 
-This milestone leverages Milestone 23 parser confidence fields to improve cross-site comparison analytics with weighted scoring.
+This milestone adds point-in-time snapshot persistence and trend tracking for cross-site analytics.
+
+- New `cross_site_analytics_snapshots` database table for historical analytics
+- Append-only snapshots preserve analytics at each capture time
+- Material change detection skips duplicate same-day/no-change snapshots
+- Change thresholds: severity/priority label change, confidence delta >= 0.10, agreement delta >= 0.10, source count changes, discrepancy flag changes
+- Trend direction classification: improving, degrading, or stable
+- Recommended next actions based on trend direction
+- Cross-site trend summary with aggregate counts across all properties
+- New CLI: `marketsentry snapshot-cross-site-analytics` (with `--force` flag)
+- New CLI: `marketsentry export-cross-site-trend-report`
+- New report: `data/exports/cross_site_trends_YYYYMMDD_HHMMSS.csv`
+- Dashboard: Cross-Site Analytics Trends subsection with trend direction and change counts
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 24: Confidence-Weighted Cross-Site Analytics
 
 - Confidence-weighted agreement scores for price, status, DOM, garage, and gas
 - Source freshness scoring (observations age out: 0-7d=1.0, 8-30d=0.8, 31-90d=0.5, >90d=0.2)
