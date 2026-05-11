@@ -1344,3 +1344,84 @@ class CrossSiteAlertAnalyticsReportRow(BaseModel):
     unresolved_alert_types: Optional[str] = None
     resolved_alert_count: int = 0
     acknowledged_alert_count: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Milestone 28: Cross-Site Alert Triage Workflow
+# ---------------------------------------------------------------------------
+
+
+class CrossSiteAlertTriageRow(BaseModel):
+    """Row in the triage export CSV."""
+
+    triage_export_id: str = ""
+    alert_id: int
+    property_id: int
+    candidate_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    alert_type: str = ""
+    severity: str = ""
+    current_status: str = ""
+    trend_direction: Optional[str] = None
+    message: Optional[str] = None
+    recommended_action: Optional[str] = None
+    source_context: Optional[str] = None
+    created_at: Optional[str] = None
+    alert_age_days: Optional[int] = None
+    alert_burden_label: Optional[str] = None
+    repeated_patterns: Optional[str] = None
+    triage_decision: str = "keep_open"
+    triage_notes: Optional[str] = None
+
+
+class CrossSiteAlertTriageExportResult(BaseModel):
+    """Result of triage CSV export."""
+
+    triage_export_id: str
+    output_path: str
+    row_count: int = 0
+    status_filter: Optional[str] = None
+    severity_filter: Optional[str] = None
+    property_id_filter: Optional[int] = None
+
+
+class CrossSiteAlertTriageImportResult(BaseModel):
+    """Result of triage CSV import and apply."""
+
+    rows_read: int = 0
+    valid_decisions: int = 0
+    invalid_rows: int = 0
+    acknowledged: int = 0
+    resolved: int = 0
+    archived: int = 0
+    kept_open: int = 0
+    needs_reparse: int = 0
+    needs_manual_review: int = 0
+    skipped_status_mismatch: int = 0
+    errors: List[str] = Field(default_factory=list)
+
+
+class CrossSiteAlertTriageDecision(BaseModel):
+    """Single triage decision parsed from CSV row."""
+
+    alert_id: int
+    triage_export_id: str = ""
+    expected_status: str = ""
+    triage_decision: str = "keep_open"
+    triage_notes: Optional[str] = None
+
+
+class CrossSiteAlertTriageSummary(BaseModel):
+    """Summary of current triage state."""
+
+    total_alerts: int = 0
+    open_alerts: int = 0
+    acknowledged_alerts: int = 0
+    resolved_alerts: int = 0
+    archived_alerts: int = 0
+    needs_reparse_count: int = 0
+    needs_manual_review_count: int = 0
+    latest_triage_export_path: Optional[str] = None
+    recent_triage_actions: int = 0

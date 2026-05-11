@@ -376,6 +376,22 @@ CREATE TABLE IF NOT EXISTS cross_site_trend_alerts (
 );
 """
 
+# Milestone 28: Cross-site alert triage actions table
+CREATE_CROSS_SITE_ALERT_TRIAGE_ACTIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS cross_site_alert_triage_actions (
+    triage_action_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    triage_export_id TEXT NOT NULL,
+    alert_id INTEGER NOT NULL,
+    property_id INTEGER,
+    action TEXT NOT NULL,
+    previous_status TEXT,
+    new_status TEXT,
+    triage_notes TEXT,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (alert_id) REFERENCES cross_site_trend_alerts (alert_id)
+);
+"""
+
 # Index definitions for performance
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_candidates_review_status ON candidate_review_queue(review_status);",
@@ -410,6 +426,10 @@ CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_cs_trend_alerts_severity ON cross_site_trend_alerts(severity);",
     "CREATE INDEX IF NOT EXISTS idx_cs_trend_alerts_type ON cross_site_trend_alerts(alert_type);",
     "CREATE INDEX IF NOT EXISTS idx_cs_trend_alerts_created ON cross_site_trend_alerts(created_at);",
+    # Milestone 28: Cross-site alert triage actions indexes
+    "CREATE INDEX IF NOT EXISTS idx_cs_triage_actions_export ON cross_site_alert_triage_actions(triage_export_id);",
+    "CREATE INDEX IF NOT EXISTS idx_cs_triage_actions_alert ON cross_site_alert_triage_actions(alert_id);",
+    "CREATE INDEX IF NOT EXISTS idx_cs_triage_actions_applied ON cross_site_alert_triage_actions(applied_at);",
 ]
 
 # All schema statements in order
@@ -424,4 +444,5 @@ ALL_SCHEMA_STATEMENTS = [
     CREATE_COUNTY_RECORD_OBSERVATIONS_TABLE,
     CREATE_CROSS_SITE_ANALYTICS_SNAPSHOTS_TABLE,
     CREATE_CROSS_SITE_TREND_ALERTS_TABLE,
+    CREATE_CROSS_SITE_ALERT_TRIAGE_ACTIONS_TABLE,
 ] + CREATE_INDEXES

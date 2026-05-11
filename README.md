@@ -6,20 +6,29 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Cross-Site Alert Aggregation and Historical Pattern Analysis (MVP 27)
+## Current Milestone: Cross-Site Alert Triage Workflow (MVP 28)
 
-This milestone aggregates individual cross-site trend alerts into property-level burden metrics and repeated discrepancy patterns for watchlist review.
+This milestone adds a CSV-based triage workflow for managing accumulated cross-site trend alerts.
 
-- Property-level alert burden scoring (total, open, high/critical counts, oldest open age, burden score and label)
-- Burden labels: none, low, moderate, high, elevated_review
-- 8 repeated pattern types: confidence drops, status/price/DOM discrepancies, stale/low-confidence sources, recurring high severity, improving quality
-- Patterns require 2+ matching events to trigger
-- Alert analytics report: `data/exports/cross_site_alert_analytics_YYYYMMDD_HHMMSS.csv`
-- New CLI: `marketsentry cross-site-alert-analytics-summary`
-- New CLI: `marketsentry export-cross-site-alert-analytics-report`
-- Dashboard: Cross-Site Alert Analytics subsection with burden table, pattern display, review actions
-- Watchlist monitoring integration with alert burden fields (read-only, does not change watchlist state)
-- Analytics are neutral review signals, not purchase recommendations
+- Export filtered alerts to triage CSV: `data/exports/cross_site_alert_triage_YYYYMMDD_HHMMSS.csv`
+- 6 triage decisions: keep_open, acknowledge, resolve, archive, needs_reparse, needs_manual_review
+- Only acknowledge/resolve/archive change alert status; others record notes only
+- Import edited triage CSV to batch-apply decisions
+- Status mismatch validation with optional force flag
+- Triage history table (`cross_site_alert_triage_actions`) for audit trail
+- New CLI: `marketsentry export-cross-site-alert-triage`
+- New CLI: `marketsentry import-cross-site-alert-triage`
+- Dashboard: Cross-Site Alert Triage subsection with status counts, triage actions, export view
+- Triage is operational alert management only, not a purchase recommendation
+- Triage does not change watchlist state, Redfin source-of-truth fields, or Quiet Score
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 27: Cross-Site Alert Aggregation and Historical Pattern Analysis
+
+- Property-level alert burden scoring and labels (none/low/moderate/high/elevated_review)
+- 8 repeated pattern types, patterns require 2+ events
+- CLI: `marketsentry cross-site-alert-analytics-summary`, `export-cross-site-alert-analytics-report`
+- Dashboard: Cross-Site Alert Analytics subsection
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
 ### MVP 26: Cross-Site Trend Alerts and Watchlist Monitoring Integration

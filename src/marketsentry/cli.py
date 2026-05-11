@@ -1239,6 +1239,130 @@ def export_cross_site_alert_analytics_report(
 
 
 @app.command()
+def export_cross_site_alert_triage(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory"
+    ),
+    status: Optional[str] = typer.Option(
+        "open", "--status", help="Alert status filter (default: open)"
+    ),
+    severity: Optional[str] = typer.Option(
+        None, "--severity", help="Alert severity filter"
+    ),
+    property_id: Optional[int] = typer.Option(
+        None, "--property-id", help="Filter by property ID"
+    ),
+    include_acknowledged: bool = typer.Option(
+        False, "--include-acknowledged", help="Include acknowledged alerts"
+    ),
+) -> None:
+    """Export cross-site alerts to a triage CSV for offline review."""
+    from marketsentry.cross_site_alert_triage import (
+        export_cross_site_alert_triage_csv,
+        ALLOWED_TRIAGE_DECISIONS,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting cross-site alert triage CSV...[/bold blue]")
+
+        output_path = None
+        if output_dir:
+            from datetime import datetime as dt
+            ts = dt.now().strftime("%Y%m%d_%H%M%S")
+            output_path = str(
+                Path(output_dir) / f"cross_site_alert_triage_{ts}.csv"
+            )
+
+        result = export_cross_site_alert_triage_csv(
+            database_path=db_path,
+            output_path=output_path,
+            status_filter=status,
+            severity_filter=severity,
+            property_id=property_id,
+            include_acknowledged=include_acknowledged,
+        )
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Triage CSV exported")
+        console.print(f"  - Output file: {result.output_path}")
+        console.print(f"  - Alert rows: {result.row_count}")
+        console.print(f"  - Triage export ID: {result.triage_export_id}")
+        console.print(f"  - Allowed decisions: {', '.join(sorted(ALLOWED_TRIAGE_DECISIONS))}")
+        console.print(
+            "\nEdit the triage_decision column in the CSV, then import with: "
+            "marketsentry import-cross-site-alert-triage --file <path>"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export cross-site alert triage error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def import_cross_site_alert_triage(
+    file: str = typer.Option(
+        ..., "--file", help="Path to the triage CSV file"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    force_status_mismatch: bool = typer.Option(
+        False, "--force-status-mismatch",
+        help="Allow applying decisions even if alert status has changed"
+    ),
+) -> None:
+    """Import triage CSV and apply decisions to cross-site alerts."""
+    from marketsentry.cross_site_alert_triage import (
+        apply_cross_site_alert_triage_decisions,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print(f"[bold blue]Importing triage decisions from:[/bold blue] {file}")
+
+        result = apply_cross_site_alert_triage_decisions(
+            file_path=file,
+            database_path=db_path,
+            force_status_mismatch=force_status_mismatch,
+        )
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Triage import complete")
+        console.print(f"  - Rows read: {result.rows_read}")
+        console.print(f"  - Valid decisions: {result.valid_decisions}")
+        console.print(f"  - Acknowledged: {result.acknowledged}")
+        console.print(f"  - Resolved: {result.resolved}")
+        console.print(f"  - Archived: {result.archived}")
+        console.print(f"  - Kept open: {result.kept_open}")
+        console.print(f"  - Needs reparse: {result.needs_reparse}")
+        console.print(f"  - Needs manual review: {result.needs_manual_review}")
+
+        if result.skipped_status_mismatch > 0:
+            console.print(
+                f"  - [yellow]Skipped (status mismatch): "
+                f"{result.skipped_status_mismatch}[/yellow]"
+            )
+
+        if result.invalid_rows > 0:
+            console.print(f"  - [red]Invalid rows: {result.invalid_rows}[/red]")
+
+        if result.errors:
+            console.print("[yellow]Errors:[/yellow]")
+            for err in result.errors[:10]:
+                console.print(f"    - {err}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Import cross-site alert triage error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def snapshot_watchlist(
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"

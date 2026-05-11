@@ -255,6 +255,7 @@ def find_latest_report(
         "cross_site_trends": "cross_site_trends_*.csv",
         "cross_site_trend_alerts": "cross_site_trend_alerts_*.csv",
         "cross_site_alert_analytics": "cross_site_alert_analytics_*.csv",
+        "cross_site_alert_triage": "cross_site_alert_triage_*.csv",
         "workflow_summary": "workflow_summary_*.md",
     }
 
@@ -696,6 +697,37 @@ def build_cross_site_alert_analytics_table(
         "repeated_patterns",
         "alert_burden_score", "alert_burden_label",
         "recommended_review_action",
+    ]
+    available = [c for c in desired if c in df.columns]
+    if available:
+        return df[available]
+    return df
+
+
+def build_cross_site_alert_triage_table(
+    exports_dir: Optional[Union[Path, str]] = None,
+) -> pd.DataFrame:
+    """Build cross-site alert triage table from latest triage CSV.
+
+    Args:
+        exports_dir: Directory containing reports.
+
+    Returns:
+        DataFrame with triage data, or empty DataFrame.
+    """
+    report_path = find_latest_report("cross_site_alert_triage", exports_dir)
+    if not report_path:
+        return pd.DataFrame()
+
+    df = load_report_csv(report_path)
+    if df.empty:
+        return df
+
+    desired = [
+        "alert_id", "property_id", "address", "city",
+        "alert_type", "severity", "current_status",
+        "alert_age_days", "alert_burden_label",
+        "triage_decision", "triage_notes",
     ]
     available = [c for c in desired if c in df.columns]
     if available:

@@ -25,6 +25,7 @@ from marketsentry.dashboard import (
     build_candidate_table,
     build_county_verification_table,
     build_cross_site_alert_analytics_table,
+    build_cross_site_alert_triage_table,
     build_cross_site_analytics_table,
     build_cross_site_table,
     build_cross_site_trend_alerts_from_db,
@@ -478,6 +479,59 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
 
         st.write(f"Showing {len(analytics_alert_df)} properties")
         st.dataframe(analytics_alert_df, use_container_width=True)
+
+    # ---- Cross-Site Alert Triage ----
+    st.subheader("Cross-Site Alert Triage")
+    st.caption(
+        "Alert triage workflow status. Export, review, and import triage decisions. "
+        "Read-only view. Triage does not change watchlist state."
+    )
+
+    triage_df = build_cross_site_alert_triage_table(exports_dir)
+    if triage_df.empty:
+        st.info(
+            "No triage export found. Run: "
+            "marketsentry export-cross-site-alert-triage"
+        )
+    else:
+        # Status counts from alerts DB
+        if db_path and Path(db_path).exists():
+            try:
+                from marketsentry.cross_site_alert_triage import (
+                    summarize_cross_site_alert_triage,
+                )
+                triage_summary = summarize_cross_site_alert_triage(
+                    database_path=db_path, exports_dir=exports_dir,
+                )
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Open", triage_summary.open_alerts)
+                with col2:
+                    st.metric("Acknowledged", triage_summary.acknowledged_alerts)
+                with col3:
+                    st.metric("Resolved", triage_summary.resolved_alerts)
+                with col4:
+                    st.metric("Archived", triage_summary.archived_alerts)
+
+                if triage_summary.needs_reparse_count > 0:
+                    st.write(
+                        f"  Needs reparse: {triage_summary.needs_reparse_count}"
+                    )
+                if triage_summary.needs_manual_review_count > 0:
+                    st.write(
+                        f"  Needs manual review: "
+                        f"{triage_summary.needs_manual_review_count}"
+                    )
+                if triage_summary.recent_triage_actions > 0:
+                    st.write(
+                        f"  Triage actions recorded: "
+                        f"{triage_summary.recent_triage_actions}"
+                    )
+            except Exception:
+                pass
+
+        st.write(f"Showing {len(triage_df)} triage rows from latest export")
+        st.dataframe(triage_df, use_container_width=True)
 
 
 def _render_reports(exports_dir: str) -> None:

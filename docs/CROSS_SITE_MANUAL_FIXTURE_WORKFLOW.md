@@ -411,3 +411,84 @@ The analytics report includes per-property: total/open/high-critical alert count
 ### Reminder: Analytics Are Review Aids, Not Recommendations
 
 Cross-site alert analytics are analytical review aids for human operators. They help identify where to focus review effort based on alert burden and recurring patterns. They are not purchase recommendations, do not infer seller intent, and do not overwrite Redfin source-of-truth fields, watchlist status, or Quiet Score gatekeeper results.
+
+## Cross-Site Alert Triage Workflow (Milestone 28)
+
+### How to Export a Triage CSV
+
+Export filtered alerts to a triage CSV for offline review:
+
+```bash
+# Export open alerts (default)
+marketsentry export-cross-site-alert-triage
+
+# Export with severity filter
+marketsentry export-cross-site-alert-triage --severity high
+
+# Include acknowledged alerts
+marketsentry export-cross-site-alert-triage --include-acknowledged
+
+# Export specific property
+marketsentry export-cross-site-alert-triage --property-id 42
+```
+
+The CSV file is saved to `data/exports/cross_site_alert_triage_YYYYMMDD_HHMMSS.csv`.
+
+### How to Edit triage_decision
+
+Open the CSV in a spreadsheet editor. Each row has two editable columns:
+
+- **triage_decision**: Set to one of the 6 allowed values (see below)
+- **triage_notes**: Optional notes to attach to the alert
+
+### Allowed Triage Decisions
+
+| Decision | Changes Alert Status? | Effect |
+| --- | --- | --- |
+| keep_open | No | Alert stays open. Default value. |
+| acknowledge | Yes -> acknowledged | Marks alert as seen by operator. |
+| resolve | Yes -> resolved | Marks alert as addressed. |
+| archive | Yes -> archived | Marks alert as no longer relevant. |
+| needs_reparse | No | Records note for fixture re-parse needed. |
+| needs_manual_review | No | Records note for manual review needed. |
+
+### How to Import Triage Decisions
+
+After editing the CSV, import it to apply decisions:
+
+```bash
+# Import triage decisions
+marketsentry import-cross-site-alert-triage --file data/exports/cross_site_alert_triage_*.csv
+
+# Force apply if alert status changed since export
+marketsentry import-cross-site-alert-triage --file <path> --force-status-mismatch
+```
+
+The import validates each row before applying:
+
+- The alert must still exist in the database
+- The triage decision must be one of the 6 allowed values
+- The current alert status must match what was in the CSV (unless `--force-status-mismatch` is used)
+- Invalid or mismatched rows are skipped and reported in the output
+
+### What Changes Alert Status and What Does Not
+
+Only these three decisions change alert status:
+
+- **acknowledge** -> alert_status = "acknowledged"
+- **resolve** -> alert_status = "resolved"
+- **archive** -> alert_status = "archived"
+
+These three decisions do NOT change alert status:
+
+- **keep_open** -> alert stays in current status
+- **needs_reparse** -> alert stays in current status, note recorded
+- **needs_manual_review** -> alert stays in current status, note recorded
+
+### Triage History
+
+All triage actions are recorded in the `cross_site_alert_triage_actions` database table. This provides an audit trail showing which alerts were triaged, when, what decision was made, and any notes. Use this history to track triage activity over time.
+
+### Reminder: Triage Is Not a Purchase Recommendation
+
+Cross-site alert triage is operational alert management for human operators. It helps manage review workload by batch-updating alert statuses. Triage does not modify watchlist status, Redfin source-of-truth fields, property data, user decisions, or Quiet Score gatekeeper results. Triage decisions do not infer seller intent and are not purchase recommendations.
