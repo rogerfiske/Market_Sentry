@@ -1425,3 +1425,92 @@ class CrossSiteAlertTriageSummary(BaseModel):
     needs_manual_review_count: int = 0
     latest_triage_export_path: Optional[str] = None
     recent_triage_actions: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Milestone 29: Alert Hygiene Reports
+# ---------------------------------------------------------------------------
+
+
+class CrossSiteAlertHygieneIssue(BaseModel):
+    """Single alert hygiene issue."""
+
+    issue_id: int = 0
+    category: str = ""
+    severity: str = "info"
+    property_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    alert_id: Optional[int] = None
+    alert_type: Optional[str] = None
+    alert_status: Optional[str] = None
+    alert_age_days: Optional[int] = None
+    burden_label: Optional[str] = None
+    repeated_pattern: Optional[str] = None
+    message: str = ""
+    recommended_action: str = ""
+    source_context: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class CrossSiteAlertHygieneSummary(BaseModel):
+    """Aggregate hygiene check summary."""
+
+    total_issues: int = 0
+    stale_open_alerts: int = 0
+    stale_acknowledged_alerts: int = 0
+    resolved_archive_candidates: int = 0
+    needs_reparse_pending: int = 0
+    needs_manual_review_pending: int = 0
+    high_burden_properties: int = 0
+    repeated_unresolved_patterns: int = 0
+    issues_by_severity: dict = Field(default_factory=dict)
+    issues_by_category: dict = Field(default_factory=dict)
+    next_actions: List[str] = Field(default_factory=list)
+
+
+class CrossSiteAlertHygieneConfig(BaseModel):
+    """Configuration for hygiene check thresholds."""
+
+    open_stale_days: int = 7
+    acknowledged_stale_days: int = 14
+    resolved_archive_days: int = 30
+    needs_reparse_stale_days: int = 7
+    needs_manual_review_stale_days: int = 7
+    high_burden_labels: List[str] = Field(
+        default_factory=lambda: ["high", "elevated_review"]
+    )
+    repeated_unresolved_threshold: int = 2
+
+
+class CrossSiteAlertHygieneReportRow(BaseModel):
+    """Row in the hygiene report CSV."""
+
+    issue_id: int = 0
+    category: str = ""
+    severity: str = "info"
+    property_id: Optional[int] = None
+    candidate_id: Optional[int] = None
+    alert_id: Optional[int] = None
+    alert_type: Optional[str] = None
+    alert_status: Optional[str] = None
+    alert_age_days: Optional[int] = None
+    burden_label: Optional[str] = None
+    repeated_pattern: Optional[str] = None
+    message: str = ""
+    recommended_action: str = ""
+    source_context: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class CrossSiteAlertHygieneRunResult(BaseModel):
+    """Result of running alert hygiene check."""
+
+    run_date: datetime = Field(default_factory=datetime.now)
+    summary: CrossSiteAlertHygieneSummary = Field(
+        default_factory=CrossSiteAlertHygieneSummary
+    )
+    issues: List[CrossSiteAlertHygieneIssue] = Field(default_factory=list)
+    csv_path: Optional[str] = None
+    md_path: Optional[str] = None
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)

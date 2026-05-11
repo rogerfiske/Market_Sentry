@@ -1363,6 +1363,144 @@ def import_cross_site_alert_triage(
 
 
 @app.command()
+def cross_site_alert_hygiene_check(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory for reports"
+    ),
+    report_format: str = typer.Option(
+        "both", "--format", help="Report format: csv, md, or both (default: both)"
+    ),
+    open_stale_days: int = typer.Option(
+        7, "--open-stale-days", help="Days before open alerts are flagged stale"
+    ),
+    acknowledged_stale_days: int = typer.Option(
+        14, "--ack-stale-days", help="Days before acknowledged alerts are flagged"
+    ),
+    resolved_archive_days: int = typer.Option(
+        30, "--resolved-archive-days", help="Days before resolved alerts become archive candidates"
+    ),
+) -> None:
+    """Run alert hygiene checks and generate a report.
+
+    Identifies stale open alerts, old acknowledged/resolved alerts,
+    pending reparse/manual review items, high-burden properties,
+    and repeated unresolved patterns. Report-only: does not
+    auto-archive alerts or change watchlist status.
+    """
+    from marketsentry.cross_site_alert_hygiene import (
+        export_cross_site_alert_hygiene_report,
+    )
+    from marketsentry.models import CrossSiteAlertHygieneConfig
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Running cross-site alert hygiene check...[/bold blue]")
+
+        hygiene_config = CrossSiteAlertHygieneConfig(
+            open_stale_days=open_stale_days,
+            acknowledged_stale_days=acknowledged_stale_days,
+            resolved_archive_days=resolved_archive_days,
+        )
+
+        result = export_cross_site_alert_hygiene_report(
+            database_path=db_path,
+            config=hygiene_config,
+            exports_dir=output_dir,
+            report_format=report_format,
+        )
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Hygiene check complete")
+        console.print(f"  - Total issues found: {result.summary.total_issues}")
+        console.print(f"  - Stale open alerts: {result.summary.stale_open_alerts}")
+        console.print(f"  - Stale acknowledged: {result.summary.stale_acknowledged_alerts}")
+        console.print(f"  - Archive candidates: {result.summary.resolved_archive_candidates}")
+        console.print(f"  - Needs reparse: {result.summary.needs_reparse_pending}")
+        console.print(f"  - Needs manual review: {result.summary.needs_manual_review_pending}")
+        console.print(f"  - High-burden properties: {result.summary.high_burden_properties}")
+        console.print(f"  - Repeated unresolved: {result.summary.repeated_unresolved_patterns}")
+
+        if result.csv_path:
+            console.print(f"  - CSV report: {result.csv_path}")
+        if result.md_path:
+            console.print(f"  - Markdown report: {result.md_path}")
+
+        if result.summary.next_actions:
+            console.print("\n[bold]Recommended next actions:[/bold]")
+            for action in result.summary.next_actions[:10]:
+                console.print(f"  - {action}")
+
+        if result.warnings:
+            console.print(f"\n[yellow]Warnings ({len(result.warnings)}):[/yellow]")
+            for w in result.warnings[:5]:
+                console.print(f"  - {w}")
+
+        if result.errors:
+            console.print(f"\n[red]Errors ({len(result.errors)}):[/red]")
+            for err in result.errors[:5]:
+                console.print(f"  - {err}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Cross-site alert hygiene check error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_cross_site_alert_hygiene_report(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output_path: Optional[str] = typer.Option(
+        None, "--output", help="Output file path"
+    ),
+    report_format: str = typer.Option(
+        "csv", "--format", help="Report format: csv, md, or both (default: csv)"
+    ),
+) -> None:
+    """Export an alert hygiene report to CSV or Markdown.
+
+    Report-only: does not auto-archive alerts, change watchlist
+    status, or modify Quiet Score gatekeeper results.
+    """
+    from marketsentry.cross_site_alert_hygiene import (
+        export_cross_site_alert_hygiene_report as _export_hygiene,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print("[bold blue]Exporting alert hygiene report...[/bold blue]")
+
+        result = _export_hygiene(
+            database_path=db_path,
+            output_path=output_path,
+            report_format=report_format,
+        )
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Hygiene report exported")
+        console.print(f"  - Issues found: {result.summary.total_issues}")
+
+        if result.csv_path:
+            console.print(f"  - CSV report: {result.csv_path}")
+        if result.md_path:
+            console.print(f"  - Markdown report: {result.md_path}")
+
+        if result.warnings:
+            console.print(f"\n[yellow]Warnings ({len(result.warnings)}):[/yellow]")
+            for w in result.warnings[:5]:
+                console.print(f"  - {w}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export alert hygiene report error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def snapshot_watchlist(
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"

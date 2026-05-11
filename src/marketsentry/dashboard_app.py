@@ -25,6 +25,7 @@ from marketsentry.dashboard import (
     build_candidate_table,
     build_county_verification_table,
     build_cross_site_alert_analytics_table,
+    build_cross_site_alert_hygiene_table,
     build_cross_site_alert_triage_table,
     build_cross_site_analytics_table,
     build_cross_site_table,
@@ -532,6 +533,46 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
 
         st.write(f"Showing {len(triage_df)} triage rows from latest export")
         st.dataframe(triage_df, use_container_width=True)
+
+    # ---- Cross-Site Alert Hygiene ----
+    st.subheader("Cross-Site Alert Hygiene")
+    st.caption(
+        "Alert hygiene report showing stale alerts, archive candidates, "
+        "pending reparse/manual review items, high-burden properties, and "
+        "repeated unresolved patterns. Report-only: does not auto-archive."
+    )
+
+    hygiene_df = build_cross_site_alert_hygiene_table(exports_dir)
+    if hygiene_df.empty:
+        st.info(
+            "No hygiene report found. Run: "
+            "marketsentry cross-site-alert-hygiene-check"
+        )
+    else:
+        # Summary metrics
+        if "severity" in hygiene_df.columns:
+            severity_counts = hygiene_df["severity"].value_counts().to_dict()
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Critical", severity_counts.get("critical", 0))
+            with col2:
+                st.metric("High", severity_counts.get("high", 0))
+            with col3:
+                st.metric("Warning", severity_counts.get("warning", 0))
+            with col4:
+                st.metric("Info", severity_counts.get("info", 0))
+
+        # Category filter
+        if "category" in hygiene_df.columns:
+            categories = ["All"] + sorted(hygiene_df["category"].unique().tolist())
+            selected_cat = st.selectbox(
+                "Filter by category", categories, key="hygiene_cat_filter"
+            )
+            if selected_cat != "All":
+                hygiene_df = hygiene_df[hygiene_df["category"] == selected_cat]
+
+        st.write(f"Showing {len(hygiene_df)} hygiene issues from latest report")
+        st.dataframe(hygiene_df, use_container_width=True)
 
 
 def _render_reports(exports_dir: str) -> None:

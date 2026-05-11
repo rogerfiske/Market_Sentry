@@ -492,3 +492,55 @@ All triage actions are recorded in the `cross_site_alert_triage_actions` databas
 ### Reminder: Triage Is Not a Purchase Recommendation
 
 Cross-site alert triage is operational alert management for human operators. It helps manage review workload by batch-updating alert statuses. Triage does not modify watchlist status, Redfin source-of-truth fields, property data, user decisions, or Quiet Score gatekeeper results. Triage decisions do not infer seller intent and are not purchase recommendations.
+
+## Cross-Site Alert Hygiene Reports (Milestone 29)
+
+### What Is Alert Hygiene
+
+Alert hygiene is a scheduled review process that identifies alerts needing attention. It scans all cross-site trend alerts and flags stale open alerts, old acknowledged alerts, resolved archive candidates, pending reparse/manual review items, high-burden properties, and repeated unresolved patterns.
+
+Hygiene reports are review aids. They do not automatically archive alerts, change watchlist status, modify Redfin source-of-truth fields, or change Quiet Score gatekeeper results.
+
+### How to Run a Hygiene Check
+
+```bash
+marketsentry cross-site-alert-hygiene-check
+```
+
+Options:
+
+- `--db` - database path (default: from config)
+- `--open-stale-days` - days before open alerts are flagged stale (default: 7)
+- `--ack-stale-days` - days before acknowledged alerts are flagged (default: 14)
+- `--resolved-archive-days` - days before resolved alerts become archive candidates (default: 30)
+- `--format` - report format: csv, md, or both (default: both)
+
+### How to Export a Hygiene Report
+
+```bash
+marketsentry export-cross-site-alert-hygiene-report --format both
+```
+
+Exports to:
+
+- `data/exports/cross_site_alert_hygiene_YYYYMMDD_HHMMSS.csv`
+- `data/exports/cross_site_alert_hygiene_YYYYMMDD_HHMMSS.md`
+
+### Using the Hygiene Report with the Triage Workflow
+
+The hygiene report identifies alerts that may need triage action. The recommended workflow:
+
+1. Run `marketsentry cross-site-alert-hygiene-check` to see current alert state
+2. Review the hygiene report for stale alerts and archive candidates
+3. Export a triage CSV: `marketsentry export-cross-site-alert-triage --status open`
+4. Edit the triage CSV in a spreadsheet, setting triage_decision for each alert
+5. Import the triage CSV: `marketsentry import-cross-site-alert-triage --file <path>`
+6. Re-run the hygiene check to confirm issues are resolved
+
+### Scheduled Hygiene Reports
+
+The batch script `scripts/run_alert_hygiene_report.bat` runs the hygiene check automatically. It can be scheduled via Windows Task Scheduler for regular review reminders (e.g., weekly on Fridays). The script logs to `logs/scheduled/` and does not invoke live retrieval.
+
+### Reminder: Hygiene Is a Review Aid
+
+Alert hygiene reports do not change alert status, watchlist state, property data, or Quiet Score. They identify alerts that the operator should review and provide recommended next actions. The operator decides which actions to take through the triage workflow.

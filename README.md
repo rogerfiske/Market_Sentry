@@ -6,21 +6,28 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Cross-Site Alert Triage Workflow (MVP 28)
+## Current Milestone: Scheduled Triage Reminder and Alert Hygiene Reports (MVP 29)
 
-This milestone adds a CSV-based triage workflow for managing accumulated cross-site trend alerts.
+This milestone adds alert hygiene checks and scheduled report generation for cross-site trend alerts.
 
-- Export filtered alerts to triage CSV: `data/exports/cross_site_alert_triage_YYYYMMDD_HHMMSS.csv`
+- Identify stale open alerts (7+ days), old acknowledged alerts (14+ days), resolved archive candidates (30+ days)
+- Detect pending needs_reparse and needs_manual_review alerts
+- Identify high-burden properties and repeated unresolved alert patterns
+- Configurable thresholds via `CrossSiteAlertHygieneConfig`
+- CSV and Markdown report export: `data/exports/cross_site_alert_hygiene_YYYYMMDD_HHMMSS.csv`
+- New CLI: `marketsentry cross-site-alert-hygiene-check`
+- New CLI: `marketsentry export-cross-site-alert-hygiene-report`
+- Scheduled batch script: `scripts/run_alert_hygiene_report.bat`
+- Dashboard: Cross-Site Alert Hygiene subsection with severity/category counts and filters
+- Hygiene reports are review aids only: they do not auto-archive alerts or change watchlist status
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 28: Cross-Site Alert Triage Workflow
+
+- CSV-based triage workflow for managing accumulated cross-site trend alerts
 - 6 triage decisions: keep_open, acknowledge, resolve, archive, needs_reparse, needs_manual_review
 - Only acknowledge/resolve/archive change alert status; others record notes only
-- Import edited triage CSV to batch-apply decisions
-- Status mismatch validation with optional force flag
-- Triage history table (`cross_site_alert_triage_actions`) for audit trail
-- New CLI: `marketsentry export-cross-site-alert-triage`
-- New CLI: `marketsentry import-cross-site-alert-triage`
-- Dashboard: Cross-Site Alert Triage subsection with status counts, triage actions, export view
-- Triage is operational alert management only, not a purchase recommendation
-- Triage does not change watchlist state, Redfin source-of-truth fields, or Quiet Score
+- Triage history table for audit trail
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
 ### MVP 27: Cross-Site Alert Aggregation and Historical Pattern Analysis

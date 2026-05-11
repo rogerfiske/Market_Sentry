@@ -1231,6 +1231,53 @@ The Cross-Site Review section of the dashboard includes a triage subsection show
 
 Triage actions are operational changes to alert status. They do not modify watchlist state, Redfin source-of-truth fields, user decisions, Quiet Score gatekeeper results, or any property data. Triage is not a purchase recommendation and does not infer seller intent.
 
+## Cross-Site Alert Hygiene Reports
+
+Alert hygiene reports identify alerts that may need attention. They are review aids only and do not auto-archive alerts, change watchlist status, or modify Quiet Score gatekeeper results.
+
+### Running a Hygiene Check
+
+```bash
+marketsentry cross-site-alert-hygiene-check
+```
+
+This command scans all cross-site trend alerts and identifies:
+
+- **Stale open alerts** - open alerts older than 7 days (configurable via `--open-stale-days`)
+- **Stale acknowledged alerts** - acknowledged alerts older than 14 days (configurable via `--ack-stale-days`)
+- **Resolved archive candidates** - resolved alerts older than 30 days (configurable via `--resolved-archive-days`)
+- **Needs reparse pending** - alerts marked needs_reparse that are still open/acknowledged
+- **Needs manual review pending** - alerts marked needs_manual_review that are still open/acknowledged
+- **High-burden properties** - properties with high or elevated_review alert burden
+- **Repeated unresolved patterns** - properties with 2+ unresolved alerts of the same type
+
+The output shows issue counts by severity and category, plus recommended next actions.
+
+### Exporting a Hygiene Report
+
+```bash
+marketsentry export-cross-site-alert-hygiene-report --format both
+```
+
+Exports to CSV and/or Markdown:
+
+- `data/exports/cross_site_alert_hygiene_YYYYMMDD_HHMMSS.csv`
+- `data/exports/cross_site_alert_hygiene_YYYYMMDD_HHMMSS.md`
+
+### Scheduled Hygiene Reports
+
+The batch script `scripts/run_alert_hygiene_report.bat` runs the hygiene check and exports both CSV and Markdown reports. It can be scheduled via Windows Task Scheduler for regular review reminders. Logs are written to `logs/scheduled/`.
+
+The scheduled script runs local report generation only. It does not invoke live retrieval or approved retrieval.
+
+### Using Hygiene Reports with Triage
+
+The hygiene report recommends specific next actions. For stale open alerts, the recommended action is to export a triage CSV and review. For resolved archive candidates, the recommended action is to export a triage CSV and set triage_decision to archive. These are recommendations only; the operator decides which actions to take.
+
+### Reminder: Hygiene Reports Are Review Aids
+
+Alert hygiene reports do not auto-archive alerts, change watchlist status, modify Redfin source-of-truth fields, or change Quiet Score gatekeeper results. They are neutral operational review aids, not purchase recommendations.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

@@ -29,6 +29,7 @@ All scripts are located in the `scripts/` directory:
 | `run_initial_review_workflow.bat` | Run initial candidate review workflow |
 | `run_dashboard_summary.bat` | Print text-based dashboard summary |
 | `run_fixture_demo_workflow.bat` | Run fixture-based demonstration workflow |
+| `run_alert_hygiene_report.bat` | Run cross-site alert hygiene check and export reports |
 | `run_marketsentry_task.ps1` | Generic PowerShell wrapper for any command |
 | `install_task_scheduler_watchlist_refresh.ps1` | Install weekly scheduled task |
 | `uninstall_task_scheduler_watchlist_refresh.ps1` | Remove scheduled task |

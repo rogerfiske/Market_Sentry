@@ -51,6 +51,7 @@ EXPECTED_SCRIPTS = [
     "run_watchlist_refresh_workflow.bat",
     "run_dashboard_summary.bat",
     "run_fixture_demo_workflow.bat",
+    "run_alert_hygiene_report.bat",
     "install_task_scheduler_watchlist_refresh.ps1",
     "uninstall_task_scheduler_watchlist_refresh.ps1",
     "run_marketsentry_task.ps1",
