@@ -1514,3 +1514,79 @@ class CrossSiteAlertHygieneRunResult(BaseModel):
     md_path: Optional[str] = None
     warnings: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Milestone 30: Cross-Site Alert Archive Policy models
+# ---------------------------------------------------------------------------
+
+
+class CrossSiteAlertArchiveCandidate(BaseModel):
+    """A resolved alert eligible for archive review."""
+
+    archive_export_id: str = ""
+    alert_id: int = 0
+    property_id: int = 0
+    candidate_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    alert_type: str = ""
+    severity: str = ""
+    current_status: str = ""
+    created_at: Optional[str] = None
+    alert_age_days: Optional[int] = None
+    message: Optional[str] = None
+    recommended_action: Optional[str] = None
+    source_context: Optional[str] = None
+    existing_notes: Optional[str] = None
+    archive_decision: str = "keep_resolved"
+    archive_notes: Optional[str] = None
+
+
+class CrossSiteAlertArchiveExportResult(BaseModel):
+    """Result of archive candidate CSV export."""
+
+    archive_export_id: str = ""
+    output_path: str = ""
+    row_count: int = 0
+    resolved_age_days: int = 30
+    property_id_filter: Optional[int] = None
+    severity_filter: Optional[str] = None
+
+
+class CrossSiteAlertArchiveImportResult(BaseModel):
+    """Result of archive decision CSV import and apply."""
+
+    rows_read: int = 0
+    valid_decisions: int = 0
+    invalid_rows: int = 0
+    archived: int = 0
+    reopened: int = 0
+    kept_resolved: int = 0
+    no_archive: int = 0
+    skipped_status_mismatch: int = 0
+    errors: List[str] = Field(default_factory=list)
+
+
+class CrossSiteAlertArchiveDecision(BaseModel):
+    """A single validated archive decision."""
+
+    alert_id: int = 0
+    archive_export_id: str = ""
+    expected_status: str = ""
+    archive_decision: str = "keep_resolved"
+    archive_notes: Optional[str] = None
+
+
+class CrossSiteAlertArchiveSummary(BaseModel):
+    """Summary of archive policy state."""
+
+    eligible_candidates: int = 0
+    already_archived: int = 0
+    no_archive_marked: int = 0
+    total_resolved: int = 0
+    total_open: int = 0
+    total_acknowledged: int = 0
+    recent_archive_actions: int = 0
+    next_actions: List[str] = Field(default_factory=list)

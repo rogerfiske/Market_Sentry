@@ -6,20 +6,31 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Scheduled Triage Reminder and Alert Hygiene Reports (MVP 29)
+## Current Milestone: Opt-In Resolved Alert Archive Policy Workflow (MVP 30)
 
-This milestone adds alert hygiene checks and scheduled report generation for cross-site trend alerts.
+This milestone adds an opt-in archive policy workflow for old resolved cross-site alerts.
 
-- Identify stale open alerts (7+ days), old acknowledged alerts (14+ days), resolved archive candidates (30+ days)
-- Detect pending needs_reparse and needs_manual_review alerts
-- Identify high-burden properties and repeated unresolved alert patterns
-- Configurable thresholds via `CrossSiteAlertHygieneConfig`
-- CSV and Markdown report export: `data/exports/cross_site_alert_hygiene_YYYYMMDD_HHMMSS.csv`
-- New CLI: `marketsentry cross-site-alert-hygiene-check`
-- New CLI: `marketsentry export-cross-site-alert-hygiene-report`
+- Identify resolved alerts eligible for archive review (30+ days, configurable via `--resolved-age-days`)
+- Export archive candidates to a user-reviewable CSV: `data/exports/cross_site_alert_archive_candidates_YYYYMMDD_HHMMSS.csv`
+- 4 archive decisions: keep_resolved (default), archive, reopen, no_archive
+- Import reviewed decisions and apply allowed alert status changes
+- `[no_archive]` marker excludes alerts from future archive candidate identification
+- Action history recorded in triage actions table for audit trail
+- New CLI: `marketsentry export-cross-site-alert-archive-candidates`
+- New CLI: `marketsentry import-cross-site-alert-archive-decisions`
+- New CLI: `marketsentry cross-site-alert-archive-summary`
+- Dashboard: Cross-Site Alert Archive Policy subsection with candidate counts, archived counts, and data table
+- Hygiene recommendations updated to reference archive workflow
+- Archive policy is opt-in only: no auto-archive, no watchlist status change
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 29: Scheduled Triage Reminder and Alert Hygiene Reports
+
+- Alert hygiene checks and scheduled report generation for cross-site trend alerts
+- Identify stale open alerts, old acknowledged alerts, resolved archive candidates
+- Configurable thresholds, CSV and Markdown report export
 - Scheduled batch script: `scripts/run_alert_hygiene_report.bat`
-- Dashboard: Cross-Site Alert Hygiene subsection with severity/category counts and filters
-- Hygiene reports are review aids only: they do not auto-archive alerts or change watchlist status
+- Dashboard: Cross-Site Alert Hygiene subsection
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
 ### MVP 28: Cross-Site Alert Triage Workflow
@@ -1550,6 +1561,7 @@ Market_Sentry/
 │       │   ├── dry_run_approval.py        # Dry-run approval gate
 │       │   └── audit_report.py            # Retrieval audit reporting
 │       ├── fixture_capture_queue.py       # Fixture capture queue
+│       ├── cross_site_alert_archive_policy.py  # Archive policy workflow
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
     ├── fixtures/                       # Test fixtures
@@ -1586,7 +1598,8 @@ Market_Sentry/
     ├── test_milestone_14.py           # Live retrieval strategy tests
     ├── test_milestone_15.py           # Retrieval safety and fixture capture queue tests
     ├── test_milestone_23.py           # Cross-site parser quality and fixture corpus tests
-    └── test_milestone_24.py           # Confidence-weighted cross-site analytics tests
+    ├── test_milestone_24.py           # Confidence-weighted cross-site analytics tests
+    └── test_milestone_30.py           # Opt-in alert archive policy workflow tests
 ```
 
 ## Running Tests
@@ -1632,11 +1645,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 25: (To Be Determined)
+### MVP 31: (To Be Determined)
 
-Milestones 1-24 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
+Milestones 1-30 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-**Note:** Milestone 24 (Confidence-Weighted Cross-Site Analytics) is now complete.
+**Note:** Milestone 30 (Opt-In Resolved Alert Archive Policy Workflow) is now complete.
 
 ## Repository
 
@@ -1672,6 +1685,7 @@ MIT
   - [Decision 014: Retrieval Safety and Fixture Capture Queue](docs/decisions/014-retrieval-safety-and-fixture-capture-queue.md)
   - [Decision 022: Cross-Site Parser Quality and Fixture Corpus](docs/decisions/022-cross-site-parser-quality-fixture-corpus.md)
   - [Decision 023: Confidence-Weighted Cross-Site Analytics](docs/decisions/023-confidence-weighted-cross-site-analytics.md)
+  - [Decision 029: Cross-Site Alert Archive Policy](docs/decisions/029-cross-site-alert-archive-policy.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

@@ -1501,6 +1501,183 @@ def export_cross_site_alert_hygiene_report(
 
 
 @app.command()
+def export_cross_site_alert_archive_candidates(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory"
+    ),
+    resolved_age_days: int = typer.Option(
+        30, "--resolved-age-days", help="Minimum age in days for candidates"
+    ),
+    property_id: Optional[int] = typer.Option(
+        None, "--property-id", help="Filter by property ID"
+    ),
+    severity: Optional[str] = typer.Option(
+        None, "--severity", help="Filter by severity"
+    ),
+) -> None:
+    """Export resolved alerts eligible for archive review to CSV.
+
+    Opt-in archive workflow: does not auto-archive. The user
+    reviews the CSV and chooses archive, keep_resolved, reopen,
+    or no_archive for each alert.
+    """
+    from marketsentry.cross_site_alert_archive_policy import (
+        ALLOWED_ARCHIVE_DECISIONS,
+        export_cross_site_alert_archive_candidates as _export_archive,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print(
+            "[bold blue]Exporting archive candidate CSV...[/bold blue]"
+        )
+
+        result = _export_archive(
+            database_path=db_path,
+            resolved_age_days=resolved_age_days,
+            property_id=property_id,
+            severity=severity,
+            exports_dir=output_dir,
+        )
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Archive candidates exported")
+        console.print(f"  - Output file: {result.output_path}")
+        console.print(f"  - Candidate rows: {result.row_count}")
+        console.print(f"  - Archive export ID: {result.archive_export_id}")
+        console.print(f"  - Resolved age threshold: {result.resolved_age_days} days")
+        console.print(
+            f"  - Allowed decisions: {', '.join(sorted(ALLOWED_ARCHIVE_DECISIONS))}"
+        )
+        console.print(
+            "\nEdit the archive_decision column in the CSV, then import with: "
+            "marketsentry import-cross-site-alert-archive-decisions --file <path>"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export archive candidates error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def import_cross_site_alert_archive_decisions(
+    file: str = typer.Option(
+        ..., "--file", help="Path to the archive CSV file"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    force_status_mismatch: bool = typer.Option(
+        False, "--force-status-mismatch",
+        help="Allow applying decisions even if alert status has changed"
+    ),
+) -> None:
+    """Import archive CSV and apply decisions to resolved alerts.
+
+    Opt-in only: only applies decisions the user has explicitly set.
+    """
+    from marketsentry.cross_site_alert_archive_policy import (
+        apply_cross_site_alert_archive_decisions,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print(
+            f"[bold blue]Importing archive decisions from:[/bold blue] {file}"
+        )
+
+        result = apply_cross_site_alert_archive_decisions(
+            file_path=file,
+            database_path=db_path,
+            force_status_mismatch=force_status_mismatch,
+        )
+
+        console.print(f"\n[bold green]SUCCESS:[/bold green] Archive import complete")
+        console.print(f"  - Rows read: {result.rows_read}")
+        console.print(f"  - Valid decisions: {result.valid_decisions}")
+        console.print(f"  - Archived: {result.archived}")
+        console.print(f"  - Reopened: {result.reopened}")
+        console.print(f"  - Kept resolved: {result.kept_resolved}")
+        console.print(f"  - No archive: {result.no_archive}")
+
+        if result.skipped_status_mismatch > 0:
+            console.print(
+                f"  - [yellow]Skipped (status mismatch): "
+                f"{result.skipped_status_mismatch}[/yellow]"
+            )
+
+        if result.invalid_rows > 0:
+            console.print(f"  - [red]Invalid rows: {result.invalid_rows}[/red]")
+
+        if result.errors:
+            console.print("[yellow]Errors:[/yellow]")
+            for err in result.errors[:10]:
+                console.print(f"    - {err}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Import archive decisions error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def cross_site_alert_archive_summary(
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    resolved_age_days: int = typer.Option(
+        30, "--resolved-age-days", help="Minimum age in days for candidates"
+    ),
+) -> None:
+    """Show archive policy summary for cross-site alerts.
+
+    Read-only summary: does not change alert status.
+    """
+    from marketsentry.cross_site_alert_archive_policy import (
+        summarize_cross_site_alert_archive_policy,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print(
+            "[bold blue]Cross-site alert archive policy summary...[/bold blue]"
+        )
+
+        summary = summarize_cross_site_alert_archive_policy(
+            database_path=db_path,
+            resolved_age_days=resolved_age_days,
+        )
+
+        console.print(f"\n  Eligible archive candidates: {summary.eligible_candidates}")
+        console.print(f"  Already archived: {summary.already_archived}")
+        console.print(f"  No-archive marked: {summary.no_archive_marked}")
+        console.print(f"  Total resolved: {summary.total_resolved}")
+        console.print(f"  Total open: {summary.total_open}")
+        console.print(f"  Total acknowledged: {summary.total_acknowledged}")
+
+        if summary.recent_archive_actions > 0:
+            console.print(
+                f"  Recent archive actions: {summary.recent_archive_actions}"
+            )
+
+        if summary.next_actions:
+            console.print("\n[bold]Recommended next actions:[/bold]")
+            for action in summary.next_actions:
+                console.print(f"  - {action}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Archive summary error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def snapshot_watchlist(
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"

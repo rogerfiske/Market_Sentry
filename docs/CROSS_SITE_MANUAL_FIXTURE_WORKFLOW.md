@@ -544,3 +544,71 @@ The batch script `scripts/run_alert_hygiene_report.bat` runs the hygiene check a
 ### Reminder: Hygiene Is a Review Aid
 
 Alert hygiene reports do not change alert status, watchlist state, property data, or Quiet Score. They identify alerts that the operator should review and provide recommended next actions. The operator decides which actions to take through the triage workflow.
+
+## Cross-Site Alert Archive Policy (Milestone 30)
+
+### What Is Archive Policy
+
+Archive policy provides a dedicated workflow for reviewing old resolved cross-site alerts for archival. Unlike the triage workflow (Milestone 28), which handles active alert management across all statuses, the archive policy workflow focuses specifically on resolved alerts that may be ready for archiving.
+
+### How to Export Archive Candidates
+
+```bash
+# Export resolved alerts older than 30 days
+marketsentry export-cross-site-alert-archive-candidates
+
+# Custom age threshold
+marketsentry export-cross-site-alert-archive-candidates --resolved-age-days 60
+
+# Filter by property or severity
+marketsentry export-cross-site-alert-archive-candidates --property-id 42
+marketsentry export-cross-site-alert-archive-candidates --severity high
+```
+
+The CSV includes alert details, age, and editable `archive_decision` and `archive_notes` columns.
+
+### Archive Candidate Criteria
+
+An alert is eligible for archive review when:
+
+- alert_status is `resolved`
+- resolved/last-updated age >= 30 days (or `created_at` age >= 30 days as fallback)
+- alert is not already `archived`
+- alert is not `open` or `acknowledged`
+- alert notes do not contain `[no_archive]` marker
+
+### How to Edit Archive Decisions
+
+Open the CSV in a spreadsheet editor. For each row, set `archive_decision` to:
+
+- **keep_resolved** (default): No status change. Alert stays resolved.
+- **archive**: Status changed to archived. Action recorded.
+- **reopen**: Status changed to open. Action recorded.
+- **no_archive**: No status change. `[no_archive]` marker added to notes. Alert excluded from future archive candidates.
+
+### How to Import Archive Decisions
+
+```bash
+marketsentry import-cross-site-alert-archive-decisions --file <path>
+```
+
+Use `--force-status-mismatch` if alert statuses have changed since the export.
+
+### Viewing Archive Summary
+
+```bash
+marketsentry cross-site-alert-archive-summary
+```
+
+Shows eligible candidates, already archived alerts, no_archive marked alerts, and recommended next actions.
+
+### How Archive Policy Relates to Other Workflows
+
+- **Hygiene reports** (Milestone 29) identify resolved archive candidates and recommend running the archive candidate export
+- **Triage workflow** (Milestone 28) handles active alert management (acknowledge, resolve, archive, etc.)
+- **Archive policy** (Milestone 30) handles dedicated archive review for old resolved alerts
+- All three workflows are independent: each serves a distinct purpose in the alert lifecycle
+
+### Reminder: Archive Policy Does Not Auto-Archive
+
+Archive policy is opt-in only. It does not automatically archive alerts, change watchlist status, modify Redfin source-of-truth fields, property data, user decisions, or Quiet Score gatekeeper results. The operator reviews and decides.

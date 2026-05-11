@@ -1278,6 +1278,76 @@ The hygiene report recommends specific next actions. For stale open alerts, the 
 
 Alert hygiene reports do not auto-archive alerts, change watchlist status, modify Redfin source-of-truth fields, or change Quiet Score gatekeeper results. They are neutral operational review aids, not purchase recommendations.
 
+## Cross-Site Alert Archive Policy
+
+Milestone 30 adds an opt-in archive policy workflow for old resolved cross-site alerts. Archive policy does not auto-archive alerts, change watchlist status, or modify Redfin source-of-truth fields.
+
+### Exporting Archive Candidates
+
+```bash
+# Export resolved alerts older than 30 days as archive candidates
+marketsentry export-cross-site-alert-archive-candidates
+
+# Custom age threshold
+marketsentry export-cross-site-alert-archive-candidates --resolved-age-days 60
+
+# Filter by property or severity
+marketsentry export-cross-site-alert-archive-candidates --property-id 42
+marketsentry export-cross-site-alert-archive-candidates --severity high
+```
+
+The export creates a CSV in `data/exports/cross_site_alert_archive_candidates_YYYYMMDD_HHMMSS.csv` with columns for alert details and editable fields: `archive_decision` and `archive_notes`.
+
+### Editing Archive Decisions
+
+Open the exported CSV in a spreadsheet editor. For each row, set the `archive_decision` column to one of:
+
+| Decision | Changes Alert Status? | Effect |
+| --- | --- | --- |
+| keep_resolved | No | Alert stays resolved. Default value. |
+| archive | Yes -> archived | Alert status set to archived. |
+| reopen | Yes -> open | Alert status set to open. |
+| no_archive | No | Adds `[no_archive]` marker; alert excluded from future candidates. |
+
+Optionally add notes in the `archive_notes` column.
+
+### Importing Archive Decisions
+
+```bash
+# Import and apply decisions
+marketsentry import-cross-site-alert-archive-decisions --file data/exports/cross_site_alert_archive_candidates_*.csv
+
+# Force apply even if alert status has changed since export
+marketsentry import-cross-site-alert-archive-decisions --file <path> --force-status-mismatch
+```
+
+The import validates each row:
+
+- Alert ID must exist in the database
+- Archive decision must be one of the 4 allowed values
+- Current alert status must match what was exported (unless `--force-status-mismatch`)
+- Invalid rows are skipped and reported
+
+### Viewing Archive Summary
+
+```bash
+marketsentry cross-site-alert-archive-summary
+```
+
+Shows eligible archive candidates, already archived alerts, no_archive marked alerts, and recommended next actions.
+
+### Archive Policy in Dashboard
+
+The Cross-Site Review section of the dashboard includes an Archive Policy subsection showing eligible candidate count, archived count, no_archive marked count, and the archive candidates table.
+
+### Using Archive Policy with Hygiene Reports
+
+The hygiene report identifies resolved archive candidates and recommends running `export-cross-site-alert-archive-candidates`. This replaces the previous recommendation to use the triage CSV for archiving resolved alerts. The archive policy workflow provides dedicated archive-specific decisions rather than mixing archive actions with triage decisions.
+
+### Reminder: Archive Policy Is Opt-In Only
+
+Archive policy does not auto-archive alerts, change watchlist status, modify Redfin source-of-truth fields, or change Quiet Score gatekeeper results. The operator reviews archive candidates and makes explicit decisions through the CSV workflow.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

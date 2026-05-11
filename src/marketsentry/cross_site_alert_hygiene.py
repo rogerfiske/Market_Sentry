@@ -209,8 +209,8 @@ def identify_old_resolved_alerts(
                         f"{age} days old and may be archived"
                     ),
                     recommended_action=(
-                        "Export triage CSV with resolved alerts "
-                        "and set triage_decision to archive"
+                        "Export archive candidates CSV and "
+                        "set archive_decision to archive"
                     ),
                     source_context=row["source_context"],
                     created_at=row["created_at"],
@@ -499,9 +499,9 @@ def generate_alert_hygiene_next_actions(
 
     if summary.resolved_archive_candidates > 0:
         actions.append(
-            f"Archive {summary.resolved_archive_candidates} old resolved "
-            f"alert(s): export triage CSV with --include-acknowledged "
-            f"and set triage_decision to archive"
+            f"Review {summary.resolved_archive_candidates} old resolved "
+            f"alert(s) for archive: "
+            f"marketsentry export-cross-site-alert-archive-candidates"
         )
 
     if summary.repeated_unresolved_patterns > 0:

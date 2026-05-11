@@ -25,6 +25,7 @@ from marketsentry.dashboard import (
     build_candidate_table,
     build_county_verification_table,
     build_cross_site_alert_analytics_table,
+    build_cross_site_alert_archive_policy_table,
     build_cross_site_alert_hygiene_table,
     build_cross_site_alert_triage_table,
     build_cross_site_analytics_table,
@@ -573,6 +574,54 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
 
         st.write(f"Showing {len(hygiene_df)} hygiene issues from latest report")
         st.dataframe(hygiene_df, use_container_width=True)
+
+    # ---- Cross-Site Alert Archive Policy ----
+    st.subheader("Cross-Site Alert Archive Policy")
+    st.caption(
+        "Opt-in archive workflow for old resolved alerts. "
+        "Export candidates, review, and import decisions. "
+        "Read-only view. Archive policy does not auto-archive."
+    )
+
+    archive_df = build_cross_site_alert_archive_policy_table(exports_dir)
+    if archive_df.empty:
+        st.info(
+            "No archive candidate export found. Run: "
+            "marketsentry export-cross-site-alert-archive-candidates"
+        )
+    else:
+        # Summary metrics from DB
+        if db_path and Path(db_path).exists():
+            try:
+                from marketsentry.cross_site_alert_archive_policy import (
+                    summarize_cross_site_alert_archive_policy,
+                )
+                archive_summary = summarize_cross_site_alert_archive_policy(
+                    database_path=db_path,
+                )
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric(
+                        "Eligible Candidates",
+                        archive_summary.eligible_candidates,
+                    )
+                with col2:
+                    st.metric("Archived", archive_summary.already_archived)
+                with col3:
+                    st.metric("No-Archive", archive_summary.no_archive_marked)
+
+                if archive_summary.recent_archive_actions > 0:
+                    st.write(
+                        f"  Archive actions recorded: "
+                        f"{archive_summary.recent_archive_actions}"
+                    )
+            except Exception:
+                pass
+
+        st.write(
+            f"Showing {len(archive_df)} archive candidates from latest export"
+        )
+        st.dataframe(archive_df, use_container_width=True)
 
 
 def _render_reports(exports_dir: str) -> None:
