@@ -32,6 +32,39 @@ app = typer.Typer(
 console = Console()
 
 
+def _resolve_expiration_profile(
+    profile: Optional[str],
+    profile_config: Optional[str] = None,
+) -> str:
+    """Resolve the effective expiration profile name.
+
+    If profile is explicitly provided, use it. Otherwise try loading
+    the last-used preference. Falls back to 'standard' on any error.
+
+    Args:
+        profile: Explicitly provided profile name, or None.
+        profile_config: Optional path to user profile config.
+
+    Returns:
+        Effective profile name string.
+    """
+    if profile is not None:
+        return profile
+    try:
+        from marketsentry.cross_site_alert_expiration_profile_comparison import (
+            load_last_used_expiration_profile,
+        )
+        result = load_last_used_expiration_profile(
+            config_path=profile_config,
+        )
+        if result.warnings:
+            for w in result.warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+        return result.profile_name
+    except Exception:
+        return "standard"
+
+
 @app.command()
 def init_database(
     database_path: Optional[str] = typer.Option(
@@ -1735,8 +1768,8 @@ def list_cross_site_alert_expiration_profiles(
 
 @app.command()
 def preview_cross_site_alert_expiration_policy(
-    profile: str = typer.Option(
-        "standard", "--profile", help="Expiration profile name"
+    profile: Optional[str] = typer.Option(
+        None, "--profile", help="Expiration profile name"
     ),
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"
@@ -1748,6 +1781,7 @@ def preview_cross_site_alert_expiration_policy(
 ) -> None:
     """Preview which alerts would be affected by an expiration profile.
 
+    If --profile is omitted, uses last-used profile or standard.
     Supports both built-in and user-defined profiles.
     Read-only: does not change alert status.
     """
@@ -1757,15 +1791,18 @@ def preview_cross_site_alert_expiration_policy(
 
     try:
         db_path = database_path or config.database_path
+        effective_profile = _resolve_expiration_profile(
+            profile, profile_config,
+        )
 
         console.print(
             f"[bold blue]Previewing expiration policy "
-            f"(profile: {profile})...[/bold blue]"
+            f"(profile: {effective_profile})...[/bold blue]"
         )
 
         result = preview_alert_expiration_policy(
             database_path=db_path,
-            profile_name=profile,
+            profile_name=effective_profile,
             config_path=profile_config,
         )
 
@@ -1792,8 +1829,8 @@ def preview_cross_site_alert_expiration_policy(
 
 @app.command()
 def export_cross_site_alert_expiration_approval(
-    profile: str = typer.Option(
-        "standard", "--profile", help="Expiration profile name"
+    profile: Optional[str] = typer.Option(
+        None, "--profile", help="Expiration profile name"
     ),
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"
@@ -1825,15 +1862,18 @@ def export_cross_site_alert_expiration_approval(
 
     try:
         db_path = database_path or config.database_path
+        effective_profile = _resolve_expiration_profile(
+            profile, profile_config,
+        )
 
         console.print(
             f"[bold blue]Exporting expiration approval CSV "
-            f"(profile: {profile})...[/bold blue]"
+            f"(profile: {effective_profile})...[/bold blue]"
         )
 
         result = export_alert_expiration_approval_csv(
             database_path=db_path,
-            profile_name=profile,
+            profile_name=effective_profile,
             exports_dir=output_dir,
             property_id=property_id,
             severity=severity,
@@ -1937,8 +1977,8 @@ def import_cross_site_alert_expiration_approval(
 
 @app.command()
 def cross_site_alert_expiration_summary(
-    profile: str = typer.Option(
-        "standard", "--profile", help="Expiration profile name"
+    profile: Optional[str] = typer.Option(
+        None, "--profile", help="Expiration profile name"
     ),
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"
@@ -1950,6 +1990,7 @@ def cross_site_alert_expiration_summary(
 ) -> None:
     """Show expiration policy summary for cross-site alerts.
 
+    If --profile is omitted, uses last-used profile or standard.
     Supports both built-in and user-defined profiles.
     Read-only summary: does not change alert status.
     """
@@ -1959,15 +2000,18 @@ def cross_site_alert_expiration_summary(
 
     try:
         db_path = database_path or config.database_path
+        effective_profile = _resolve_expiration_profile(
+            profile, profile_config,
+        )
 
         console.print(
             f"[bold blue]Expiration policy summary "
-            f"(profile: {profile})...[/bold blue]"
+            f"(profile: {effective_profile})...[/bold blue]"
         )
 
         summary = summarize_alert_expiration_policy(
             database_path=db_path,
-            profile_name=profile,
+            profile_name=effective_profile,
             config_path=profile_config,
         )
 
@@ -1987,6 +2031,265 @@ def cross_site_alert_expiration_summary(
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         logger.error(f"Expiration summary error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def compare_cross_site_alert_expiration_profiles(
+    profile_config: Optional[str] = typer.Option(
+        None, "--profile-config",
+        help="Path to user-defined profile config JSON",
+    ),
+    profiles: Optional[str] = typer.Option(
+        None, "--profiles",
+        help="Comma-separated list of profile names to compare",
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Compare expiration profiles side-by-side.
+
+    Shows candidate/action counts per profile. Read-only.
+    """
+    from marketsentry.cross_site_alert_expiration_profile_comparison import (
+        compare_alert_expiration_profiles as do_compare,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+        profile_list = (
+            [p.strip() for p in profiles.split(",")]
+            if profiles else None
+        )
+
+        console.print(
+            "[bold blue]Comparing expiration profiles...[/bold blue]"
+        )
+
+        result = do_compare(
+            database_path=db_path,
+            config_path=profile_config,
+            profile_names=profile_list,
+        )
+
+        table = Table(show_header=True, title="Profile Comparison")
+        table.add_column("Profile")
+        table.add_column("Source")
+        table.add_column("Candidates")
+        table.add_column("Archive")
+        table.add_column("Review")
+        table.add_column("Keep")
+        table.add_column("Properties")
+        table.add_column("Rules")
+
+        for row in result.rows:
+            table.add_row(
+                row.profile_name,
+                row.profile_source,
+                str(row.total_candidates),
+                str(row.proposed_archive_count),
+                str(row.proposed_review_count),
+                str(row.proposed_keep_count),
+                str(row.affected_property_count),
+                str(row.rule_count),
+            )
+
+        console.print(table)
+
+        if result.errors:
+            console.print("[yellow]Warnings:[/yellow]")
+            for err in result.errors:
+                console.print(f"  - {err}")
+
+        console.print(
+            "\nNo mutations performed. Read-only comparison."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Compare profiles error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_cross_site_alert_expiration_profile_comparison(
+    profile_config: Optional[str] = typer.Option(
+        None, "--profile-config",
+        help="Path to user-defined profile config JSON",
+    ),
+    profiles: Optional[str] = typer.Option(
+        None, "--profiles",
+        help="Comma-separated list of profile names to compare",
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Export profile comparison to CSV.
+
+    Read-only comparison export. No mutations.
+    """
+    from marketsentry.cross_site_alert_expiration_profile_comparison import (
+        export_alert_expiration_profile_comparison as do_export,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+        profile_list = (
+            [p.strip() for p in profiles.split(",")]
+            if profiles else None
+        )
+
+        console.print(
+            "[bold blue]Exporting profile comparison...[/bold blue]"
+        )
+
+        result = do_export(
+            database_path=db_path,
+            config_path=profile_config,
+            profile_names=profile_list,
+            exports_dir=output_dir,
+        )
+
+        console.print(
+            f"\n[bold green]SUCCESS:[/bold green] Comparison exported"
+        )
+        console.print(f"  - Output file: {result['output_path']}")
+        console.print(f"  - Profiles compared: {result['profiles_compared']}")
+        console.print(f"  - Rows: {result['row_count']}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export profile comparison error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def set_cross_site_alert_expiration_profile(
+    profile: str = typer.Option(
+        ..., "--profile", help="Profile name to set as last-used"
+    ),
+    profile_config: Optional[str] = typer.Option(
+        None, "--profile-config",
+        help="Path to user-defined profile config JSON",
+    ),
+    preference_path: Optional[str] = typer.Option(
+        None, "--preference-path",
+        help="Path to preference JSON file",
+    ),
+) -> None:
+    """Set the last-used expiration profile preference.
+
+    Validates the profile exists. Does not apply any mutations.
+    """
+    from marketsentry.cross_site_alert_expiration_profile_comparison import (
+        save_last_used_expiration_profile,
+    )
+
+    try:
+        success, message = save_last_used_expiration_profile(
+            profile_name=profile,
+            preference_path=preference_path,
+            config_path=profile_config,
+        )
+
+        if success:
+            console.print(
+                f"[bold green]SUCCESS:[/bold green] {message}"
+            )
+        else:
+            console.print(
+                f"[bold red]Error:[/bold red] {message}"
+            )
+            raise typer.Exit(code=1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Set profile error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def get_cross_site_alert_expiration_profile(
+    preference_path: Optional[str] = typer.Option(
+        None, "--preference-path",
+        help="Path to preference JSON file",
+    ),
+    profile_config: Optional[str] = typer.Option(
+        None, "--profile-config",
+        help="Path to user-defined profile config JSON",
+    ),
+) -> None:
+    """Show the current last-used expiration profile preference.
+
+    Read-only. Does not apply any mutations.
+    """
+    from marketsentry.cross_site_alert_expiration_profile_comparison import (
+        load_last_used_expiration_profile,
+    )
+
+    try:
+        result = load_last_used_expiration_profile(
+            preference_path=preference_path,
+            config_path=profile_config,
+        )
+
+        console.print(f"  Last-used profile: {result.profile_name}")
+        console.print(
+            f"  Config path: {result.profile_config_path or '(none)'}"
+        )
+        console.print(f"  Valid: {result.is_valid}")
+        console.print(f"  Fallback: {result.was_fallback}")
+
+        if result.warnings:
+            console.print("[yellow]Warnings:[/yellow]")
+            for w in result.warnings:
+                console.print(f"  - {w}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Get profile error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def clear_cross_site_alert_expiration_profile(
+    preference_path: Optional[str] = typer.Option(
+        None, "--preference-path",
+        help="Path to preference JSON file",
+    ),
+) -> None:
+    """Clear the last-used expiration profile preference.
+
+    Removes the preference file. Does not apply any mutations.
+    """
+    from marketsentry.cross_site_alert_expiration_profile_comparison import (
+        clear_last_used_expiration_profile,
+    )
+
+    try:
+        success, message = clear_last_used_expiration_profile(
+            preference_path=preference_path,
+        )
+
+        if success:
+            console.print(
+                f"[bold green]SUCCESS:[/bold green] {message}"
+            )
+        else:
+            console.print(
+                f"[bold red]Error:[/bold red] {message}"
+            )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Clear profile error: {e}")
         raise typer.Exit(code=1)
 
 

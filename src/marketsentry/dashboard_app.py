@@ -714,6 +714,44 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
             except Exception:
                 pass
 
+        # Last-used profile preference
+        try:
+            from marketsentry.cross_site_alert_expiration_profile_comparison import (
+                load_last_used_expiration_profile,
+                compare_alert_expiration_profiles as do_compare,
+            )
+            pref = load_last_used_expiration_profile()
+            st.write(
+                f"Last-used profile: **{pref.profile_name}**"
+                + (" (fallback)" if pref.was_fallback else "")
+            )
+            if pref.warnings:
+                for w in pref.warnings:
+                    st.warning(w)
+
+            # Profile comparison table
+            if db_path and Path(db_path).exists():
+                comparison = do_compare(database_path=db_path)
+                if comparison.rows:
+                    comp_data = []
+                    for r in comparison.rows:
+                        comp_data.append({
+                            "Profile": r.profile_name,
+                            "Source": r.profile_source,
+                            "Candidates": r.total_candidates,
+                            "Archive": r.proposed_archive_count,
+                            "Review": r.proposed_review_count,
+                            "Keep": r.proposed_keep_count,
+                            "Properties": r.affected_property_count,
+                        })
+                    st.write("Profile comparison:")
+                    st.dataframe(
+                        pd.DataFrame(comp_data),
+                        use_container_width=True,
+                    )
+        except Exception:
+            pass
+
         st.write(
             f"Showing {len(expiration_df)} expiration candidates "
             f"from latest export"

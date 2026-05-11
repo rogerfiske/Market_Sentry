@@ -758,3 +758,40 @@ marketsentry import-cross-site-alert-expiration-approval --file data/exports/cro
 ```
 
 See also: [Alert Expiration Profiles](ALERT_EXPIRATION_PROFILES.md) for full config format, examples, and safety limits.
+
+## Profile Comparison and Last-Used Profile (Milestone 33)
+
+### Comparing Profiles Before Choosing
+
+Before selecting a profile for expiration review, compare all available profiles side by side:
+
+```bash
+# Compare all built-in profiles
+marketsentry compare-cross-site-alert-expiration-profiles
+
+# Compare including custom profiles
+marketsentry compare-cross-site-alert-expiration-profiles --profile-config config/alert_expiration_profiles.json
+```
+
+This shows candidate counts, archive/review/keep proposals, and affected properties per profile without performing any mutations.
+
+### Setting a Default Profile
+
+Set a last-used profile preference so you do not need to specify `--profile` on every command:
+
+```bash
+# Set default profile
+marketsentry set-cross-site-alert-expiration-profile --profile conservative
+
+# Check current preference
+marketsentry get-cross-site-alert-expiration-profile
+
+# Clear preference (revert to standard)
+marketsentry clear-cross-site-alert-expiration-profile
+```
+
+When `--profile` is omitted from preview, export, or summary commands, the system uses the last-used profile (or falls back to "standard" if no preference is set).
+
+### Reminder: Comparison and Preference Are Read-Only
+
+Profile comparison does not mutate alerts. Last-used profile preference is a local convenience setting only. It does not change alert state, watchlist status, Redfin source-of-truth fields, or Quiet Score gatekeeper results.

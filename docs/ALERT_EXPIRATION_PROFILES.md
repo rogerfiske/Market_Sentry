@@ -170,6 +170,68 @@ marketsentry import-cross-site-alert-expiration-approval --file data/exports/cro
 - Quiet Score gatekeeper is unchanged
 - No live retrieval is triggered
 
+## Profile Comparison
+
+Compare all built-in and custom profiles side by side:
+
+```bash
+# Compare all profiles
+marketsentry compare-cross-site-alert-expiration-profiles
+
+# Compare specific profiles
+marketsentry compare-cross-site-alert-expiration-profiles --profiles conservative,aggressive_review_only
+
+# Compare including custom profiles
+marketsentry compare-cross-site-alert-expiration-profiles --profile-config config/alert_expiration_profiles.json
+
+# Export comparison to CSV
+marketsentry export-cross-site-alert-expiration-profile-comparison
+```
+
+The comparison table shows per-profile: total candidates, archive/review/keep counts, affected property count, oldest/youngest candidate age, rule count, and validation status. No mutations are performed.
+
+## Last-Used Profile Preference
+
+Set a local preference for which profile to use by default:
+
+```bash
+# Set last-used profile
+marketsentry set-cross-site-alert-expiration-profile --profile conservative
+
+# Get current preference
+marketsentry get-cross-site-alert-expiration-profile
+
+# Clear preference (fall back to standard)
+marketsentry clear-cross-site-alert-expiration-profile
+```
+
+### Preference File
+
+The preference is stored in:
+
+```
+config/alert_expiration_profile_preference.json
+```
+
+This file is optional. If absent or invalid, commands fall back to "standard" with a warning.
+
+### How Last-Used Profile Works
+
+When `--profile` is omitted from preview, export, or summary commands, the system:
+
+1. Checks for a saved preference in `config/alert_expiration_profile_preference.json`
+2. Validates the profile name exists in the merged profile set
+3. Uses the saved profile if valid
+4. Falls back to "standard" with a warning if invalid or missing
+
+Explicit `--profile` always overrides the last-used preference.
+
+### Safety
+
+- Only valid profile names can be saved (profile must exist in built-in or loaded custom profiles)
+- Saving a preference does not change any alerts, watchlist status, or property data
+- The preference is a convenience setting only
+
 ## No Auto-Apply Behavior
 
 No scheduled task, background process, or automated workflow applies expiration decisions from custom profiles. The import command is the only way to apply decisions, and it requires an explicit file path and operator-edited approval CSV.

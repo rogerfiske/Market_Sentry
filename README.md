@@ -6,17 +6,30 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: User-Defined Alert Expiration Profiles (MVP 32)
+## Current Milestone: Profile Comparison and Last-Used Profile Preference (MVP 33)
 
-This milestone adds user-defined local expiration profiles loaded from a JSON config file.
+This milestone adds side-by-side profile comparison views and local last-used profile persistence.
 
+- Compare all built-in and custom expiration profiles side by side (candidate counts, archive/review/keep counts, affected properties, rule counts)
+- Two-profile diff with deltas (candidate_count_delta, archive_count_delta, alerts_only_in_a/b, common_alerts_with_different_actions)
+- Export profile comparison to CSV
+- Last-used profile preference persisted locally in `config/alert_expiration_profile_preference.json`
+- Set, get, clear last-used profile via CLI
+- Existing preview/export/summary commands auto-resolve to last-used profile when `--profile` is omitted
+- Explicit `--profile` always overrides last-used preference
+- Invalid or missing preference falls back to "standard" with warning
+- Profile comparison is read-only: no mutations, no auto-apply
+- Profile preference does not change watchlist status, Redfin source-of-truth fields, or alert state
+- Dashboard shows last-used profile and profile comparison table
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 32: User-Defined Alert Expiration Profiles
+
+- User-defined local expiration profiles loaded from JSON config file
 - Built-in profiles (conservative, standard, aggressive_review_only) always available
-- Custom profiles loaded from optional `config/alert_expiration_profiles.json`
 - Config validated: profile_name required/unique, rule_name unique within profile, valid statuses/severities/actions
 - User profiles cannot silently override built-in profiles
 - Invalid configs rejected with clear errors; built-in profiles remain usable
-- High/critical open alerts restricted to review/keep only (never archive)
-- Archived alerts restricted to keep/review only
 - New CLI: `marketsentry write-alert-expiration-profile-template`
 - Updated CLI: `--profile-config` option on list-profiles, preview, export, summary commands
 - Dashboard shows built-in and detected custom profiles with validation status
@@ -1625,7 +1638,8 @@ Market_Sentry/
     ├── test_milestone_24.py           # Confidence-weighted cross-site analytics tests
     ├── test_milestone_30.py           # Opt-in alert archive policy workflow tests
     ├── test_milestone_31.py           # Alert expiration policy workflow tests
-    └── test_milestone_32.py           # User-defined alert expiration profiles tests
+    ├── test_milestone_32.py           # User-defined alert expiration profiles tests
+    └── test_milestone_33.py           # Profile comparison and last-used profile tests
 ```
 
 ## Running Tests
@@ -1714,6 +1728,7 @@ MIT
   - [Decision 029: Cross-Site Alert Archive Policy](docs/decisions/029-cross-site-alert-archive-policy.md)
   - [Decision 030: Cross-Site Alert Expiration Policy](docs/decisions/030-cross-site-alert-expiration-policy.md)
   - [Decision 031: User-Defined Alert Expiration Profiles](docs/decisions/031-user-defined-alert-expiration-profiles.md)
+  - [Decision 032: Profile Comparison and Last-Used Profile Preference](docs/decisions/032-alert-expiration-profile-comparison-preferences.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

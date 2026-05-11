@@ -1690,3 +1690,73 @@ class CrossSiteAlertExpirationSummary(BaseModel):
     already_archived: int = 0
     no_archive_marked: int = 0
     next_actions: List[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Milestone 33: Profile Comparison and Last-Used Preference
+# ---------------------------------------------------------------------------
+
+
+class CrossSiteAlertExpirationProfileComparisonRow(BaseModel):
+    """One row in a profile comparison table."""
+
+    profile_name: str = ""
+    profile_source: str = ""  # built_in or user_config
+    total_candidates: int = 0
+    proposed_archive_count: int = 0
+    proposed_review_count: int = 0
+    proposed_keep_count: int = 0
+    high_critical_review_count: int = 0
+    no_archive_excluded_count: int = 0
+    affected_property_count: int = 0
+    oldest_candidate_age_days: Optional[int] = None
+    youngest_candidate_age_days: Optional[int] = None
+    rule_count: int = 0
+    validation_status: str = "valid"
+    notes: Optional[str] = None
+
+
+class CrossSiteAlertExpirationProfileComparisonResult(BaseModel):
+    """Result of comparing multiple profiles."""
+
+    profiles_compared: int = 0
+    rows: List[CrossSiteAlertExpirationProfileComparisonRow] = Field(
+        default_factory=list,
+    )
+    errors: List[str] = Field(default_factory=list)
+
+
+class CrossSiteAlertExpirationProfileDiff(BaseModel):
+    """Diff between two profiles."""
+
+    profile_a: str = ""
+    profile_b: str = ""
+    candidate_count_delta: int = 0
+    archive_count_delta: int = 0
+    review_count_delta: int = 0
+    keep_count_delta: int = 0
+    properties_only_in_a: int = 0
+    properties_only_in_b: int = 0
+    alerts_only_in_a: int = 0
+    alerts_only_in_b: int = 0
+    common_alerts_with_different_actions: int = 0
+    summary_text: str = ""
+
+
+class CrossSiteAlertExpirationProfilePreference(BaseModel):
+    """Local last-used profile preference."""
+
+    last_used_profile: str = "standard"
+    profile_config_path: Optional[str] = None
+    saved_at: Optional[str] = None
+    notes: str = "Local convenience setting only; does not apply actions."
+
+
+class CrossSiteAlertExpirationProfilePreferenceResult(BaseModel):
+    """Result of loading profile preference."""
+
+    profile_name: str = "standard"
+    profile_config_path: Optional[str] = None
+    is_valid: bool = True
+    was_fallback: bool = False
+    warnings: List[str] = Field(default_factory=list)
