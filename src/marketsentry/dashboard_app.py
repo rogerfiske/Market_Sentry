@@ -645,12 +645,51 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
         if db_path and Path(db_path).exists():
             try:
                 from marketsentry.cross_site_alert_expiration_policy import (
-                    get_default_expiration_profiles,
+                    merge_builtin_and_user_profiles,
                     summarize_alert_expiration_policy,
+                    validate_expiration_profile_config,
+                    DEFAULT_CONFIG_PATH,
                 )
-                profiles = get_default_expiration_profiles()
-                profile_names = [p.profile_name for p in profiles]
-                st.write(f"Available profiles: {', '.join(profile_names)}")
+                merged, merge_errors = merge_builtin_and_user_profiles()
+                builtin_names = []
+                custom_names = []
+                for p in merged:
+                    if p.profile_name in (
+                        "conservative", "standard",
+                        "aggressive_review_only",
+                    ):
+                        builtin_names.append(p.profile_name)
+                    else:
+                        custom_names.append(p.profile_name)
+
+                st.write(
+                    f"Built-in profiles: {', '.join(builtin_names)}"
+                )
+
+                if custom_names:
+                    st.write(
+                        f"Custom profiles: {', '.join(custom_names)}"
+                    )
+
+                # Show config validation status
+                if DEFAULT_CONFIG_PATH.exists():
+                    is_valid, val_errors = (
+                        validate_expiration_profile_config()
+                    )
+                    if is_valid:
+                        st.success(
+                            f"Custom config valid: {DEFAULT_CONFIG_PATH}"
+                        )
+                    else:
+                        st.warning(
+                            f"Custom config errors in "
+                            f"{DEFAULT_CONFIG_PATH}: "
+                            + "; ".join(val_errors)
+                        )
+
+                if merge_errors:
+                    for err in merge_errors:
+                        st.warning(err)
 
                 exp_summary = summarize_alert_expiration_policy(
                     database_path=db_path,

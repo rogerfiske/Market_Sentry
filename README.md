@@ -6,9 +6,25 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Configurable Alert Expiration Rules and Operator Approval Gates (MVP 31)
+## Current Milestone: User-Defined Alert Expiration Profiles (MVP 32)
 
-This milestone adds configurable local alert expiration rule profiles with operator approval gates.
+This milestone adds user-defined local expiration profiles loaded from a JSON config file.
+
+- Built-in profiles (conservative, standard, aggressive_review_only) always available
+- Custom profiles loaded from optional `config/alert_expiration_profiles.json`
+- Config validated: profile_name required/unique, rule_name unique within profile, valid statuses/severities/actions
+- User profiles cannot silently override built-in profiles
+- Invalid configs rejected with clear errors; built-in profiles remain usable
+- High/critical open alerts restricted to review/keep only (never archive)
+- Archived alerts restricted to keep/review only
+- New CLI: `marketsentry write-alert-expiration-profile-template`
+- Updated CLI: `--profile-config` option on list-profiles, preview, export, summary commands
+- Dashboard shows built-in and detected custom profiles with validation status
+- Example config: `config/alert_expiration_profiles.example.json`
+- Custom profiles do not auto-apply: all mutations require operator-reviewed approval import
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 31: Configurable Alert Expiration Rules and Operator Approval Gates
 
 - 3 built-in profiles: conservative, standard, aggressive_review_only
 - Age-based rules identify resolved (archive candidate), acknowledged (review), open info/warning (review) alerts
@@ -18,13 +34,6 @@ This milestone adds configurable local alert expiration rule profiles with opera
 - Default approval_decision is keep_current (no change without explicit operator decision)
 - `[no_archive]` marked alerts excluded from archive proposals
 - Actions recorded in triage actions table for audit trail
-- New CLI: `marketsentry list-cross-site-alert-expiration-profiles`
-- New CLI: `marketsentry preview-cross-site-alert-expiration-policy`
-- New CLI: `marketsentry export-cross-site-alert-expiration-approval`
-- New CLI: `marketsentry import-cross-site-alert-expiration-approval`
-- New CLI: `marketsentry cross-site-alert-expiration-summary`
-- Dashboard: Cross-Site Alert Expiration Policy subsection
-- Hygiene recommendations updated to mention expiration approval workflow
 - Expiration policy does not auto-apply: all mutations require operator-reviewed approval import
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
@@ -1497,6 +1506,8 @@ Market_Sentry/
 ├── .env.example               # Example configuration
 ├── .gitignore
 ├── pyproject.toml             # Project metadata and build config
+├── config/                    # Configuration files
+│   └── alert_expiration_profiles.example.json  # Example custom profiles
 ├── scripts/                   # Automation scripts
 │   ├── run_watchlist_refresh_workflow.bat
 │   ├── run_initial_review_workflow.bat
@@ -1613,7 +1624,8 @@ Market_Sentry/
     ├── test_milestone_23.py           # Cross-site parser quality and fixture corpus tests
     ├── test_milestone_24.py           # Confidence-weighted cross-site analytics tests
     ├── test_milestone_30.py           # Opt-in alert archive policy workflow tests
-    └── test_milestone_31.py           # Alert expiration policy workflow tests
+    ├── test_milestone_31.py           # Alert expiration policy workflow tests
+    └── test_milestone_32.py           # User-defined alert expiration profiles tests
 ```
 
 ## Running Tests
@@ -1701,6 +1713,7 @@ MIT
   - [Decision 023: Confidence-Weighted Cross-Site Analytics](docs/decisions/023-confidence-weighted-cross-site-analytics.md)
   - [Decision 029: Cross-Site Alert Archive Policy](docs/decisions/029-cross-site-alert-archive-policy.md)
   - [Decision 030: Cross-Site Alert Expiration Policy](docs/decisions/030-cross-site-alert-expiration-policy.md)
+  - [Decision 031: User-Defined Alert Expiration Profiles](docs/decisions/031-user-defined-alert-expiration-profiles.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

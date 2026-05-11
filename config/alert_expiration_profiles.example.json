@@ -1,0 +1,26 @@
+{
+  "profiles": [
+    {
+      "profile_name": "my_custom_review",
+      "description": "Custom local review profile",
+      "rules": [
+        {
+          "rule_name": "resolved_archive_75d",
+          "current_status": "resolved",
+          "severity": ["info", "warning", "high", "critical"],
+          "min_age_days": 75,
+          "proposed_action": "archive",
+          "exclude_no_archive": true
+        },
+        {
+          "rule_name": "acknowledged_review_21d",
+          "current_status": "acknowledged",
+          "severity": ["info", "warning", "high", "critical"],
+          "min_age_days": 21,
+          "proposed_action": "review",
+          "exclude_no_archive": false
+        }
+      ]
+    }
+  ]
+}

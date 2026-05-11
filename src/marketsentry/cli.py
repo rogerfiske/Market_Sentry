@@ -1678,17 +1678,25 @@ def cross_site_alert_archive_summary(
 
 
 @app.command()
-def list_cross_site_alert_expiration_profiles() -> None:
+def list_cross_site_alert_expiration_profiles(
+    profile_config: Optional[str] = typer.Option(
+        None, "--profile-config",
+        help="Path to user-defined profile config JSON",
+    ),
+) -> None:
     """List available expiration rule profiles and their thresholds.
+
+    Shows built-in profiles and any valid user-defined profiles
+    loaded from the profile config file.
 
     Read-only: does not change alert status.
     """
     from marketsentry.cross_site_alert_expiration_policy import (
-        get_default_expiration_profiles,
+        merge_builtin_and_user_profiles,
     )
 
     try:
-        profiles = get_default_expiration_profiles()
+        profiles, errors = merge_builtin_and_user_profiles(profile_config)
 
         console.print(
             "[bold blue]Available expiration profiles:[/bold blue]\n"
@@ -1714,6 +1722,11 @@ def list_cross_site_alert_expiration_profiles() -> None:
             console.print(table)
             console.print("")
 
+        if errors:
+            console.print("[yellow]Profile config warnings:[/yellow]")
+            for err in errors:
+                console.print(f"  - {err}")
+
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         logger.error(f"List expiration profiles error: {e}")
@@ -1728,9 +1741,14 @@ def preview_cross_site_alert_expiration_policy(
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"
     ),
+    profile_config: Optional[str] = typer.Option(
+        None, "--profile-config",
+        help="Path to user-defined profile config JSON",
+    ),
 ) -> None:
     """Preview which alerts would be affected by an expiration profile.
 
+    Supports both built-in and user-defined profiles.
     Read-only: does not change alert status.
     """
     from marketsentry.cross_site_alert_expiration_policy import (
@@ -1748,6 +1766,7 @@ def preview_cross_site_alert_expiration_policy(
         result = preview_alert_expiration_policy(
             database_path=db_path,
             profile_name=profile,
+            config_path=profile_config,
         )
 
         console.print(f"\n  Profile: {result.profile_name}")
@@ -1788,9 +1807,14 @@ def export_cross_site_alert_expiration_approval(
     severity: Optional[str] = typer.Option(
         None, "--severity", help="Filter by severity"
     ),
+    profile_config: Optional[str] = typer.Option(
+        None, "--profile-config",
+        help="Path to user-defined profile config JSON",
+    ),
 ) -> None:
     """Export expiration approval CSV for operator review.
 
+    Supports both built-in and user-defined profiles.
     Operator reviews and edits approval_decision column, then imports.
     No actions are applied automatically.
     """
@@ -1813,6 +1837,7 @@ def export_cross_site_alert_expiration_approval(
             exports_dir=output_dir,
             property_id=property_id,
             severity=severity,
+            config_path=profile_config,
         )
 
         console.print(
@@ -1918,9 +1943,14 @@ def cross_site_alert_expiration_summary(
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"
     ),
+    profile_config: Optional[str] = typer.Option(
+        None, "--profile-config",
+        help="Path to user-defined profile config JSON",
+    ),
 ) -> None:
     """Show expiration policy summary for cross-site alerts.
 
+    Supports both built-in and user-defined profiles.
     Read-only summary: does not change alert status.
     """
     from marketsentry.cross_site_alert_expiration_policy import (
@@ -1938,6 +1968,7 @@ def cross_site_alert_expiration_summary(
         summary = summarize_alert_expiration_policy(
             database_path=db_path,
             profile_name=profile,
+            config_path=profile_config,
         )
 
         console.print(f"\n  Profile: {summary.profile_name}")
@@ -1956,6 +1987,49 @@ def cross_site_alert_expiration_summary(
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         logger.error(f"Expiration summary error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def write_alert_expiration_profile_template(
+    output: str = typer.Option(
+        "config/alert_expiration_profiles.example.json",
+        "--output",
+        help="Output path for the example config",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite", help="Overwrite existing file"
+    ),
+) -> None:
+    """Write an example alert expiration profile config file.
+
+    Creates a JSON template with example custom profiles and rules.
+    Does not overwrite existing files unless --overwrite is set.
+    """
+    from marketsentry.cross_site_alert_expiration_policy import (
+        write_example_expiration_profile_config,
+    )
+
+    try:
+        path, was_written = write_example_expiration_profile_config(
+            output_path=output,
+            overwrite=overwrite,
+        )
+
+        if was_written:
+            console.print(
+                f"[bold green]SUCCESS:[/bold green] "
+                f"Example config written to: {path}"
+            )
+        else:
+            console.print(
+                f"[yellow]File already exists:[/yellow] {path}\n"
+                f"Use --overwrite to replace it."
+            )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Write profile template error: {e}")
         raise typer.Exit(code=1)
 
 

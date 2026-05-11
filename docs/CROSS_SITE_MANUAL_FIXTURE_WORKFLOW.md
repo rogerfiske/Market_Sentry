@@ -685,3 +685,76 @@ This preserves the human-in-the-loop principle established throughout the projec
 ### Reminder: Expiration Policy Does Not Change Watchlist Status
 
 Expiration policy is an operational alert-state workflow only. It does not change watchlist status, active_watch_status, watch_priority, Redfin source-of-truth fields, property data, user decisions, or Quiet Score gatekeeper results.
+
+## User-Defined Alert Expiration Profiles (Milestone 32)
+
+Milestone 32 adds user-defined expiration profiles loaded from a local JSON config file.
+
+### Writing the Example Config
+
+```bash
+marketsentry write-alert-expiration-profile-template
+```
+
+This writes an example to `config/alert_expiration_profiles.example.json`. Copy and edit it:
+
+```bash
+copy config\alert_expiration_profiles.example.json config\alert_expiration_profiles.json
+```
+
+### Config File Path
+
+Default path: `config/alert_expiration_profiles.json`
+
+This file is optional. If absent, only built-in profiles are used.
+
+### Profile and Rule Fields
+
+Each profile requires:
+
+- `profile_name`: unique name (lowercase/snake_case recommended)
+- `rules`: list of rule objects
+
+Each rule requires:
+
+- `rule_name`: unique within the profile
+- `current_status`: open, acknowledged, resolved, or archived
+- `min_age_days`: integer >= 0
+- `proposed_action`: archive, review, keep, or reopen_review
+
+Optional rule field:
+
+- `severity`: string or list of info, warning, high, critical, any (default: any)
+
+### Validation Rules
+
+- High/critical open alerts may only propose review or keep (never archive)
+- Archived alerts may only propose keep or review
+- User profiles cannot silently override built-in profile names (conservative, standard, aggressive_review_only)
+- Invalid configs are rejected with clear errors; built-in profiles remain usable
+
+### Previewing with Custom Profile
+
+```bash
+marketsentry preview-cross-site-alert-expiration-policy --profile my_custom_review --profile-config config/alert_expiration_profiles.json
+```
+
+### Exporting Approval CSV with Custom Profile
+
+```bash
+marketsentry export-cross-site-alert-expiration-approval --profile my_custom_review --profile-config config/alert_expiration_profiles.json
+```
+
+### Reminder: Actions Still Require Approval Import
+
+Custom profiles generate candidates only. To apply actions, the operator must:
+
+1. Export the approval CSV
+2. Edit `approval_decision` for each row
+3. Import the edited CSV:
+
+```bash
+marketsentry import-cross-site-alert-expiration-approval --file data/exports/cross_site_alert_expiration_approval_*.csv
+```
+
+See also: [Alert Expiration Profiles](ALERT_EXPIRATION_PROFILES.md) for full config format, examples, and safety limits.

@@ -1455,6 +1455,81 @@ The Cross-Site Review section of the dashboard includes an Expiration Policy sub
 
 Expiration policy does not automatically apply any actions. All mutations require an explicit operator-reviewed approval CSV import. It does not change watchlist status, modify Redfin source-of-truth fields, or change Quiet Score gatekeeper results.
 
+## User-Defined Alert Expiration Profiles
+
+Milestone 32 adds support for user-defined expiration profiles loaded from a local JSON config file. Built-in profiles remain available.
+
+### Writing Example Config
+
+```bash
+# Write example config template
+marketsentry write-alert-expiration-profile-template
+
+# Write to a custom path
+marketsentry write-alert-expiration-profile-template --output config/my_profiles.json
+
+# Overwrite existing file
+marketsentry write-alert-expiration-profile-template --overwrite
+```
+
+### Config File Path
+
+Default: `config/alert_expiration_profiles.json`
+
+This file is optional. If absent, only built-in profiles are used.
+
+### Profile and Rule Fields
+
+Each profile has:
+
+- `profile_name` (required, unique)
+- `description` (optional)
+- `rules` (list of rule objects)
+
+Each rule has:
+
+- `rule_name` (required, unique within profile)
+- `current_status`: open, acknowledged, resolved, or archived
+- `severity`: string or list of info, warning, high, critical, any
+- `min_age_days`: integer >= 0
+- `proposed_action`: archive, review, keep, or reopen_review
+
+### Validation Rules
+
+- High/critical open alerts may only propose review or keep
+- Archived alerts may only propose keep or review
+- User profiles cannot override built-in profile names
+- Invalid configs are rejected with clear errors; built-in profiles remain usable
+
+### Listing All Profiles
+
+```bash
+# List built-in and custom profiles
+marketsentry list-cross-site-alert-expiration-profiles --profile-config config/alert_expiration_profiles.json
+```
+
+### Previewing with Custom Profile
+
+```bash
+marketsentry preview-cross-site-alert-expiration-policy --profile my_custom_review --profile-config config/alert_expiration_profiles.json
+```
+
+### Exporting Approval CSV with Custom Profile
+
+```bash
+marketsentry export-cross-site-alert-expiration-approval --profile my_custom_review --profile-config config/alert_expiration_profiles.json
+```
+
+### Importing Approval CSV
+
+Import is unchanged. Actions still require approval import:
+
+```bash
+marketsentry import-cross-site-alert-expiration-approval --file data/exports/cross_site_alert_expiration_approval_*.csv
+```
+
+See also: [Alert Expiration Profiles](ALERT_EXPIRATION_PROFILES.md) for full config format and examples.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

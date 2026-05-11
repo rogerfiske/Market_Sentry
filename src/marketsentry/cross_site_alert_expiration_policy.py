@@ -12,10 +12,11 @@ not purchase recommendations.
 """
 
 import csv
+import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 from marketsentry.database import execute_query, get_connection, table_exists
 from marketsentry.logging_config import logger
@@ -76,6 +77,389 @@ _PROPOSED_ACTION_TO_STATUS = {
     "archive": "archived",
     "reopen_review": "open",
 }
+
+ALLOWED_STATUSES = frozenset({"open", "acknowledged", "resolved", "archived"})
+ALLOWED_SEVERITIES = frozenset({
+    "info", "warning", "high", "critical", "any",
+})
+ALLOWED_PROPOSED_ACTIONS = frozenset({
+    "archive", "review", "keep", "reopen_review",
+})
+
+DEFAULT_CONFIG_PATH = Path("config/alert_expiration_profiles.json")
+EXAMPLE_CONFIG_PATH = Path("config/alert_expiration_profiles.example.json")
+
+_BUILTIN_PROFILE_NAMES = frozenset({
+    "conservative", "standard", "aggressive_review_only",
+})
+
+EXAMPLE_PROFILE_CONFIG = {
+    "profiles": [
+        {
+            "profile_name": "my_custom_review",
+            "description": "Custom local review profile",
+            "rules": [
+                {
+                    "rule_name": "resolved_archive_75d",
+                    "current_status": "resolved",
+                    "severity": ["info", "warning", "high", "critical"],
+                    "min_age_days": 75,
+                    "proposed_action": "archive",
+                    "exclude_no_archive": True,
+                },
+                {
+                    "rule_name": "acknowledged_review_21d",
+                    "current_status": "acknowledged",
+                    "severity": ["info", "warning", "high", "critical"],
+                    "min_age_days": 21,
+                    "proposed_action": "review",
+                    "exclude_no_archive": False,
+                },
+            ],
+        }
+    ]
+}
+
+
+# ---------------------------------------------------------------------------
+# User-defined profile loading (Milestone 32)
+# ---------------------------------------------------------------------------
+
+
+def load_user_expiration_profiles(
+    config_path: Optional[Union[Path, str]] = None,
+) -> Tuple[List[CrossSiteAlertExpirationProfile], List[str]]:
+    """Load user-defined expiration profiles from a JSON config file.
+
+    If the config file does not exist, returns empty lists.
+    If the config is invalid, returns empty profiles and error messages.
+
+    Args:
+        config_path: Path to the JSON config. Defaults to
+            config/alert_expiration_profiles.json.
+
+    Returns:
+        Tuple of (profiles, errors). Errors are empty on success.
+    """
+    path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
+    if not path.exists():
+        return [], []
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        return [], [f"Invalid JSON in {path}: {e}"]
+    except Exception as e:
+        return [], [f"Error reading {path}: {e}"]
+
+    if not isinstance(data, dict) or "profiles" not in data:
+        return [], [f"Config must have a 'profiles' key: {path}"]
+
+    raw_profiles = data["profiles"]
+    if not isinstance(raw_profiles, list):
+        return [], [f"'profiles' must be a list: {path}"]
+
+    profiles: List[CrossSiteAlertExpirationProfile] = []
+    errors: List[str] = []
+    seen_names: set = set()
+
+    for idx, raw in enumerate(raw_profiles):
+        profile, profile_errors = _parse_profile(raw, idx, seen_names)
+        if profile_errors:
+            errors.extend(profile_errors)
+        elif profile is not None:
+            seen_names.add(profile.profile_name)
+            profiles.append(profile)
+
+    return profiles, errors
+
+
+def validate_expiration_profile_config(
+    config_path: Optional[Union[Path, str]] = None,
+) -> Tuple[bool, List[str]]:
+    """Validate a user-defined profile config file.
+
+    Args:
+        config_path: Path to the config file.
+
+    Returns:
+        Tuple of (is_valid, error_messages).
+    """
+    profiles, errors = load_user_expiration_profiles(config_path)
+    if errors:
+        return False, errors
+
+    # Check for builtin name conflicts
+    for p in profiles:
+        if p.profile_name in _BUILTIN_PROFILE_NAMES:
+            errors.append(
+                f"Profile '{p.profile_name}' conflicts with built-in profile"
+            )
+
+    return len(errors) == 0, errors
+
+
+def merge_builtin_and_user_profiles(
+    config_path: Optional[Union[Path, str]] = None,
+) -> Tuple[List[CrossSiteAlertExpirationProfile], List[str]]:
+    """Merge built-in and user-defined profiles.
+
+    Built-in profiles are always included. User profiles are added
+    if the config file exists and is valid. User profiles that conflict
+    with built-in names are rejected.
+
+    Args:
+        config_path: Path to the user config file.
+
+    Returns:
+        Tuple of (merged_profiles, errors).
+    """
+    builtin = get_default_expiration_profiles()
+    user_profiles, errors = load_user_expiration_profiles(config_path)
+
+    # Reject user profiles that conflict with built-in names
+    valid_user: List[CrossSiteAlertExpirationProfile] = []
+    for p in user_profiles:
+        if p.profile_name in _BUILTIN_PROFILE_NAMES:
+            errors.append(
+                f"User profile '{p.profile_name}' conflicts with "
+                f"built-in profile; skipped"
+            )
+        else:
+            valid_user.append(p)
+
+    return builtin + valid_user, errors
+
+
+def get_expiration_profile_by_name(
+    profile_name: str,
+    config_path: Optional[Union[Path, str]] = None,
+) -> Optional[CrossSiteAlertExpirationProfile]:
+    """Get a profile by name from built-in and user-defined profiles.
+
+    Args:
+        profile_name: Name of the profile to find.
+        config_path: Optional path to user config.
+
+    Returns:
+        The profile if found, or None.
+    """
+    merged, _ = merge_builtin_and_user_profiles(config_path)
+    for p in merged:
+        if p.profile_name == profile_name:
+            return p
+    return None
+
+
+def write_example_expiration_profile_config(
+    output_path: Optional[Union[Path, str]] = None,
+    overwrite: bool = False,
+) -> Tuple[str, bool]:
+    """Write an example expiration profile config file.
+
+    Args:
+        output_path: Output path. Defaults to
+            config/alert_expiration_profiles.example.json.
+        overwrite: Whether to overwrite existing file.
+
+    Returns:
+        Tuple of (path_written, was_written).
+    """
+    path = Path(output_path) if output_path else EXAMPLE_CONFIG_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if path.exists() and not overwrite:
+        return str(path), False
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(EXAMPLE_PROFILE_CONFIG, f, indent=2)
+        f.write("\n")
+
+    return str(path), True
+
+
+def _parse_profile(
+    raw: dict,
+    idx: int,
+    seen_names: set,
+) -> Tuple[Optional[CrossSiteAlertExpirationProfile], List[str]]:
+    """Parse and validate a single profile from JSON config.
+
+    Args:
+        raw: Raw dict from JSON.
+        idx: Profile index for error messages.
+        seen_names: Set of already-seen profile names.
+
+    Returns:
+        Tuple of (profile_or_none, errors).
+    """
+    errors: List[str] = []
+
+    if not isinstance(raw, dict):
+        return None, [f"Profile [{idx}]: must be an object"]
+
+    profile_name = raw.get("profile_name", "").strip()
+    if not profile_name:
+        return None, [f"Profile [{idx}]: missing profile_name"]
+
+    if profile_name in seen_names:
+        return None, [
+            f"Profile '{profile_name}': duplicate profile_name"
+        ]
+
+    description = raw.get("description", "")
+    raw_rules = raw.get("rules", [])
+    if not isinstance(raw_rules, list):
+        return None, [f"Profile '{profile_name}': rules must be a list"]
+
+    rules: List[CrossSiteAlertExpirationRule] = []
+    seen_rule_names: set = set()
+
+    for ridx, raw_rule in enumerate(raw_rules):
+        rule, rule_errors = _parse_rule(
+            raw_rule, ridx, profile_name, seen_rule_names,
+        )
+        if rule_errors:
+            errors.extend(rule_errors)
+        elif rule is not None:
+            seen_rule_names.add(rule.rule_name)
+            rules.append(rule)
+
+    if errors:
+        return None, errors
+
+    return CrossSiteAlertExpirationProfile(
+        profile_name=profile_name,
+        description=description,
+        rules=rules,
+    ), []
+
+
+def _parse_rule(
+    raw: dict,
+    idx: int,
+    profile_name: str,
+    seen_names: set,
+) -> Tuple[Optional[CrossSiteAlertExpirationRule], List[str]]:
+    """Parse and validate a single rule from JSON config.
+
+    Args:
+        raw: Raw dict from JSON.
+        idx: Rule index for error messages.
+        profile_name: Parent profile name for error messages.
+        seen_names: Set of already-seen rule names in this profile.
+
+    Returns:
+        Tuple of (rule_or_none, errors).
+    """
+    prefix = f"Profile '{profile_name}' rule [{idx}]"
+    errors: List[str] = []
+
+    if not isinstance(raw, dict):
+        return None, [f"{prefix}: must be an object"]
+
+    rule_name = raw.get("rule_name", "").strip()
+    if not rule_name:
+        return None, [f"{prefix}: missing rule_name"]
+
+    if rule_name in seen_names:
+        return None, [f"{prefix}: duplicate rule_name '{rule_name}'"]
+
+    current_status = raw.get("current_status", "").strip()
+    if current_status not in ALLOWED_STATUSES:
+        errors.append(
+            f"{prefix} '{rule_name}': invalid current_status "
+            f"'{current_status}'"
+        )
+
+    # Parse severity
+    raw_severity = raw.get("severity", "any")
+    if isinstance(raw_severity, list):
+        for s in raw_severity:
+            if s not in ALLOWED_SEVERITIES:
+                errors.append(
+                    f"{prefix} '{rule_name}': invalid severity '{s}'"
+                )
+        if "any" in raw_severity:
+            severity_str = None
+        else:
+            severity_str = ",".join(raw_severity)
+    elif isinstance(raw_severity, str):
+        if raw_severity == "any":
+            severity_str = None
+        elif raw_severity in ALLOWED_SEVERITIES:
+            severity_str = raw_severity
+        else:
+            errors.append(
+                f"{prefix} '{rule_name}': invalid severity "
+                f"'{raw_severity}'"
+            )
+            severity_str = None
+    else:
+        errors.append(
+            f"{prefix} '{rule_name}': severity must be string or list"
+        )
+        severity_str = None
+
+    # Parse min_age_days
+    min_age = raw.get("min_age_days", 0)
+    if not isinstance(min_age, int) or min_age < 0:
+        errors.append(
+            f"{prefix} '{rule_name}': min_age_days must be integer >= 0"
+        )
+        min_age = 0
+
+    # Parse proposed_action
+    proposed_action = raw.get("proposed_action", "review").strip()
+    if proposed_action not in ALLOWED_PROPOSED_ACTIONS:
+        errors.append(
+            f"{prefix} '{rule_name}': invalid proposed_action "
+            f"'{proposed_action}'"
+        )
+
+    # Safety: high/critical open alerts may only propose review or keep
+    if (
+        current_status == "open"
+        and severity_str
+        and any(
+            s in ("high", "critical")
+            for s in severity_str.split(",")
+        )
+        and proposed_action not in ("review", "keep")
+    ):
+        errors.append(
+            f"{prefix} '{rule_name}': high/critical open alerts "
+            f"may only propose review or keep, not '{proposed_action}'"
+        )
+
+    # Safety: archived alerts may only propose keep or review
+    if (
+        current_status == "archived"
+        and proposed_action not in ("keep", "review")
+    ):
+        errors.append(
+            f"{prefix} '{rule_name}': archived alerts may only "
+            f"propose keep or review, not '{proposed_action}'"
+        )
+
+    if errors:
+        return None, errors
+
+    description = raw.get("description", "")
+    if not description:
+        description = (
+            f"{current_status} alerts aged >={min_age}d -> {proposed_action}"
+        )
+
+    return CrossSiteAlertExpirationRule(
+        rule_name=rule_name,
+        target_status=current_status,
+        target_severity=severity_str,
+        age_threshold_days=min_age,
+        proposed_action=proposed_action,
+        description=description,
+    ), []
 
 
 # ---------------------------------------------------------------------------
@@ -221,20 +605,21 @@ def get_default_expiration_profiles() -> List[CrossSiteAlertExpirationProfile]:
 
 def load_expiration_profile(
     profile_name: str = "standard",
+    config_path: Optional[Union[Path, str]] = None,
 ) -> Optional[CrossSiteAlertExpirationProfile]:
     """Load an expiration profile by name.
 
+    Searches built-in profiles first, then user-defined profiles
+    from the config file if provided.
+
     Args:
         profile_name: Name of the profile to load.
+        config_path: Optional path to user config file.
 
     Returns:
         The profile if found, or None.
     """
-    profiles = get_default_expiration_profiles()
-    for p in profiles:
-        if p.profile_name == profile_name:
-            return p
-    return None
+    return get_expiration_profile_by_name(profile_name, config_path)
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +632,7 @@ def preview_alert_expiration_policy(
     profile_name: str = "standard",
     property_id: Optional[int] = None,
     severity: Optional[str] = None,
+    config_path: Optional[Union[Path, str]] = None,
 ) -> CrossSiteAlertExpirationPreviewResult:
     """Preview which alerts would be affected by an expiration profile.
 
@@ -257,6 +643,7 @@ def preview_alert_expiration_policy(
         profile_name: Expiration profile name.
         property_id: Optional property ID filter.
         severity: Optional severity filter.
+        config_path: Optional path to user profile config file.
 
     Returns:
         Preview result with candidate counts.
@@ -265,7 +652,7 @@ def preview_alert_expiration_policy(
         profile_name=profile_name,
     )
 
-    profile = load_expiration_profile(profile_name)
+    profile = load_expiration_profile(profile_name, config_path=config_path)
     if profile is None:
         return result
 
@@ -302,6 +689,7 @@ def export_alert_expiration_approval_csv(
     exports_dir: Optional[str] = None,
     property_id: Optional[int] = None,
     severity: Optional[str] = None,
+    config_path: Optional[Union[Path, str]] = None,
 ) -> Dict:
     """Export expiration approval CSV for operator review.
 
@@ -312,6 +700,7 @@ def export_alert_expiration_approval_csv(
         exports_dir: Optional exports directory.
         property_id: Optional property ID filter.
         severity: Optional severity filter.
+        config_path: Optional path to user profile config file.
 
     Returns:
         Dict with expiration_export_id, output_path, row_count.
@@ -323,6 +712,7 @@ def export_alert_expiration_approval_csv(
         profile_name=profile_name,
         property_id=property_id,
         severity=severity,
+        config_path=config_path,
     )
 
     # Stamp export ID on candidates
@@ -623,12 +1013,14 @@ def apply_alert_expiration_approvals(
 def summarize_alert_expiration_policy(
     database_path: Optional[str] = None,
     profile_name: str = "standard",
+    config_path: Optional[Union[Path, str]] = None,
 ) -> CrossSiteAlertExpirationSummary:
     """Summarize current expiration policy state.
 
     Args:
         database_path: Optional database path.
         profile_name: Expiration profile to use.
+        config_path: Optional path to user profile config file.
 
     Returns:
         CrossSiteAlertExpirationSummary with counts and actions.
@@ -642,6 +1034,7 @@ def summarize_alert_expiration_policy(
         preview = preview_alert_expiration_policy(
             database_path=database_path,
             profile_name=profile_name,
+            config_path=config_path,
         )
         summary.total_candidates = preview.total_candidates
         summary.proposed_archive = preview.proposed_archive
