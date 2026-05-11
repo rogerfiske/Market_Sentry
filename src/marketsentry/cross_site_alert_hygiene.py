@@ -501,7 +501,8 @@ def generate_alert_hygiene_next_actions(
         actions.append(
             f"Review {summary.resolved_archive_candidates} old resolved "
             f"alert(s) for archive: "
-            f"marketsentry export-cross-site-alert-archive-candidates"
+            f"marketsentry export-cross-site-alert-archive-candidates "
+            f"or marketsentry export-cross-site-alert-expiration-approval"
         )
 
     if summary.repeated_unresolved_patterns > 0:

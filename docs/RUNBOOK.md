@@ -1348,6 +1348,113 @@ The hygiene report identifies resolved archive candidates and recommends running
 
 Archive policy does not auto-archive alerts, change watchlist status, modify Redfin source-of-truth fields, or change Quiet Score gatekeeper results. The operator reviews archive candidates and makes explicit decisions through the CSV workflow.
 
+## Cross-Site Alert Expiration Policy
+
+Milestone 31 adds configurable alert expiration rule profiles with operator approval gates. Expiration policy does not auto-apply actions, change watchlist status, or modify Redfin source-of-truth fields.
+
+### Available Profiles
+
+```bash
+marketsentry list-cross-site-alert-expiration-profiles
+```
+
+Three built-in profiles:
+
+| Profile | Resolved Archive | Acknowledged Review | Open Info/Warning Review | High/Critical Open |
+| --- | --- | --- | --- | --- |
+| conservative | 90 days | 45 days | 30 days | review only |
+| standard | 60 days | 30 days | 21 days | review only |
+| aggressive_review_only | 30 days | 14 days | 14 days | review only |
+
+High/critical open alerts are never proposed for archive. They are review-only in all profiles.
+
+### Previewing Expiration Policy
+
+```bash
+# Preview with default standard profile
+marketsentry preview-cross-site-alert-expiration-policy
+
+# Preview with a specific profile
+marketsentry preview-cross-site-alert-expiration-policy --profile conservative
+```
+
+Preview is read-only. No mutations are performed.
+
+### Exporting Approval CSV
+
+```bash
+# Export approval CSV with standard profile
+marketsentry export-cross-site-alert-expiration-approval
+
+# Export with a specific profile
+marketsentry export-cross-site-alert-expiration-approval --profile aggressive_review_only
+
+# Filter by property or severity
+marketsentry export-cross-site-alert-expiration-approval --property-id 42
+marketsentry export-cross-site-alert-expiration-approval --severity high
+```
+
+The export creates a CSV in `data/exports/cross_site_alert_expiration_approval_YYYYMMDD_HHMMSS.csv` with columns for alert details, proposed action/reason, and editable fields: `approval_decision` and `approval_notes`.
+
+### Editing Approval Decisions
+
+Open the exported CSV in a spreadsheet editor. For each row, set the `approval_decision` column to one of:
+
+| Decision | Changes Alert Status? | Effect |
+| --- | --- | --- |
+| keep_current | No | No change. Default value. |
+| approve_action | Depends | Applies the proposed_action if it mutates status; review/keep append notes only. |
+| mark_no_archive | No | Appends `[no_archive]` marker to notes. |
+| reopen | Yes -> open | Alert status set to open. |
+| acknowledge | Yes -> acknowledged | Alert status set to acknowledged. |
+| resolve | Yes -> resolved | Alert status set to resolved. |
+| archive | Yes -> archived | Alert status set to archived. |
+
+Optionally add notes in the `approval_notes` column.
+
+### Importing Approval Decisions
+
+```bash
+# Import and apply decisions
+marketsentry import-cross-site-alert-expiration-approval --file data/exports/cross_site_alert_expiration_approval_*.csv
+
+# Force apply even if alert status has changed since export
+marketsentry import-cross-site-alert-expiration-approval --file <path> --force-status-mismatch
+```
+
+The import validates each row:
+
+- Expiration export ID must be present
+- Profile name must be present
+- Alert ID must exist in the database
+- Current alert status must match what was exported (unless `--force-status-mismatch`)
+- Approval decision must be one of the 7 allowed values
+- Invalid rows are skipped and reported
+
+### Viewing Expiration Summary
+
+```bash
+marketsentry cross-site-alert-expiration-summary
+marketsentry cross-site-alert-expiration-summary --profile conservative
+```
+
+Shows candidate counts by proposed action, already archived count, no_archive marked count, and recommended next actions.
+
+### Expiration Policy in Dashboard
+
+The Cross-Site Review section of the dashboard includes an Expiration Policy subsection showing available profiles, candidate counts by proposed action, archived count, no_archive count, and the latest approval CSV table.
+
+### Using Expiration Policy with Other Workflows
+
+- **Hygiene reports** (Milestone 29) identify resolved archive candidates and recommend either `export-cross-site-alert-archive-candidates` or `export-cross-site-alert-expiration-approval`
+- **Archive policy** (Milestone 30) handles dedicated archive review for old resolved alerts only
+- **Expiration policy** (Milestone 31) handles configurable age-based rules across all non-archived statuses
+- All workflows are independent: each serves a distinct purpose in the alert lifecycle
+
+### Reminder: Expiration Policy Does Not Auto-Apply
+
+Expiration policy does not automatically apply any actions. All mutations require an explicit operator-reviewed approval CSV import. It does not change watchlist status, modify Redfin source-of-truth fields, or change Quiet Score gatekeeper results.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

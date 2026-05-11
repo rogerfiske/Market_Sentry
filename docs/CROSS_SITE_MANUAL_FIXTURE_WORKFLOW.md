@@ -612,3 +612,76 @@ Shows eligible candidates, already archived alerts, no_archive marked alerts, an
 ### Reminder: Archive Policy Does Not Auto-Archive
 
 Archive policy is opt-in only. It does not automatically archive alerts, change watchlist status, modify Redfin source-of-truth fields, property data, user decisions, or Quiet Score gatekeeper results. The operator reviews and decides.
+
+## Cross-Site Alert Expiration Policy (Milestone 31)
+
+### What Are Expiration Profiles
+
+Expiration profiles are named collections of age-based rules that identify alerts eligible for operator review or archive consideration. Three built-in profiles are provided with different age thresholds:
+
+- **conservative**: Long thresholds (resolved 90d, acknowledged 45d, open info/warning 30d)
+- **standard**: Balanced thresholds (resolved 60d, acknowledged 30d, open info/warning 21d)
+- **aggressive_review_only**: Short thresholds (resolved 30d, acknowledged 14d, open info/warning 14d)
+
+All profiles treat high/critical open alerts as review-only (never archive candidates).
+
+### How to Preview a Profile
+
+```bash
+# Preview with default standard profile
+marketsentry preview-cross-site-alert-expiration-policy
+
+# Preview with conservative profile
+marketsentry preview-cross-site-alert-expiration-policy --profile conservative
+```
+
+Preview shows candidate counts by proposed action (archive, review, keep). No mutations occur.
+
+### How to Export Approval CSV
+
+```bash
+marketsentry export-cross-site-alert-expiration-approval --profile standard
+```
+
+The CSV includes alert details, the proposed action and reason, and two editable columns: `approval_decision` (default: `keep_current`) and `approval_notes`.
+
+### Allowed Decisions
+
+| Decision | Effect |
+| --- | --- |
+| keep_current | No change (default) |
+| approve_action | Apply the proposed action (archive or review/keep with notes) |
+| mark_no_archive | Append `[no_archive]` marker; exclude from future archive proposals |
+| reopen | Set status to open |
+| acknowledge | Set status to acknowledged |
+| resolve | Set status to resolved |
+| archive | Set status to archived |
+
+### How to Import Approvals
+
+```bash
+marketsentry import-cross-site-alert-expiration-approval --file <path>
+```
+
+Use `--force-status-mismatch` if alert statuses have changed since the export.
+
+### Why No Automatic Policy Application Occurs
+
+Expiration profiles only generate preview and approval rows. They never apply actions automatically. All status mutations require the operator to:
+
+1. Export an approval CSV
+2. Review and edit the `approval_decision` column
+3. Import the edited CSV
+
+This preserves the human-in-the-loop principle established throughout the project.
+
+### How Expiration Policy Relates to Other Workflows
+
+- **Hygiene reports** (Milestone 29) identify alerts needing attention and recommend both archive and expiration workflows
+- **Archive policy** (Milestone 30) focuses specifically on resolved alerts for dedicated archive review
+- **Expiration policy** (Milestone 31) provides configurable age-based rules across all non-archived statuses
+- Each workflow serves a distinct purpose; they complement rather than replace each other
+
+### Reminder: Expiration Policy Does Not Change Watchlist Status
+
+Expiration policy is an operational alert-state workflow only. It does not change watchlist status, active_watch_status, watch_priority, Redfin source-of-truth fields, property data, user decisions, or Quiet Score gatekeeper results.

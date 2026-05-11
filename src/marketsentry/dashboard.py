@@ -258,6 +258,7 @@ def find_latest_report(
         "cross_site_alert_triage": "cross_site_alert_triage_*.csv",
         "cross_site_alert_hygiene": "cross_site_alert_hygiene_*.csv",
         "cross_site_alert_archive_candidates": "cross_site_alert_archive_candidates_*.csv",
+        "cross_site_alert_expiration_approval": "cross_site_alert_expiration_approval_*.csv",
         "workflow_summary": "workflow_summary_*.md",
     }
 
@@ -793,6 +794,38 @@ def build_cross_site_alert_archive_policy_table(
         "alert_id", "property_id", "address", "city",
         "alert_type", "severity", "current_status",
         "alert_age_days", "archive_decision", "archive_notes",
+    ]
+    available = [c for c in desired if c in df.columns]
+    if available:
+        return df[available]
+    return df
+
+
+def build_cross_site_alert_expiration_policy_table(
+    exports_dir: Optional[Union[Path, str]] = None,
+) -> pd.DataFrame:
+    """Build cross-site alert expiration policy table from latest CSV.
+
+    Args:
+        exports_dir: Directory containing reports.
+
+    Returns:
+        DataFrame with expiration candidate data, or empty DataFrame.
+    """
+    report_path = find_latest_report(
+        "cross_site_alert_expiration_approval", exports_dir,
+    )
+    if not report_path:
+        return pd.DataFrame()
+
+    df = load_report_csv(report_path)
+    if df.empty:
+        return df
+
+    desired = [
+        "alert_id", "property_id", "address", "city",
+        "alert_type", "severity", "current_status",
+        "alert_age_days", "proposed_action", "approval_decision",
     ]
     available = [c for c in desired if c in df.columns]
     if available:

@@ -26,6 +26,7 @@ from marketsentry.dashboard import (
     build_county_verification_table,
     build_cross_site_alert_analytics_table,
     build_cross_site_alert_archive_policy_table,
+    build_cross_site_alert_expiration_policy_table,
     build_cross_site_alert_hygiene_table,
     build_cross_site_alert_triage_table,
     build_cross_site_analytics_table,
@@ -622,6 +623,63 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
             f"Showing {len(archive_df)} archive candidates from latest export"
         )
         st.dataframe(archive_df, use_container_width=True)
+
+    # ---- Cross-Site Alert Expiration Policy ----
+    st.subheader("Cross-Site Alert Expiration Policy")
+    st.caption(
+        "Configurable expiration rules with operator approval gates. "
+        "Preview profiles, export approval CSV, review, and import. "
+        "Read-only view. Expiration policy does not auto-apply."
+    )
+
+    expiration_df = build_cross_site_alert_expiration_policy_table(
+        exports_dir,
+    )
+    if expiration_df.empty:
+        st.info(
+            "No expiration approval export found. Run: "
+            "marketsentry export-cross-site-alert-expiration-approval"
+        )
+    else:
+        # Summary metrics from DB
+        if db_path and Path(db_path).exists():
+            try:
+                from marketsentry.cross_site_alert_expiration_policy import (
+                    get_default_expiration_profiles,
+                    summarize_alert_expiration_policy,
+                )
+                profiles = get_default_expiration_profiles()
+                profile_names = [p.profile_name for p in profiles]
+                st.write(f"Available profiles: {', '.join(profile_names)}")
+
+                exp_summary = summarize_alert_expiration_policy(
+                    database_path=db_path,
+                )
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric(
+                        "Candidates", exp_summary.total_candidates,
+                    )
+                with col2:
+                    st.metric(
+                        "Proposed Archive", exp_summary.proposed_archive,
+                    )
+                with col3:
+                    st.metric(
+                        "No-Archive", exp_summary.no_archive_marked,
+                    )
+                with col4:
+                    st.metric(
+                        "Archived", exp_summary.already_archived,
+                    )
+            except Exception:
+                pass
+
+        st.write(
+            f"Showing {len(expiration_df)} expiration candidates "
+            f"from latest export"
+        )
+        st.dataframe(expiration_df, use_container_width=True)
 
 
 def _render_reports(exports_dir: str) -> None:

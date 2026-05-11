@@ -1590,3 +1590,103 @@ class CrossSiteAlertArchiveSummary(BaseModel):
     total_acknowledged: int = 0
     recent_archive_actions: int = 0
     next_actions: List[str] = Field(default_factory=list)
+
+
+# Milestone 31: Alert Expiration Policy Models
+
+
+class CrossSiteAlertExpirationRule(BaseModel):
+    """A single expiration rule within a profile."""
+
+    rule_name: str = ""
+    target_status: str = ""
+    target_severity: Optional[str] = None
+    age_threshold_days: int = 30
+    proposed_action: str = "review"
+    description: str = ""
+
+
+class CrossSiteAlertExpirationProfile(BaseModel):
+    """A named collection of expiration rules."""
+
+    profile_name: str = ""
+    description: str = ""
+    rules: List[CrossSiteAlertExpirationRule] = Field(default_factory=list)
+
+
+class CrossSiteAlertExpirationCandidate(BaseModel):
+    """An alert matched by an expiration rule."""
+
+    expiration_export_id: str = ""
+    profile_name: str = ""
+    rule_name: str = ""
+    alert_id: int = 0
+    property_id: int = 0
+    candidate_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    alert_type: str = ""
+    severity: str = ""
+    current_status: str = ""
+    alert_age_days: Optional[int] = None
+    proposed_action: str = "review"
+    proposed_reason: str = ""
+    current_notes: Optional[str] = None
+    approval_decision: str = "keep_current"
+    approval_notes: Optional[str] = None
+
+
+class CrossSiteAlertExpirationPreviewResult(BaseModel):
+    """Preview result from evaluating expiration rules."""
+
+    profile_name: str = ""
+    total_candidates: int = 0
+    proposed_archive: int = 0
+    proposed_review: int = 0
+    proposed_keep: int = 0
+    proposed_reopen_review: int = 0
+    candidates: List[CrossSiteAlertExpirationCandidate] = Field(
+        default_factory=list
+    )
+
+
+class CrossSiteAlertExpirationApprovalRow(BaseModel):
+    """A single approval decision from the imported CSV."""
+
+    alert_id: int = 0
+    expiration_export_id: str = ""
+    profile_name: str = ""
+    expected_status: str = ""
+    approval_decision: str = "keep_current"
+    approval_notes: Optional[str] = None
+
+
+class CrossSiteAlertExpirationApplyResult(BaseModel):
+    """Result from applying expiration approval decisions."""
+
+    rows_read: int = 0
+    valid_decisions: int = 0
+    invalid_rows: int = 0
+    approved_actions: int = 0
+    archived: int = 0
+    reopened: int = 0
+    acknowledged: int = 0
+    resolved: int = 0
+    kept_current: int = 0
+    marked_no_archive: int = 0
+    skipped_status_mismatch: int = 0
+    errors: List[str] = Field(default_factory=list)
+
+
+class CrossSiteAlertExpirationSummary(BaseModel):
+    """Summary of expiration policy state."""
+
+    profile_name: str = ""
+    total_candidates: int = 0
+    proposed_archive: int = 0
+    proposed_review: int = 0
+    proposed_keep: int = 0
+    already_archived: int = 0
+    no_archive_marked: int = 0
+    next_actions: List[str] = Field(default_factory=list)

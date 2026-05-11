@@ -6,22 +6,34 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Opt-In Resolved Alert Archive Policy Workflow (MVP 30)
+## Current Milestone: Configurable Alert Expiration Rules and Operator Approval Gates (MVP 31)
 
-This milestone adds an opt-in archive policy workflow for old resolved cross-site alerts.
+This milestone adds configurable local alert expiration rule profiles with operator approval gates.
 
-- Identify resolved alerts eligible for archive review (30+ days, configurable via `--resolved-age-days`)
-- Export archive candidates to a user-reviewable CSV: `data/exports/cross_site_alert_archive_candidates_YYYYMMDD_HHMMSS.csv`
-- 4 archive decisions: keep_resolved (default), archive, reopen, no_archive
-- Import reviewed decisions and apply allowed alert status changes
-- `[no_archive]` marker excludes alerts from future archive candidate identification
-- Action history recorded in triage actions table for audit trail
-- New CLI: `marketsentry export-cross-site-alert-archive-candidates`
-- New CLI: `marketsentry import-cross-site-alert-archive-decisions`
-- New CLI: `marketsentry cross-site-alert-archive-summary`
-- Dashboard: Cross-Site Alert Archive Policy subsection with candidate counts, archived counts, and data table
-- Hygiene recommendations updated to reference archive workflow
-- Archive policy is opt-in only: no auto-archive, no watchlist status change
+- 3 built-in profiles: conservative, standard, aggressive_review_only
+- Age-based rules identify resolved (archive candidate), acknowledged (review), open info/warning (review) alerts
+- High/critical open alerts are review-only (never auto-archive candidates)
+- Export approval CSV: `data/exports/cross_site_alert_expiration_approval_YYYYMMDD_HHMMSS.csv`
+- 7 approval decisions: approve_action, keep_current, mark_no_archive, reopen, acknowledge, resolve, archive
+- Default approval_decision is keep_current (no change without explicit operator decision)
+- `[no_archive]` marked alerts excluded from archive proposals
+- Actions recorded in triage actions table for audit trail
+- New CLI: `marketsentry list-cross-site-alert-expiration-profiles`
+- New CLI: `marketsentry preview-cross-site-alert-expiration-policy`
+- New CLI: `marketsentry export-cross-site-alert-expiration-approval`
+- New CLI: `marketsentry import-cross-site-alert-expiration-approval`
+- New CLI: `marketsentry cross-site-alert-expiration-summary`
+- Dashboard: Cross-Site Alert Expiration Policy subsection
+- Hygiene recommendations updated to mention expiration approval workflow
+- Expiration policy does not auto-apply: all mutations require operator-reviewed approval import
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 30: Opt-In Resolved Alert Archive Policy Workflow
+
+- Opt-in archive policy for old resolved cross-site alerts
+- 4 archive decisions: keep_resolved, archive, reopen, no_archive
+- Export/import CSV workflow with action history
+- No auto-archive. No watchlist status change.
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
 ### MVP 29: Scheduled Triage Reminder and Alert Hygiene Reports
@@ -1562,6 +1574,7 @@ Market_Sentry/
 │       │   └── audit_report.py            # Retrieval audit reporting
 │       ├── fixture_capture_queue.py       # Fixture capture queue
 │       ├── cross_site_alert_archive_policy.py  # Archive policy workflow
+│       ├── cross_site_alert_expiration_policy.py  # Expiration policy workflow
 │       └── sample_data.py              # Sample data generation
 └── tests/                              # Unit tests
     ├── fixtures/                       # Test fixtures
@@ -1599,7 +1612,8 @@ Market_Sentry/
     ├── test_milestone_15.py           # Retrieval safety and fixture capture queue tests
     ├── test_milestone_23.py           # Cross-site parser quality and fixture corpus tests
     ├── test_milestone_24.py           # Confidence-weighted cross-site analytics tests
-    └── test_milestone_30.py           # Opt-in alert archive policy workflow tests
+    ├── test_milestone_30.py           # Opt-in alert archive policy workflow tests
+    └── test_milestone_31.py           # Alert expiration policy workflow tests
 ```
 
 ## Running Tests
@@ -1645,11 +1659,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 31: (To Be Determined)
+### MVP 32: (To Be Determined)
 
-Milestones 1-30 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
+Milestones 1-31 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-**Note:** Milestone 30 (Opt-In Resolved Alert Archive Policy Workflow) is now complete.
+**Note:** Milestone 31 (Configurable Alert Expiration Rules and Operator Approval Gates) is now complete.
 
 ## Repository
 
@@ -1686,6 +1700,7 @@ MIT
   - [Decision 022: Cross-Site Parser Quality and Fixture Corpus](docs/decisions/022-cross-site-parser-quality-fixture-corpus.md)
   - [Decision 023: Confidence-Weighted Cross-Site Analytics](docs/decisions/023-confidence-weighted-cross-site-analytics.md)
   - [Decision 029: Cross-Site Alert Archive Policy](docs/decisions/029-cross-site-alert-archive-policy.md)
+  - [Decision 030: Cross-Site Alert Expiration Policy](docs/decisions/030-cross-site-alert-expiration-policy.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

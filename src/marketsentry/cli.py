@@ -1678,6 +1678,288 @@ def cross_site_alert_archive_summary(
 
 
 @app.command()
+def list_cross_site_alert_expiration_profiles() -> None:
+    """List available expiration rule profiles and their thresholds.
+
+    Read-only: does not change alert status.
+    """
+    from marketsentry.cross_site_alert_expiration_policy import (
+        get_default_expiration_profiles,
+    )
+
+    try:
+        profiles = get_default_expiration_profiles()
+
+        console.print(
+            "[bold blue]Available expiration profiles:[/bold blue]\n"
+        )
+
+        for profile in profiles:
+            console.print(f"[bold]{profile.profile_name}[/bold]")
+            console.print(f"  {profile.description}")
+            table = Table(show_header=True)
+            table.add_column("Rule")
+            table.add_column("Status")
+            table.add_column("Severity")
+            table.add_column("Age (days)")
+            table.add_column("Action")
+            for rule in profile.rules:
+                table.add_row(
+                    rule.rule_name,
+                    rule.target_status,
+                    rule.target_severity or "any",
+                    str(rule.age_threshold_days),
+                    rule.proposed_action,
+                )
+            console.print(table)
+            console.print("")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"List expiration profiles error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def preview_cross_site_alert_expiration_policy(
+    profile: str = typer.Option(
+        "standard", "--profile", help="Expiration profile name"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Preview which alerts would be affected by an expiration profile.
+
+    Read-only: does not change alert status.
+    """
+    from marketsentry.cross_site_alert_expiration_policy import (
+        preview_alert_expiration_policy,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print(
+            f"[bold blue]Previewing expiration policy "
+            f"(profile: {profile})...[/bold blue]"
+        )
+
+        result = preview_alert_expiration_policy(
+            database_path=db_path,
+            profile_name=profile,
+        )
+
+        console.print(f"\n  Profile: {result.profile_name}")
+        console.print(f"  Total candidates: {result.total_candidates}")
+        console.print(f"  Proposed archive: {result.proposed_archive}")
+        console.print(f"  Proposed review: {result.proposed_review}")
+        console.print(f"  Proposed keep: {result.proposed_keep}")
+
+        if result.proposed_reopen_review > 0:
+            console.print(
+                f"  Proposed reopen review: {result.proposed_reopen_review}"
+            )
+
+        console.print(
+            "\nNo mutations performed. Export approval CSV to take action."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Preview expiration policy error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_cross_site_alert_expiration_approval(
+    profile: str = typer.Option(
+        "standard", "--profile", help="Expiration profile name"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory"
+    ),
+    property_id: Optional[int] = typer.Option(
+        None, "--property-id", help="Filter by property ID"
+    ),
+    severity: Optional[str] = typer.Option(
+        None, "--severity", help="Filter by severity"
+    ),
+) -> None:
+    """Export expiration approval CSV for operator review.
+
+    Operator reviews and edits approval_decision column, then imports.
+    No actions are applied automatically.
+    """
+    from marketsentry.cross_site_alert_expiration_policy import (
+        ALLOWED_APPROVAL_DECISIONS,
+        export_alert_expiration_approval_csv,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print(
+            f"[bold blue]Exporting expiration approval CSV "
+            f"(profile: {profile})...[/bold blue]"
+        )
+
+        result = export_alert_expiration_approval_csv(
+            database_path=db_path,
+            profile_name=profile,
+            exports_dir=output_dir,
+            property_id=property_id,
+            severity=severity,
+        )
+
+        console.print(
+            f"\n[bold green]SUCCESS:[/bold green] Approval CSV exported"
+        )
+        console.print(f"  - Output file: {result['output_path']}")
+        console.print(f"  - Candidate rows: {result['row_count']}")
+        console.print(
+            f"  - Expiration export ID: {result['expiration_export_id']}"
+        )
+        console.print(f"  - Profile: {result['profile_name']}")
+        console.print(
+            f"  - Allowed decisions: "
+            f"{', '.join(sorted(ALLOWED_APPROVAL_DECISIONS))}"
+        )
+        console.print(
+            "\nEdit the approval_decision column in the CSV, then import: "
+            "marketsentry import-cross-site-alert-expiration-approval "
+            "--file <path>"
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export expiration approval error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def import_cross_site_alert_expiration_approval(
+    file: str = typer.Option(
+        ..., "--file", help="Path to the approval CSV file"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+    force_status_mismatch: bool = typer.Option(
+        False, "--force-status-mismatch",
+        help="Allow applying decisions even if alert status has changed"
+    ),
+) -> None:
+    """Import approval CSV and apply operator-approved expiration decisions.
+
+    Only decisions the operator has explicitly set are applied.
+    """
+    from marketsentry.cross_site_alert_expiration_policy import (
+        apply_alert_expiration_approvals,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print(
+            f"[bold blue]Importing expiration approvals from:[/bold blue] "
+            f"{file}"
+        )
+
+        result = apply_alert_expiration_approvals(
+            file_path=file,
+            database_path=db_path,
+            force_status_mismatch=force_status_mismatch,
+        )
+
+        console.print(
+            f"\n[bold green]SUCCESS:[/bold green] Approval import complete"
+        )
+        console.print(f"  - Rows read: {result.rows_read}")
+        console.print(f"  - Valid decisions: {result.valid_decisions}")
+        console.print(f"  - Approved actions: {result.approved_actions}")
+        console.print(f"  - Archived: {result.archived}")
+        console.print(f"  - Reopened: {result.reopened}")
+        console.print(f"  - Acknowledged: {result.acknowledged}")
+        console.print(f"  - Resolved: {result.resolved}")
+        console.print(f"  - Kept current: {result.kept_current}")
+        console.print(f"  - Marked no_archive: {result.marked_no_archive}")
+
+        if result.skipped_status_mismatch > 0:
+            console.print(
+                f"  - [yellow]Skipped (status mismatch): "
+                f"{result.skipped_status_mismatch}[/yellow]"
+            )
+
+        if result.invalid_rows > 0:
+            console.print(
+                f"  - [red]Invalid rows: {result.invalid_rows}[/red]"
+            )
+
+        if result.errors:
+            console.print("[yellow]Errors:[/yellow]")
+            for err in result.errors[:10]:
+                console.print(f"    - {err}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Import expiration approval error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def cross_site_alert_expiration_summary(
+    profile: str = typer.Option(
+        "standard", "--profile", help="Expiration profile name"
+    ),
+    database_path: Optional[str] = typer.Option(
+        None, "--db", help="Database path (default: from config)"
+    ),
+) -> None:
+    """Show expiration policy summary for cross-site alerts.
+
+    Read-only summary: does not change alert status.
+    """
+    from marketsentry.cross_site_alert_expiration_policy import (
+        summarize_alert_expiration_policy,
+    )
+
+    try:
+        db_path = database_path or config.database_path
+
+        console.print(
+            f"[bold blue]Expiration policy summary "
+            f"(profile: {profile})...[/bold blue]"
+        )
+
+        summary = summarize_alert_expiration_policy(
+            database_path=db_path,
+            profile_name=profile,
+        )
+
+        console.print(f"\n  Profile: {summary.profile_name}")
+        console.print(f"  Total candidates: {summary.total_candidates}")
+        console.print(f"  Proposed archive: {summary.proposed_archive}")
+        console.print(f"  Proposed review: {summary.proposed_review}")
+        console.print(f"  Proposed keep: {summary.proposed_keep}")
+        console.print(f"  Already archived: {summary.already_archived}")
+        console.print(f"  No-archive marked: {summary.no_archive_marked}")
+
+        if summary.next_actions:
+            console.print("\n[bold]Recommended next actions:[/bold]")
+            for action in summary.next_actions:
+                console.print(f"  - {action}")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Expiration summary error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def snapshot_watchlist(
     database_path: Optional[str] = typer.Option(
         None, "--db", help="Database path (default: from config)"
