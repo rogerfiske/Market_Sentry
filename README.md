@@ -6,21 +6,27 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Profile Comparison and Last-Used Profile Preference (MVP 33)
+## Current Milestone: Alert Lifecycle Audit Trail and Operations Summary (MVP 34)
 
-This milestone adds side-by-side profile comparison views and local last-used profile persistence.
+This milestone consolidates alert lifecycle activity into a unified read-only audit trail.
 
-- Compare all built-in and custom expiration profiles side by side (candidate counts, archive/review/keep counts, affected properties, rule counts)
-- Two-profile diff with deltas (candidate_count_delta, archive_count_delta, alerts_only_in_a/b, common_alerts_with_different_actions)
-- Export profile comparison to CSV
-- Last-used profile preference persisted locally in `config/alert_expiration_profile_preference.json`
-- Set, get, clear last-used profile via CLI
-- Existing preview/export/summary commands auto-resolve to last-used profile when `--profile` is omitted
-- Explicit `--profile` always overrides last-used preference
-- Invalid or missing preference falls back to "standard" with warning
-- Profile comparison is read-only: no mutations, no auto-apply
-- Profile preference does not change watchlist status, Redfin source-of-truth fields, or alert state
-- Dashboard shows last-used profile and profile comparison table
+- Unified lifecycle event stream from triage, archive, and expiration workflows
+- Event normalization: alert_created, acknowledged, resolved, archived, reopened, no_archive_marked, needs_reparse_marked, needs_manual_review_marked, expiration_approved
+- Per-property lifecycle summaries with status counts, gap counts, and labels
+- Lifecycle gap detection: stale open alerts, unresolved reparse/review markers, stale acknowledged, resolved archive candidates, stale reopened
+- Lifecycle labels: no_alerts, active_alerts, under_review, mostly_resolved, archived_history, needs_attention
+- Export lifecycle report to CSV and/or Markdown
+- CLI: `marketsentry cross-site-alert-lifecycle-summary`, `marketsentry export-cross-site-alert-lifecycle-report`, `marketsentry show-cross-site-alert-lifecycle`
+- Dashboard: Cross-Site Alert Lifecycle subsection with summary metrics, property table, and gap table
+- Lifecycle audit is read-only: no mutations to alert state or watchlist status
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 33: Profile Comparison and Last-Used Profile Preference
+
+- Side-by-side profile comparison views with candidate/action counts per profile
+- Two-profile diff with deltas
+- Last-used profile preference persisted locally
+- Existing commands auto-resolve to last-used profile when --profile omitted
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
 ### MVP 32: User-Defined Alert Expiration Profiles
@@ -1639,7 +1645,8 @@ Market_Sentry/
     ├── test_milestone_30.py           # Opt-in alert archive policy workflow tests
     ├── test_milestone_31.py           # Alert expiration policy workflow tests
     ├── test_milestone_32.py           # User-defined alert expiration profiles tests
-    └── test_milestone_33.py           # Profile comparison and last-used profile tests
+    ├── test_milestone_33.py           # Profile comparison and last-used profile tests
+    └── test_milestone_34.py           # Alert lifecycle audit trail tests
 ```
 
 ## Running Tests
@@ -1729,6 +1736,7 @@ MIT
   - [Decision 030: Cross-Site Alert Expiration Policy](docs/decisions/030-cross-site-alert-expiration-policy.md)
   - [Decision 031: User-Defined Alert Expiration Profiles](docs/decisions/031-user-defined-alert-expiration-profiles.md)
   - [Decision 032: Profile Comparison and Last-Used Profile Preference](docs/decisions/032-alert-expiration-profile-comparison-preferences.md)
+  - [Decision 033: Alert Lifecycle Audit Trail](docs/decisions/033-alert-lifecycle-audit-trail.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

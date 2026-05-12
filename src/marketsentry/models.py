@@ -1760,3 +1760,110 @@ class CrossSiteAlertExpirationProfilePreferenceResult(BaseModel):
     is_valid: bool = True
     was_fallback: bool = False
     warnings: List[str] = Field(default_factory=list)
+
+
+# ── Milestone 34: Alert Lifecycle Audit Trail ──
+
+
+class CrossSiteAlertLifecycleEvent(BaseModel):
+    """One normalized event in an alert's lifecycle stream."""
+
+    event_id: str = ""
+    alert_id: int = 0
+    property_id: int = 0
+    candidate_id: Optional[int] = None
+    event_type: str = ""
+    previous_status: Optional[str] = None
+    new_status: Optional[str] = None
+    action: Optional[str] = None
+    source_workflow: str = ""
+    event_notes: Optional[str] = None
+    event_at: Optional[str] = None
+    source_table: str = ""
+    source_reference: Optional[str] = None
+
+
+class CrossSiteAlertLifecyclePropertySummary(BaseModel):
+    """Lifecycle summary metrics for one property."""
+
+    property_id: int = 0
+    address: str = ""
+    city: str = ""
+    zip_code: str = ""
+    total_alerts: int = 0
+    total_lifecycle_events: int = 0
+    open_alerts: int = 0
+    acknowledged_alerts: int = 0
+    resolved_alerts: int = 0
+    archived_alerts: int = 0
+    reopened_count: int = 0
+    no_archive_count: int = 0
+    needs_reparse_count: int = 0
+    needs_manual_review_count: int = 0
+    latest_event_at: Optional[str] = None
+    oldest_open_alert_age_days: Optional[int] = None
+    unresolved_high_or_critical_count: int = 0
+    lifecycle_gap_count: int = 0
+    lifecycle_summary_label: str = "no_alerts"
+
+
+class CrossSiteAlertLifecycleSummary(BaseModel):
+    """Aggregate lifecycle summary across all properties."""
+
+    total_properties_with_alerts: int = 0
+    total_alerts: int = 0
+    total_lifecycle_events: int = 0
+    open_alerts: int = 0
+    acknowledged_alerts: int = 0
+    resolved_alerts: int = 0
+    archived_alerts: int = 0
+    total_gaps: int = 0
+    needs_reparse_count: int = 0
+    needs_manual_review_count: int = 0
+    property_summaries: List[CrossSiteAlertLifecyclePropertySummary] = Field(
+        default_factory=list,
+    )
+    recommended_actions: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
+class CrossSiteAlertLifecycleReportRow(BaseModel):
+    """One row in the lifecycle CSV report."""
+
+    property_id: int = 0
+    candidate_id: Optional[int] = None
+    address: str = ""
+    city: str = ""
+    zip_code: str = ""
+    alert_id: int = 0
+    alert_type: str = ""
+    severity: str = ""
+    current_status: str = ""
+    event_count: int = 0
+    first_event_at: Optional[str] = None
+    latest_event_at: Optional[str] = None
+    latest_event_type: str = ""
+    lifecycle_summary_label: str = "no_alerts"
+    lifecycle_gap_count: int = 0
+    gap_categories: str = ""
+    needs_reparse_count: int = 0
+    needs_manual_review_count: int = 0
+    no_archive_count: int = 0
+    recommended_review_action: str = ""
+
+
+class CrossSiteAlertLifecycleRunResult(BaseModel):
+    """Result of running a lifecycle audit."""
+
+    summary: CrossSiteAlertLifecycleSummary = Field(
+        default_factory=CrossSiteAlertLifecycleSummary,
+    )
+    report_rows: List[CrossSiteAlertLifecycleReportRow] = Field(
+        default_factory=list,
+    )
+    events: List[CrossSiteAlertLifecycleEvent] = Field(
+        default_factory=list,
+    )
+    gaps: List[dict] = Field(default_factory=list)
+    export_path: Optional[str] = None
+    warnings: List[str] = Field(default_factory=list)

@@ -1607,6 +1607,76 @@ The Cross-Site Review section of the dashboard includes a profile comparison tab
 
 Profile comparison does not mutate alerts. Last-used profile preference is a local convenience setting only. It does not change alert state, watchlist status, Redfin source-of-truth fields, or Quiet Score gatekeeper results.
 
+## Alert Lifecycle Audit Trail (Milestone 34)
+
+Milestone 34 adds a unified read-only audit trail that consolidates alert lifecycle activity across triage, archive, and expiration workflows. The lifecycle audit does not mutate alert state, watchlist status, or Redfin source-of-truth fields.
+
+### Viewing Lifecycle Summary
+
+```bash
+# Summary across all properties
+marketsentry cross-site-alert-lifecycle-summary
+
+# Summary for one property
+marketsentry cross-site-alert-lifecycle-summary --property-id 42
+
+# Summary for one alert
+marketsentry cross-site-alert-lifecycle-summary --alert-id 5
+```
+
+Shows: properties with alerts, total alerts, lifecycle events, gap counts, needs_reparse/manual_review counts, and recommended next actions.
+
+### Exporting Lifecycle Report
+
+```bash
+# Export CSV report
+marketsentry export-cross-site-alert-lifecycle-report
+
+# Export Markdown report
+marketsentry export-cross-site-alert-lifecycle-report --format md
+
+# Export both formats
+marketsentry export-cross-site-alert-lifecycle-report --format both
+```
+
+Reports are saved to `data/exports/cross_site_alert_lifecycle_YYYYMMDD_HHMMSS.csv` (and/or `.md`).
+
+### Showing Alert Lifecycle
+
+```bash
+marketsentry show-cross-site-alert-lifecycle --alert-id 5
+```
+
+Shows the chronological event stream for a single alert: status transitions, notes, source workflow, and timestamps.
+
+### Lifecycle Gap Detection
+
+The lifecycle audit detects workflow gaps:
+
+- Open alert older than 7 days with no triage action
+- needs_reparse marker with no later resolution
+- needs_manual_review marker with no later follow-up
+- Acknowledged alert older than 14 days with no resolution
+- Resolved alert older than 30 days, not archived or no_archive marked
+- Reopened alert still open beyond 7 days
+
+Gaps are review aids only. The audit does not auto-fix gaps.
+
+### How Lifecycle Audit Relates to Other Workflows
+
+- **Triage workflow** (Milestone 28): Actions appear as lifecycle events
+- **Archive policy** (Milestone 30): Archive decisions appear as lifecycle events
+- **Expiration policy** (Milestone 31): Expiration approvals appear as lifecycle events
+- **Hygiene reports** (Milestone 29): Complement lifecycle gaps with additional hygiene checks
+
+### Lifecycle Audit in Dashboard
+
+The Cross-Site Review section of the dashboard includes a Cross-Site Alert Lifecycle subsection showing summary metrics, property lifecycle table, and gap table.
+
+### Reminder: Lifecycle Audit Is Read-Only
+
+The lifecycle audit does not change alert status, watchlist state, property data, or Quiet Score gatekeeper results. It is an observability and reporting tool for human operators.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

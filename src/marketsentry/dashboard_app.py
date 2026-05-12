@@ -758,6 +758,89 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
         )
         st.dataframe(expiration_df, use_container_width=True)
 
+    # ---- Cross-Site Alert Lifecycle Audit ----
+    st.subheader("Cross-Site Alert Lifecycle")
+    st.caption(
+        "Unified audit trail across triage, archive, and expiration "
+        "workflows. Read-only view. Does not mutate alerts."
+    )
+
+    if db_path and Path(db_path).exists():
+        try:
+            from marketsentry.cross_site_alert_lifecycle import (
+                summarize_alert_lifecycle_for_all_properties,
+                detect_alert_lifecycle_gaps,
+            )
+
+            lc_summary = summarize_alert_lifecycle_for_all_properties(
+                database_path=db_path,
+            )
+
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric(
+                    "Properties", lc_summary.total_properties_with_alerts,
+                )
+            with col2:
+                st.metric("Alerts", lc_summary.total_alerts)
+            with col3:
+                st.metric("Events", lc_summary.total_lifecycle_events)
+            with col4:
+                st.metric("Gaps", lc_summary.total_gaps)
+
+            if lc_summary.property_summaries:
+                lc_data = []
+                for ps in lc_summary.property_summaries:
+                    lc_data.append({
+                        "Property": ps.property_id,
+                        "Address": ps.address or "",
+                        "Alerts": ps.total_alerts,
+                        "Open": ps.open_alerts,
+                        "Ack": ps.acknowledged_alerts,
+                        "Resolved": ps.resolved_alerts,
+                        "Archived": ps.archived_alerts,
+                        "Gaps": ps.lifecycle_gap_count,
+                        "Label": ps.lifecycle_summary_label,
+                    })
+                st.write("Property lifecycle summary:")
+                st.dataframe(
+                    pd.DataFrame(lc_data),
+                    use_container_width=True,
+                )
+
+            # Show gaps if any
+            all_gaps = detect_alert_lifecycle_gaps(
+                database_path=db_path,
+            )
+            if all_gaps:
+                gap_data = []
+                for g in all_gaps:
+                    gap_data.append({
+                        "Alert": g.get("alert_id", ""),
+                        "Category": g.get("gap_category", ""),
+                        "Description": g.get("description", ""),
+                        "Age (days)": g.get("age_days", ""),
+                    })
+                st.write(
+                    f"Lifecycle gaps ({len(all_gaps)}):"
+                )
+                st.dataframe(
+                    pd.DataFrame(gap_data),
+                    use_container_width=True,
+                )
+
+            if lc_summary.recommended_actions:
+                st.write("Recommended actions:")
+                for act in lc_summary.recommended_actions:
+                    st.write(f"- {act}")
+        except Exception:
+            pass
+    else:
+        st.info(
+            "No database available for lifecycle audit. "
+            "Run: marketsentry cross-site-alert-lifecycle-summary"
+        )
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

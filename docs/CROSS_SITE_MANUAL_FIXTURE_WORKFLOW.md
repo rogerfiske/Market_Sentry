@@ -795,3 +795,52 @@ When `--profile` is omitted from preview, export, or summary commands, the syste
 ### Reminder: Comparison and Preference Are Read-Only
 
 Profile comparison does not mutate alerts. Last-used profile preference is a local convenience setting only. It does not change alert state, watchlist status, Redfin source-of-truth fields, or Quiet Score gatekeeper results.
+
+## Alert Lifecycle Audit Trail (Milestone 34)
+
+### What Is Lifecycle Audit
+
+The lifecycle audit consolidates alert activity from triage, archive, and expiration workflows into a unified read-only event stream. It normalizes actions from all workflows into common event types and detects potential workflow gaps.
+
+### Lifecycle Summary
+
+```bash
+# View aggregate lifecycle summary
+marketsentry cross-site-alert-lifecycle-summary
+
+# View lifecycle for one property
+marketsentry cross-site-alert-lifecycle-summary --property-id 42
+```
+
+### Lifecycle Report
+
+```bash
+# Export lifecycle report (CSV)
+marketsentry export-cross-site-alert-lifecycle-report
+
+# Export both CSV and Markdown
+marketsentry export-cross-site-alert-lifecycle-report --format both
+```
+
+### Show Alert Lifecycle
+
+```bash
+marketsentry show-cross-site-alert-lifecycle --alert-id 5
+```
+
+Shows the chronological event stream for a single alert.
+
+### How Lifecycle Gaps Relate to Other Workflows
+
+Lifecycle gaps identify where expected follow-up actions have not occurred:
+
+- **open_no_triage**: Open alert needs triage export and review (Milestone 28)
+- **needs_reparse_unresolved**: Re-parse fixture and run triage (Milestones 22-23, 28)
+- **needs_manual_review_unresolved**: Manual review needed (Milestone 28)
+- **acknowledged_stale**: Resolve or archive via triage (Milestone 28)
+- **resolved_archive_candidate**: Consider archive policy (Milestone 30) or expiration (Milestone 31)
+- **reopened_stale**: Review and resolve reopened alert (Milestone 28)
+
+### Reminder: Lifecycle Audit Is Read-Only
+
+The lifecycle audit does not change alert status, watchlist state, property data, Redfin source-of-truth fields, or Quiet Score gatekeeper results. It is an observability tool for human operators.

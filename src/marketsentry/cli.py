@@ -2294,6 +2294,208 @@ def clear_cross_site_alert_expiration_profile(
 
 
 @app.command()
+def cross_site_alert_lifecycle_summary(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Path to database file.",
+    ),
+    property_id: Optional[int] = typer.Option(
+        None, "--property-id", help="Filter by property ID.",
+    ),
+    alert_id: Optional[int] = typer.Option(
+        None, "--alert-id", help="Filter by alert ID.",
+    ),
+) -> None:
+    """Show cross-site alert lifecycle summary.
+
+    Displays properties with alerts, active alerts, lifecycle events,
+    gap counts, and recommended next actions. Read-only.
+    """
+    from marketsentry.cross_site_alert_lifecycle import (
+        format_alert_lifecycle_summary,
+        summarize_alert_lifecycle_for_all_properties,
+        summarize_alert_lifecycle_for_property,
+    )
+
+    try:
+        if property_id is not None:
+            psummary = summarize_alert_lifecycle_for_property(
+                property_id=property_id,
+                database_path=db,
+            )
+            from marketsentry.models import (
+                CrossSiteAlertLifecycleSummary,
+            )
+            summary = CrossSiteAlertLifecycleSummary(
+                total_properties_with_alerts=(
+                    1 if psummary.total_alerts > 0 else 0
+                ),
+                total_alerts=psummary.total_alerts,
+                total_lifecycle_events=psummary.total_lifecycle_events,
+                open_alerts=psummary.open_alerts,
+                acknowledged_alerts=psummary.acknowledged_alerts,
+                resolved_alerts=psummary.resolved_alerts,
+                archived_alerts=psummary.archived_alerts,
+                total_gaps=psummary.lifecycle_gap_count,
+                needs_reparse_count=psummary.needs_reparse_count,
+                needs_manual_review_count=(
+                    psummary.needs_manual_review_count
+                ),
+                property_summaries=[psummary]
+                if psummary.total_alerts > 0
+                else [],
+            )
+        elif alert_id is not None:
+            from marketsentry.cross_site_alert_lifecycle import (
+                build_alert_lifecycle_for_alert,
+                detect_alert_lifecycle_gaps,
+            )
+            events = build_alert_lifecycle_for_alert(
+                alert_id=alert_id, database_path=db,
+            )
+            gaps = detect_alert_lifecycle_gaps(
+                database_path=db, alert_id=alert_id,
+            )
+            from marketsentry.models import (
+                CrossSiteAlertLifecycleSummary,
+            )
+            summary = CrossSiteAlertLifecycleSummary(
+                total_alerts=1 if events else 0,
+                total_lifecycle_events=len(events),
+                total_gaps=len(gaps),
+            )
+            summary.recommended_actions = [
+                f"Alert {alert_id}: {len(events)} events, "
+                f"{len(gaps)} gap(s)."
+            ]
+        else:
+            summary = summarize_alert_lifecycle_for_all_properties(
+                database_path=db,
+            )
+
+        text = format_alert_lifecycle_summary(summary)
+        console.print(text)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Lifecycle summary error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_cross_site_alert_lifecycle_report(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Path to database file.",
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Output directory.",
+    ),
+    format: str = typer.Option(
+        "csv", "--format", help="Report format: csv, md, or both.",
+    ),
+) -> None:
+    """Export cross-site alert lifecycle audit report.
+
+    Generates a CSV and/or Markdown report with per-alert lifecycle
+    metrics, gap counts, and recommended actions. Read-only.
+    """
+    from marketsentry.cross_site_alert_lifecycle import (
+        export_cross_site_alert_lifecycle_report as _export,
+    )
+
+    try:
+        result = _export(
+            database_path=db,
+            output_dir=output_dir,
+            format=format,
+        )
+        console.print(
+            f"Lifecycle report: {len(result.report_rows)} alert(s), "
+            f"{len(result.gaps)} gap(s)."
+        )
+        if result.export_path:
+            console.print(f"Report saved to: {result.export_path}")
+        if result.warnings:
+            for w in result.warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+        console.print(
+            "\nRead-only audit. No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Lifecycle report error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def show_cross_site_alert_lifecycle(
+    alert_id: int = typer.Option(
+        ..., "--alert-id", help="Alert ID to show lifecycle for.",
+    ),
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Path to database file.",
+    ),
+) -> None:
+    """Show chronological lifecycle event stream for a single alert.
+
+    Displays all status transitions, notes, and source workflows
+    for the specified alert. Read-only.
+    """
+    from marketsentry.cross_site_alert_lifecycle import (
+        build_alert_lifecycle_for_alert,
+    )
+    from rich.table import Table
+
+    try:
+        events = build_alert_lifecycle_for_alert(
+            alert_id=alert_id,
+            database_path=db,
+        )
+
+        if not events:
+            console.print(
+                f"No lifecycle events found for alert {alert_id}."
+            )
+            return
+
+        console.print(
+            f"Lifecycle for alert {alert_id} "
+            f"({len(events)} event(s)):\n"
+        )
+
+        table = Table(title=f"Alert {alert_id} Lifecycle")
+        table.add_column("Time")
+        table.add_column("Event")
+        table.add_column("Status")
+        table.add_column("Workflow")
+        table.add_column("Notes")
+
+        for ev in events:
+            status_str = ""
+            if ev.previous_status and ev.new_status:
+                status_str = f"{ev.previous_status} -> {ev.new_status}"
+            elif ev.new_status:
+                status_str = ev.new_status
+            table.add_row(
+                ev.event_at or "",
+                ev.event_type,
+                status_str,
+                ev.source_workflow,
+                (ev.event_notes or "")[:60],
+            )
+
+        console.print(table)
+        console.print(
+            "\nRead-only audit. No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Show lifecycle error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

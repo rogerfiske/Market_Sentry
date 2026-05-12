@@ -232,6 +232,10 @@ Explicit `--profile` always overrides the last-used preference.
 - Saving a preference does not change any alerts, watchlist status, or property data
 - The preference is a convenience setting only
 
+## Expiration Actions in Lifecycle Audit
+
+Expiration approval actions are recorded in the `cross_site_alert_triage_actions` table with a `triage_export_id` prefix of `expiration_`. These actions appear in the unified lifecycle audit trail (Milestone 34) as `expiration_approved` events. Use `marketsentry show-cross-site-alert-lifecycle --alert-id <id>` to see expiration actions in the context of an alert's full lifecycle.
+
 ## No Auto-Apply Behavior
 
 No scheduled task, background process, or automated workflow applies expiration decisions from custom profiles. The import command is the only way to apply decisions, and it requires an explicit file path and operator-edited approval CSV.
