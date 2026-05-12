@@ -3393,6 +3393,184 @@ def operations_digest_history_summary(
         raise typer.Exit(code=1)
 
 
+# ── Milestone 40: Portfolio Review Pack ────────────────────────────────
+
+
+@app.command()
+def portfolio_review_pack(
+    db: str = typer.Option(
+        "",
+        "--db",
+        help="Database path (default from config)",
+    ),
+    limit: int = typer.Option(
+        10,
+        "--limit",
+        help="Maximum number of property briefs to show",
+    ),
+    include_inactive: bool = typer.Option(
+        False,
+        "--include-inactive",
+        help="Include inactive watched properties",
+    ),
+) -> None:
+    """Show a concise portfolio review pack in the terminal.
+
+    Displays portfolio summary, top property briefs, and next actions.
+    This is a read-only report. No mutations are performed.
+    """
+    try:
+        from marketsentry.portfolio_review_pack import (
+            build_portfolio_review_pack as _build,
+        )
+
+        db_path = db if db else None
+        summary, briefs, actions = _build(db_path, include_inactive)
+
+        console.print("[bold]Portfolio Review Pack[/bold]")
+        console.print(
+            f"  Total watched: {summary.total_watched} | "
+            f"Active: {summary.active_watched} | "
+            f"High priority: {summary.high_priority_watched}"
+        )
+        console.print(
+            f"  Quiet pass: {summary.quiet_gatekeeper_pass} | "
+            f"Fail: {summary.quiet_gatekeeper_fail} | "
+            f"Missing: {summary.quiet_score_missing}"
+        )
+        console.print(
+            f"  Gas: {summary.gas_evidence_count} | "
+            f"Garage: {summary.garage_evidence_count} | "
+            f"County reset: {summary.county_reset_applied_count}"
+        )
+        console.print(
+            f"  Open alerts: {summary.open_alert_count} | "
+            f"High/critical: {summary.high_critical_alert_count}"
+        )
+        if summary.digest_score is not None:
+            console.print(
+                f"  Digest score: {summary.digest_score} "
+                f"({summary.digest_status})"
+            )
+        console.print()
+
+        shown = briefs[:limit]
+        if shown:
+            console.print("[bold cyan]Top Property Briefs[/bold cyan]")
+            tbl = Table(show_header=True)
+            tbl.add_column("ID")
+            tbl.add_column("Address")
+            tbl.add_column("Priority")
+            tbl.add_column("Quiet")
+            tbl.add_column("Alerts")
+            tbl.add_column("Health")
+            tbl.add_column("Flags")
+            for b in shown:
+                style = ""
+                if b.review_priority_label == "immediate_review":
+                    style = "red"
+                elif b.review_priority_label == "high_review":
+                    style = "yellow"
+                flag_str = ", ".join(f.flag_name for f in b.flags) or "-"
+                tbl.add_row(
+                    str(b.property_id),
+                    f"{b.address}, {b.city}",
+                    b.review_priority_label,
+                    (
+                        f"{b.quiet_score:.0f}"
+                        if b.quiet_score is not None else "N/A"
+                    ),
+                    f"{b.open_alert_count}/{b.high_critical_alert_count}",
+                    b.lifecycle_health_label or "N/A",
+                    flag_str,
+                    style=style,
+                )
+            console.print(tbl)
+            console.print()
+
+        if actions:
+            console.print(
+                "[bold cyan]Recommended Next Local Actions[/bold cyan]"
+            )
+            for i, a in enumerate(actions, 1):
+                console.print(f"  {i}. {a.action}")
+                if a.command:
+                    console.print(f"     Command: [dim]{a.command}[/dim]")
+            console.print()
+
+        console.print(
+            "Read-only review pack. "
+            "No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Portfolio review pack error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_portfolio_review_pack(
+    db: str = typer.Option(
+        "",
+        "--db",
+        help="Database path (default from config)",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for review pack reports",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: md, csv, or both",
+    ),
+    include_inactive: bool = typer.Option(
+        False,
+        "--include-inactive",
+        help="Include inactive watched properties",
+    ),
+) -> None:
+    """Export the portfolio review pack as Markdown and/or CSV.
+
+    This is a read-only export. No mutations are performed.
+    """
+    try:
+        from marketsentry.portfolio_review_pack import (
+            export_portfolio_review_pack as _export,
+        )
+
+        db_path = db if db else None
+        result = _export(
+            db_path=db_path,
+            output_dir=output_dir,
+            fmt=fmt,
+            include_inactive=include_inactive,
+        )
+
+        console.print("[bold]Portfolio Review Pack Export[/bold]")
+        for p in result.export_paths:
+            console.print(f"  Report: {p}")
+        console.print(f"  Properties: {result.property_count}")
+        console.print(
+            f"  Priority items: {result.priority_count}"
+        )
+        console.print(f"  Next actions: {result.next_action_count}")
+        if result.warnings:
+            for w in result.warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+        console.print(
+            "\nRead-only review pack export. "
+            "No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export portfolio review pack error: {e}")
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(

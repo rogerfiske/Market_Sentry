@@ -1399,6 +1399,124 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
             "Run: marketsentry snapshot-operations-digest"
         )
 
+    # ── Milestone 40: Portfolio Review Pack subsection ──
+
+    st.subheader("Portfolio Review Pack")
+    st.caption(
+        "Local portfolio review pack with property briefs. "
+        "Read-only view. Not a purchase recommendation."
+    )
+
+    if db_path:
+        try:
+            from marketsentry.portfolio_review_pack import (
+                build_portfolio_review_pack,
+            )
+
+            pack_summary, pack_briefs, pack_actions = (
+                build_portfolio_review_pack(db_path)
+            )
+
+            if pack_briefs:
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Watched", pack_summary.total_watched)
+                with col2:
+                    st.metric("Active", pack_summary.active_watched)
+                with col3:
+                    st.metric(
+                        "Quiet Pass", pack_summary.quiet_gatekeeper_pass
+                    )
+                with col4:
+                    st.metric(
+                        "Open Alerts", pack_summary.open_alert_count
+                    )
+
+                # Priority table
+                priority_items = [
+                    b for b in pack_briefs
+                    if b.review_priority_label in (
+                        "immediate_review", "high_review", "normal_review"
+                    )
+                ]
+                if priority_items:
+                    st.markdown("**Top Review Priorities**")
+                    pr_rows = []
+                    for b in priority_items:
+                        pr_rows.append({
+                            "Property": b.property_id,
+                            "Address": f"{b.address}, {b.city}",
+                            "Priority": b.review_priority_label,
+                            "Quiet": (
+                                f"{b.quiet_score:.0f}"
+                                if b.quiet_score is not None else "N/A"
+                            ),
+                            "Alerts": (
+                                f"{b.open_alert_count}/"
+                                f"{b.high_critical_alert_count}"
+                            ),
+                            "Health": b.lifecycle_health_label or "N/A",
+                        })
+                    import pandas as _pd_port
+                    st.dataframe(
+                        _pd_port.DataFrame(pr_rows),
+                        use_container_width=True,
+                    )
+
+                # Brief table
+                st.markdown("**Property Briefs**")
+                brief_rows = []
+                for b in pack_briefs:
+                    brief_rows.append({
+                        "ID": b.property_id,
+                        "Address": f"{b.address}, {b.city}",
+                        "Quiet": (
+                            b.quiet_score if b.quiet_score is not None
+                            else None
+                        ),
+                        "DOM v1": b.effective_dom_v1,
+                        "DOM v2": b.effective_dom_v2,
+                        "Churn": b.recent_churn_index,
+                        "Alerts": b.open_alert_count,
+                        "Health": b.lifecycle_health_label or "N/A",
+                        "Priority": b.review_priority_label,
+                    })
+                import pandas as _pd_brief
+                st.dataframe(
+                    _pd_brief.DataFrame(brief_rows),
+                    use_container_width=True,
+                )
+
+                # Latest review pack file link
+                from pathlib import Path as _PP
+                exp_p = _PP(exports_dir)
+                if exp_p.is_dir():
+                    pack_files = sorted(
+                        [
+                            f for f in exp_p.iterdir()
+                            if f.name.startswith("portfolio_review_pack_")
+                            and f.name.endswith(".md")
+                        ],
+                        key=lambda p: p.stat().st_mtime,
+                        reverse=True,
+                    )
+                    if pack_files:
+                        st.caption(
+                            f"Latest review pack: {pack_files[0]}"
+                        )
+            else:
+                st.info(
+                    "No watched properties found. "
+                    "Add properties to the watchlist first."
+                )
+        except Exception:
+            pass
+    else:
+        st.info(
+            "No database available for portfolio review. "
+            "Run: marketsentry export-portfolio-review-pack"
+        )
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

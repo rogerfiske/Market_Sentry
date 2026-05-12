@@ -1882,6 +1882,64 @@ The digest does not change alert status, watchlist state, property data, or Quie
 
 Health trend snapshots are append-only. They do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results.
 
+## Portfolio Review Pack (Milestone 40)
+
+The Portfolio Review Pack generates a local, printable review packet that consolidates property-level details for offline review.
+
+### Building the Review Pack
+
+```bash
+python -m marketsentry portfolio-review-pack
+python -m marketsentry portfolio-review-pack --limit 20
+python -m marketsentry portfolio-review-pack --include-inactive
+```
+
+Shows a concise terminal summary with top property briefs sorted by review priority, plus recommended next local actions.
+
+### Exporting the Review Pack
+
+```bash
+python -m marketsentry export-portfolio-review-pack --format md
+python -m marketsentry export-portfolio-review-pack --format csv
+python -m marketsentry export-portfolio-review-pack --format both
+```
+
+Exports to `data/exports/portfolio_review_pack_YYYYMMDD_HHMMSS.md` and/or `.csv`. Markdown includes portfolio summary, top review priorities, per-property briefs, and local next actions.
+
+### What the Review Pack Includes
+
+Each property brief covers:
+
+- Quiet Score and gatekeeper result (pass/fail/unknown)
+- Vibrancy Score
+- Effective DOM v1 and v2 with county reset status
+- Churn Index and listing churn counts
+- Gas evidence and garage spaces
+- Cross-site confidence score and discrepancy severity
+- Open alert count and alert burden label
+- Lifecycle health score and label
+- Recommended local review action
+
+### Review Priority Labels
+
+- **immediate_review**: Lifecycle attention_required or multiple high/critical alerts
+- **high_review**: High/critical alerts or combined issues
+- **normal_review**: High churn, DOM delta, or moderate concerns
+- **monitor**: Minor indicators only
+- **low_current_activity**: No current indicators of concern
+
+### Scheduled Review Pack Report
+
+```bash
+scripts\run_portfolio_review_pack_report.bat
+```
+
+Runs the portfolio review pack export. No alert mutation. No live retrieval.
+
+### Reminder: Review Pack Is Read-Only
+
+The portfolio review pack is an analytical aid for offline property review. It does not mutate candidate decisions, watchlist state, alert status, or property data. It does not make purchase recommendations or infer seller intent. Quiet Score gatekeeper remains unchanged.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

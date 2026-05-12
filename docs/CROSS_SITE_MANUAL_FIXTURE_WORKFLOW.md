@@ -1063,3 +1063,30 @@ Shows snapshot count, latest/previous digest scores and statuses, trend directio
 ### Reminder: Digest History Is Operational and Review-Only
 
 Digest history is an operational metrics tracking tool. It does not mutate candidate decisions, watchlist state, alert status, or property data. The digest score is a local review backlog metric and is not purchase advice, property desirability, or seller intent. Quiet Score gatekeeper remains unchanged.
+
+## Portfolio Review Pack (Milestone 40)
+
+### What Is the Portfolio Review Pack?
+
+The Portfolio Review Pack is a local, printable review packet that consolidates property-level details into a single document for offline review. It pulls from watched properties, cross-site analytics, alert/lifecycle health, Effective DOM, Churn Index, and Quiet/Vibrancy scores to create per-property briefs ranked by review priority.
+
+### Using the Review Pack for Offline Property Review
+
+After building cross-site observations and running alert/lifecycle workflows, generate the review pack:
+
+```bash
+marketsentry export-portfolio-review-pack --format both
+```
+
+This exports a Markdown report and CSV with:
+
+- Portfolio-level summary (counts, gatekeeper pass/fail, gas/garage evidence)
+- Per-property briefs with all key metrics
+- Review priority ranking (immediate_review through low_current_activity)
+- Recommended local next actions
+
+The Markdown report is designed to be printed or viewed offline for hands-on property review sessions.
+
+### Reminder: Review Pack Is Read-Only
+
+The review pack is an analytical aid. It does not change candidate decisions, alert status, watchlist state, property data, or Quiet Score gatekeeper results. It does not make purchase recommendations or infer seller intent.
