@@ -2496,6 +2496,131 @@ def show_cross_site_alert_lifecycle(
 
 
 @app.command()
+def snapshot_cross_site_alert_lifecycle(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Path to database file.",
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Force snapshot even if same-day with no change.",
+    ),
+) -> None:
+    """Create an append-only lifecycle metric snapshot.
+
+    Computes current alert lifecycle metrics (status counts, time-to-action,
+    throughput, gaps) and stores a snapshot. Skips same-day duplicates
+    unless --force is set or a material change is detected.
+    Read-only except for the append-only snapshot record.
+    """
+    from marketsentry.cross_site_alert_lifecycle_metrics import (
+        create_alert_lifecycle_snapshot,
+    )
+
+    try:
+        result = create_alert_lifecycle_snapshot(
+            database_path=db, force=force,
+        )
+
+        if result.was_skipped:
+            console.print(
+                f"[yellow]Skipped:[/yellow] {result.skip_reason}"
+            )
+        else:
+            console.print(
+                f"[green]Snapshot created.[/green] "
+                f"ID: {result.snapshot_id}"
+            )
+            if result.snapshot:
+                table = Table(title="Lifecycle Snapshot Metrics")
+                table.add_column("Metric", style="cyan")
+                table.add_column("Value", style="white")
+                s = result.snapshot
+                table.add_row("Total Alerts", str(s.total_alerts))
+                table.add_row("Open Alerts", str(s.open_alerts))
+                table.add_row("Acknowledged", str(s.acknowledged_alerts))
+                table.add_row("Resolved", str(s.resolved_alerts))
+                table.add_row("Archived", str(s.archived_alerts))
+                table.add_row(
+                    "High/Critical Open",
+                    str(s.high_or_critical_open_alerts),
+                )
+                table.add_row("Lifecycle Gaps", str(s.lifecycle_gap_count))
+                table.add_row(
+                    "Stale Open Alerts", str(s.stale_open_alert_count),
+                )
+                table.add_row(
+                    "Avg Time-to-Resolution (days)",
+                    str(s.avg_time_to_resolution_days or "N/A"),
+                )
+                table.add_row(
+                    "Triage Throughput (7d)",
+                    str(s.triage_throughput_7d),
+                )
+                table.add_row(
+                    "Resolution Throughput (7d)",
+                    str(s.resolution_throughput_7d),
+                )
+                table.add_row(
+                    "Archive Throughput (7d)",
+                    str(s.archive_throughput_7d),
+                )
+                console.print(table)
+
+            if result.trend_change:
+                console.print(
+                    f"\nTrend: [bold]{result.trend_change.trend_direction}"
+                    f"[/bold]"
+                )
+                console.print(f"Summary: {result.trend_change.trend_summary}")
+
+        console.print(
+            "\nAppend-only snapshot. No alert mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Snapshot lifecycle error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_cross_site_alert_lifecycle_trend_report(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Path to database file.",
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Directory for export.",
+    ),
+) -> None:
+    """Export alert lifecycle trend report to CSV.
+
+    Compares the latest and previous lifecycle snapshots, computes
+    trend changes, and writes a CSV report. Read-only.
+    """
+    from marketsentry.cross_site_alert_lifecycle_metrics import (
+        export_alert_lifecycle_trend_report as do_export,
+    )
+
+    try:
+        path = do_export(database_path=db, output_dir=output_dir)
+        if path:
+            console.print(
+                f"[green]Trend report exported:[/green] {path}"
+            )
+        else:
+            console.print(
+                "[yellow]No snapshots found.[/yellow] "
+                "Run snapshot-cross-site-alert-lifecycle first."
+            )
+
+        console.print("\nRead-only export. No mutations performed.")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export trend report error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

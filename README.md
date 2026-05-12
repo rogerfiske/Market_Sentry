@@ -6,19 +6,20 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Alert Lifecycle Audit Trail and Operations Summary (MVP 34)
+## Current Milestone: Alert Lifecycle Trend Snapshots and Throughput Metrics (MVP 35)
 
-This milestone consolidates alert lifecycle activity into a unified read-only audit trail.
+This milestone adds alert lifecycle trend snapshots and throughput metrics to measure alert-management efficiency over time.
 
-- Unified lifecycle event stream from triage, archive, and expiration workflows
-- Event normalization: alert_created, acknowledged, resolved, archived, reopened, no_archive_marked, needs_reparse_marked, needs_manual_review_marked, expiration_approved
-- Per-property lifecycle summaries with status counts, gap counts, and labels
-- Lifecycle gap detection: stale open alerts, unresolved reparse/review markers, stale acknowledged, resolved archive candidates, stale reopened
-- Lifecycle labels: no_alerts, active_alerts, under_review, mostly_resolved, archived_history, needs_attention
-- Export lifecycle report to CSV and/or Markdown
-- CLI: `marketsentry cross-site-alert-lifecycle-summary`, `marketsentry export-cross-site-alert-lifecycle-report`, `marketsentry show-cross-site-alert-lifecycle`
-- Dashboard: Cross-Site Alert Lifecycle subsection with summary metrics, property table, and gap table
-- Lifecycle audit is read-only: no mutations to alert state or watchlist status
+- Append-only lifecycle metric snapshots with alert status counts, gap counts, backlog indicators
+- Time-to-action metrics: time-to-first-triage, time-to-resolution, time-to-archive (avg/median days)
+- Throughput metrics: triage/resolution/archive actions in 7-day and 30-day windows
+- Same-day duplicate skip with material change detection (--force to override)
+- Trend change analysis: improving, worsening, or stable direction with summary and recommended action
+- Lifecycle trend report export to CSV with current/previous/delta columns
+- CLI: `marketsentry snapshot-cross-site-alert-lifecycle`, `marketsentry export-cross-site-alert-lifecycle-trend-report`
+- Dashboard: Lifecycle Trends and Throughput subsection with snapshot metrics, trend comparison table
+- Scheduled script: `scripts/run_alert_lifecycle_trend_report.bat` for automated snapshot and report
+- Lifecycle trends are read-only except for append-only snapshot writes: no mutations to alert state or watchlist status
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
 ### MVP 33: Profile Comparison and Last-Used Profile Preference
@@ -1646,7 +1647,8 @@ Market_Sentry/
     ├── test_milestone_31.py           # Alert expiration policy workflow tests
     ├── test_milestone_32.py           # User-defined alert expiration profiles tests
     ├── test_milestone_33.py           # Profile comparison and last-used profile tests
-    └── test_milestone_34.py           # Alert lifecycle audit trail tests
+    ├── test_milestone_34.py           # Alert lifecycle audit trail tests
+    └── test_milestone_35.py           # Alert lifecycle trend snapshots tests
 ```
 
 ## Running Tests
@@ -1737,6 +1739,7 @@ MIT
   - [Decision 031: User-Defined Alert Expiration Profiles](docs/decisions/031-user-defined-alert-expiration-profiles.md)
   - [Decision 032: Profile Comparison and Last-Used Profile Preference](docs/decisions/032-alert-expiration-profile-comparison-preferences.md)
   - [Decision 033: Alert Lifecycle Audit Trail](docs/decisions/033-alert-lifecycle-audit-trail.md)
+  - [Decision 034: Alert Lifecycle Trend Snapshots](docs/decisions/034-alert-lifecycle-trend-snapshots.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

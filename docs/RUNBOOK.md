@@ -1677,6 +1677,41 @@ The Cross-Site Review section of the dashboard includes a Cross-Site Alert Lifec
 
 The lifecycle audit does not change alert status, watchlist state, property data, or Quiet Score gatekeeper results. It is an observability and reporting tool for human operators.
 
+## Alert Lifecycle Trends and Throughput (Milestone 35)
+
+Milestone 35 adds append-only lifecycle metric snapshots that track alert-management efficiency over time. These snapshots record current alert counts, gap counts, backlog markers, time-to-action metrics, and throughput counts. The lifecycle trends module is read-only except for writing append-only snapshot records.
+
+### Creating a Lifecycle Snapshot
+
+```bash
+marketsentry snapshot-cross-site-alert-lifecycle
+```
+
+This computes current lifecycle metrics and stores a snapshot. Same-day duplicates are skipped unless a material change is detected or `--force` is used.
+
+### Exporting a Lifecycle Trend Report
+
+```bash
+marketsentry export-cross-site-alert-lifecycle-trend-report
+```
+
+Exports a CSV comparing the latest and previous snapshots with current/previous/delta columns for key metrics.
+
+### Key Metrics
+
+- **Time-to-first-triage**: Average/median days from alert creation to first action
+- **Time-to-resolution**: Average/median days from alert creation to first resolved action
+- **Time-to-archive**: Average/median days from alert creation to first archived action
+- **Throughput (7d/30d)**: Count of triage, resolution, and archive actions in recent periods
+
+### Scheduled Automation
+
+Use `scripts/run_alert_lifecycle_trend_report.bat` to automate snapshot and report generation. The script only runs snapshot and report commands; it does not perform live retrieval or mutate alert status.
+
+### Reminder: Lifecycle Trends Are Read-Only
+
+Lifecycle trend snapshots do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results. The only database write is the append-only snapshot record.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

@@ -1867,3 +1867,153 @@ class CrossSiteAlertLifecycleRunResult(BaseModel):
     gaps: List[dict] = Field(default_factory=list)
     export_path: Optional[str] = None
     warnings: List[str] = Field(default_factory=list)
+
+
+# ── Milestone 35: Alert Lifecycle Trend Snapshots ──
+
+
+class CrossSiteAlertLifecycleSnapshot(BaseModel):
+    """One point-in-time snapshot of lifecycle metrics."""
+
+    lifecycle_snapshot_id: int = 0
+    captured_at: Optional[str] = None
+    total_alerts: int = 0
+    open_alerts: int = 0
+    acknowledged_alerts: int = 0
+    resolved_alerts: int = 0
+    archived_alerts: int = 0
+    high_or_critical_open_alerts: int = 0
+    lifecycle_gap_count: int = 0
+    stale_open_alert_count: int = 0
+    needs_reparse_count: int = 0
+    needs_manual_review_count: int = 0
+    no_archive_count: int = 0
+    total_lifecycle_events: int = 0
+    triage_actions_count: int = 0
+    archive_actions_count: int = 0
+    expiration_actions_count: int = 0
+    avg_time_to_first_triage_days: Optional[float] = None
+    median_time_to_first_triage_days: Optional[float] = None
+    avg_time_to_resolution_days: Optional[float] = None
+    median_time_to_resolution_days: Optional[float] = None
+    avg_time_to_archive_days: Optional[float] = None
+    median_time_to_archive_days: Optional[float] = None
+    triage_throughput_7d: int = 0
+    resolution_throughput_7d: int = 0
+    archive_throughput_7d: int = 0
+    active_property_count: int = 0
+    property_count_with_open_alerts: int = 0
+    property_count_with_lifecycle_gaps: int = 0
+    notes: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class CrossSiteAlertThroughputMetrics(BaseModel):
+    """Throughput counts for recent lifecycle actions."""
+
+    triage_throughput_7d: int = 0
+    resolution_throughput_7d: int = 0
+    archive_throughput_7d: int = 0
+    triage_throughput_30d: int = 0
+    resolution_throughput_30d: int = 0
+    archive_throughput_30d: int = 0
+
+
+class CrossSiteAlertTimeToActionMetrics(BaseModel):
+    """Time-to-action statistics for alert lifecycle."""
+
+    avg_time_to_first_triage_days: Optional[float] = None
+    median_time_to_first_triage_days: Optional[float] = None
+    triage_count: int = 0
+    triage_skipped: int = 0
+    avg_time_to_resolution_days: Optional[float] = None
+    median_time_to_resolution_days: Optional[float] = None
+    resolution_count: int = 0
+    resolution_skipped: int = 0
+    avg_time_to_archive_days: Optional[float] = None
+    median_time_to_archive_days: Optional[float] = None
+    archive_count: int = 0
+    archive_skipped: int = 0
+
+
+class CrossSiteAlertLifecycleTrendChange(BaseModel):
+    """Delta between two lifecycle snapshots."""
+
+    current_snapshot_id: int = 0
+    current_captured_at: Optional[str] = None
+    previous_snapshot_id: Optional[int] = None
+    previous_captured_at: Optional[str] = None
+    total_alerts_current: int = 0
+    total_alerts_previous: int = 0
+    total_alerts_delta: int = 0
+    open_alerts_current: int = 0
+    open_alerts_previous: int = 0
+    open_alerts_delta: int = 0
+    lifecycle_gap_count_current: int = 0
+    lifecycle_gap_count_previous: int = 0
+    lifecycle_gap_count_delta: int = 0
+    stale_open_alert_count_current: int = 0
+    stale_open_alert_count_previous: int = 0
+    stale_open_alert_count_delta: int = 0
+    avg_time_to_resolution_current: Optional[float] = None
+    avg_time_to_resolution_previous: Optional[float] = None
+    avg_time_to_resolution_delta: Optional[float] = None
+    triage_throughput_7d_current: int = 0
+    triage_throughput_7d_previous: int = 0
+    triage_throughput_7d_delta: int = 0
+    resolution_throughput_7d_current: int = 0
+    resolution_throughput_7d_previous: int = 0
+    resolution_throughput_7d_delta: int = 0
+    archive_throughput_7d_current: int = 0
+    archive_throughput_7d_previous: int = 0
+    archive_throughput_7d_delta: int = 0
+    trend_direction: str = "stable"
+    trend_summary: str = ""
+    recommended_review_action: str = ""
+
+
+class CrossSiteAlertLifecycleTrendReportRow(BaseModel):
+    """One row in the lifecycle trend CSV report."""
+
+    current_snapshot_id: int = 0
+    current_captured_at: Optional[str] = None
+    previous_snapshot_id: Optional[int] = None
+    previous_captured_at: Optional[str] = None
+    total_alerts_current: int = 0
+    total_alerts_previous: int = 0
+    total_alerts_delta: int = 0
+    open_alerts_current: int = 0
+    open_alerts_previous: int = 0
+    open_alerts_delta: int = 0
+    lifecycle_gap_count_current: int = 0
+    lifecycle_gap_count_previous: int = 0
+    lifecycle_gap_count_delta: int = 0
+    stale_open_alert_count_current: int = 0
+    stale_open_alert_count_previous: int = 0
+    stale_open_alert_count_delta: int = 0
+    avg_time_to_resolution_current: Optional[float] = None
+    avg_time_to_resolution_previous: Optional[float] = None
+    avg_time_to_resolution_delta: Optional[float] = None
+    triage_throughput_7d_current: int = 0
+    triage_throughput_7d_previous: int = 0
+    triage_throughput_7d_delta: int = 0
+    resolution_throughput_7d_current: int = 0
+    resolution_throughput_7d_previous: int = 0
+    resolution_throughput_7d_delta: int = 0
+    archive_throughput_7d_current: int = 0
+    archive_throughput_7d_previous: int = 0
+    archive_throughput_7d_delta: int = 0
+    trend_direction: str = "stable"
+    trend_summary: str = ""
+    recommended_review_action: str = ""
+
+
+class CrossSiteAlertLifecycleSnapshotRunResult(BaseModel):
+    """Result of running a lifecycle snapshot."""
+
+    snapshot: Optional[CrossSiteAlertLifecycleSnapshot] = None
+    snapshot_id: int = 0
+    was_skipped: bool = False
+    skip_reason: Optional[str] = None
+    trend_change: Optional[CrossSiteAlertLifecycleTrendChange] = None
+    warnings: List[str] = Field(default_factory=list)

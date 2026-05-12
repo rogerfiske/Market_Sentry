@@ -392,6 +392,43 @@ CREATE TABLE IF NOT EXISTS cross_site_alert_triage_actions (
 );
 """
 
+# Milestone 35: Cross-site alert lifecycle trend snapshots table
+CREATE_CROSS_SITE_ALERT_LIFECYCLE_SNAPSHOTS_TABLE = """
+CREATE TABLE IF NOT EXISTS cross_site_alert_lifecycle_snapshots (
+    lifecycle_snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    captured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    total_alerts INTEGER DEFAULT 0,
+    open_alerts INTEGER DEFAULT 0,
+    acknowledged_alerts INTEGER DEFAULT 0,
+    resolved_alerts INTEGER DEFAULT 0,
+    archived_alerts INTEGER DEFAULT 0,
+    high_or_critical_open_alerts INTEGER DEFAULT 0,
+    lifecycle_gap_count INTEGER DEFAULT 0,
+    stale_open_alert_count INTEGER DEFAULT 0,
+    needs_reparse_count INTEGER DEFAULT 0,
+    needs_manual_review_count INTEGER DEFAULT 0,
+    no_archive_count INTEGER DEFAULT 0,
+    total_lifecycle_events INTEGER DEFAULT 0,
+    triage_actions_count INTEGER DEFAULT 0,
+    archive_actions_count INTEGER DEFAULT 0,
+    expiration_actions_count INTEGER DEFAULT 0,
+    avg_time_to_first_triage_days REAL,
+    median_time_to_first_triage_days REAL,
+    avg_time_to_resolution_days REAL,
+    median_time_to_resolution_days REAL,
+    avg_time_to_archive_days REAL,
+    median_time_to_archive_days REAL,
+    triage_throughput_7d INTEGER DEFAULT 0,
+    resolution_throughput_7d INTEGER DEFAULT 0,
+    archive_throughput_7d INTEGER DEFAULT 0,
+    active_property_count INTEGER DEFAULT 0,
+    property_count_with_open_alerts INTEGER DEFAULT 0,
+    property_count_with_lifecycle_gaps INTEGER DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 # Index definitions for performance
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_candidates_review_status ON candidate_review_queue(review_status);",
@@ -430,6 +467,8 @@ CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_cs_triage_actions_export ON cross_site_alert_triage_actions(triage_export_id);",
     "CREATE INDEX IF NOT EXISTS idx_cs_triage_actions_alert ON cross_site_alert_triage_actions(alert_id);",
     "CREATE INDEX IF NOT EXISTS idx_cs_triage_actions_applied ON cross_site_alert_triage_actions(applied_at);",
+    # Milestone 35: Cross-site alert lifecycle snapshots indexes
+    "CREATE INDEX IF NOT EXISTS idx_cs_lifecycle_snapshots_captured ON cross_site_alert_lifecycle_snapshots(captured_at);",
 ]
 
 # All schema statements in order
@@ -445,4 +484,5 @@ ALL_SCHEMA_STATEMENTS = [
     CREATE_CROSS_SITE_ANALYTICS_SNAPSHOTS_TABLE,
     CREATE_CROSS_SITE_TREND_ALERTS_TABLE,
     CREATE_CROSS_SITE_ALERT_TRIAGE_ACTIONS_TABLE,
+    CREATE_CROSS_SITE_ALERT_LIFECYCLE_SNAPSHOTS_TABLE,
 ] + CREATE_INDEXES

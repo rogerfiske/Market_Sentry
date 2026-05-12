@@ -841,6 +841,126 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
             "Run: marketsentry cross-site-alert-lifecycle-summary"
         )
 
+    # ---- Lifecycle Trends and Throughput ----
+    st.subheader("Lifecycle Trends and Throughput")
+    st.caption(
+        "Alert lifecycle trend snapshots and throughput metrics. "
+        "Read-only view. Does not mutate alerts."
+    )
+
+    if db_path and Path(db_path).exists():
+        try:
+            from marketsentry.cross_site_alert_lifecycle_metrics import (
+                get_latest_lifecycle_snapshot,
+                get_previous_lifecycle_snapshot,
+                calculate_lifecycle_trend_change,
+            )
+
+            latest_snap = get_latest_lifecycle_snapshot(
+                database_path=db_path,
+            )
+
+            if latest_snap:
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Alerts", latest_snap.total_alerts)
+                with col2:
+                    st.metric("Open Alerts", latest_snap.open_alerts)
+                with col3:
+                    st.metric(
+                        "Lifecycle Gaps",
+                        latest_snap.lifecycle_gap_count,
+                    )
+                with col4:
+                    st.metric(
+                        "Stale Open",
+                        latest_snap.stale_open_alert_count,
+                    )
+
+                col5, col6, col7 = st.columns(3)
+                with col5:
+                    st.metric(
+                        "Avg Time-to-Resolution (days)",
+                        latest_snap.avg_time_to_resolution_days or "N/A",
+                    )
+                with col6:
+                    st.metric(
+                        "Triage Throughput (7d)",
+                        latest_snap.triage_throughput_7d,
+                    )
+                with col7:
+                    st.metric(
+                        "Resolution Throughput (7d)",
+                        latest_snap.resolution_throughput_7d,
+                    )
+
+                prev_snap = get_previous_lifecycle_snapshot(
+                    database_path=db_path,
+                )
+                if prev_snap:
+                    trend = calculate_lifecycle_trend_change(
+                        latest_snap, prev_snap,
+                    )
+                    st.write(
+                        f"**Trend:** {trend.trend_direction} | "
+                        f"{trend.trend_summary}"
+                    )
+                    st.write(
+                        f"**Recommended:** "
+                        f"{trend.recommended_review_action}"
+                    )
+
+                    trend_data = [{
+                        "Metric": "Open Alerts",
+                        "Current": trend.open_alerts_current,
+                        "Previous": trend.open_alerts_previous,
+                        "Delta": trend.open_alerts_delta,
+                    }, {
+                        "Metric": "Lifecycle Gaps",
+                        "Current": trend.lifecycle_gap_count_current,
+                        "Previous": trend.lifecycle_gap_count_previous,
+                        "Delta": trend.lifecycle_gap_count_delta,
+                    }, {
+                        "Metric": "Stale Open Alerts",
+                        "Current": trend.stale_open_alert_count_current,
+                        "Previous": trend.stale_open_alert_count_previous,
+                        "Delta": trend.stale_open_alert_count_delta,
+                    }, {
+                        "Metric": "Triage Throughput (7d)",
+                        "Current": trend.triage_throughput_7d_current,
+                        "Previous": trend.triage_throughput_7d_previous,
+                        "Delta": trend.triage_throughput_7d_delta,
+                    }, {
+                        "Metric": "Resolution Throughput (7d)",
+                        "Current": trend.resolution_throughput_7d_current,
+                        "Previous": trend.resolution_throughput_7d_previous,
+                        "Delta": trend.resolution_throughput_7d_delta,
+                    }, {
+                        "Metric": "Archive Throughput (7d)",
+                        "Current": trend.archive_throughput_7d_current,
+                        "Previous": trend.archive_throughput_7d_previous,
+                        "Delta": trend.archive_throughput_7d_delta,
+                    }]
+                    trend_df = pd.DataFrame(trend_data)
+                    st.dataframe(trend_df, use_container_width=True)
+                else:
+                    st.info(
+                        "Only one snapshot available. "
+                        "Run snapshot again to see trends."
+                    )
+            else:
+                st.info(
+                    "No lifecycle snapshots yet. "
+                    "Run: marketsentry snapshot-cross-site-alert-lifecycle"
+                )
+        except Exception:
+            pass
+    else:
+        st.info(
+            "No database available for lifecycle trends. "
+            "Run: marketsentry snapshot-cross-site-alert-lifecycle"
+        )
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

@@ -844,3 +844,45 @@ Lifecycle gaps identify where expected follow-up actions have not occurred:
 ### Reminder: Lifecycle Audit Is Read-Only
 
 The lifecycle audit does not change alert status, watchlist state, property data, Redfin source-of-truth fields, or Quiet Score gatekeeper results. It is an observability tool for human operators.
+
+## Alert Lifecycle Trend Snapshots (Milestone 35)
+
+### What Are Lifecycle Trend Snapshots
+
+Lifecycle trend snapshots are append-only metric records that capture the state of alert lifecycle management at a point in time. They enable operators to track alert-management efficiency trends over time.
+
+### Snapshot Command
+
+```bash
+marketsentry snapshot-cross-site-alert-lifecycle
+marketsentry snapshot-cross-site-alert-lifecycle --force
+```
+
+Creates a snapshot of current lifecycle metrics. Skips same-day duplicates unless `--force` is used or a material change is detected.
+
+### Trend Report Command
+
+```bash
+marketsentry export-cross-site-alert-lifecycle-trend-report
+marketsentry export-cross-site-alert-lifecycle-trend-report --output-dir data/exports
+```
+
+Exports a CSV comparing the latest and previous snapshots.
+
+### Time-to-Action Definitions
+
+- **Time-to-first-triage**: Days from alert creation to the first action of any type (acknowledge, resolve, archive, reopen)
+- **Time-to-resolution**: Days from alert creation to the first resolved action
+- **Time-to-archive**: Days from alert creation to the first archived action
+
+Each metric returns average days, median days, count of alerts used, and count of alerts skipped (no qualifying action).
+
+### Throughput Metrics
+
+- **Triage throughput (7d/30d)**: Count of triage workflow actions in the last 7 or 30 days
+- **Resolution throughput (7d/30d)**: Count of actions resulting in resolved status in the last 7 or 30 days
+- **Archive throughput (7d/30d)**: Count of actions resulting in archived status in the last 7 or 30 days
+
+### Reminder: Lifecycle Trends Are Read-Only
+
+Lifecycle trend snapshots do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results. The only database write is the append-only snapshot record.
