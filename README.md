@@ -6,9 +6,9 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Property-Level Lifecycle Health Scoring (MVP 36)
+## Current Milestone: Lifecycle Health Trend Snapshots and Scheduled Health Reports (MVP 37)
 
-This milestone adds property-level lifecycle health scoring (0-100) as a read-only operator-health metric for each watched property.
+This milestone adds lifecycle health trend snapshots and scheduled local health reports to track health-score movement over time.
 
 - Append-only lifecycle metric snapshots with alert status counts, gap counts, backlog indicators
 - Time-to-action metrics: time-to-first-triage, time-to-resolution, time-to-archive (avg/median days)
@@ -1649,7 +1649,8 @@ Market_Sentry/
     ├── test_milestone_33.py           # Profile comparison and last-used profile tests
     ├── test_milestone_34.py           # Alert lifecycle audit trail tests
     ├── test_milestone_35.py           # Alert lifecycle trend snapshots tests
-    └── test_milestone_36.py           # Property-level lifecycle health scoring tests
+    ├── test_milestone_36.py           # Property-level lifecycle health scoring tests
+    └── test_milestone_37.py           # Lifecycle health trend snapshots tests
 ```
 
 ## Running Tests
@@ -1742,6 +1743,7 @@ MIT
   - [Decision 033: Alert Lifecycle Audit Trail](docs/decisions/033-alert-lifecycle-audit-trail.md)
   - [Decision 034: Alert Lifecycle Trend Snapshots](docs/decisions/034-alert-lifecycle-trend-snapshots.md)
   - [Decision 035: Property-Level Lifecycle Health Scoring](docs/decisions/035-lifecycle-health-scoring.md)
+  - [Decision 036: Lifecycle Health Trend Snapshots](docs/decisions/036-lifecycle-health-trend-snapshots.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

@@ -1093,6 +1093,120 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
         )
 
 
+    # ---- Lifecycle Health Trends ----
+    st.subheader("Lifecycle Health Trends")
+    st.caption(
+        "Health score trends over time. "
+        "Read-only view. Does not mutate alerts."
+    )
+
+    if db_path and Path(db_path).exists():
+        try:
+            from marketsentry.cross_site_lifecycle_health_trends import (
+                summarize_lifecycle_health_trends,
+                export_lifecycle_health_trend_report,
+            )
+
+            trend_summary = summarize_lifecycle_health_trends(
+                database_path=db_path,
+            )
+
+            if trend_summary.properties_with_snapshots > 0:
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Improved", trend_summary.improved_count)
+                with col2:
+                    st.metric("Degraded", trend_summary.degraded_count)
+                with col3:
+                    st.metric("Stable", trend_summary.stable_count)
+                with col4:
+                    st.metric("New", trend_summary.new_count)
+
+                col5, col6 = st.columns(2)
+                with col5:
+                    st.metric(
+                        "Attention Required",
+                        trend_summary.attention_required_current_count,
+                    )
+                with col6:
+                    st.metric(
+                        "Needs Review",
+                        trend_summary.needs_review_current_count,
+                    )
+
+                # Show properties with label changes
+                from marketsentry.cross_site_lifecycle_health_trends import (
+                    calculate_lifecycle_health_trend_change,
+                )
+                from marketsentry.database import execute_query as _eq
+
+                try:
+                    pid_rows = _eq(
+                        "SELECT DISTINCT property_id "
+                        "FROM cross_site_lifecycle_health_snapshots",
+                        database_path=db_path,
+                    )
+                    trend_data = []
+                    for pr in pid_rows:
+                        pid = dict(pr).get("property_id")
+                        if not pid:
+                            continue
+                        tc = calculate_lifecycle_health_trend_change(
+                            property_id=pid,
+                            database_path=db_path,
+                        )
+                        if tc:
+                            trend_data.append({
+                                "Property ID": tc.property_id,
+                                "Address": tc.address,
+                                "Score": tc.current_health_score,
+                                "Delta": tc.health_score_delta,
+                                "Label": tc.current_health_label,
+                                "Prev Label": tc.previous_health_label,
+                                "Changed": tc.health_label_changed,
+                                "Direction": tc.trend_direction,
+                                "Action": (
+                                    tc.recommended_review_action
+                                ),
+                            })
+                    if trend_data:
+                        trend_df = pd.DataFrame(trend_data)
+                        st.dataframe(
+                            trend_df, use_container_width=True,
+                        )
+                except Exception:
+                    pass
+
+                # Latest trend report link
+                export_dir = Path("data/exports")
+                if export_dir.exists():
+                    trend_reports = sorted(
+                        export_dir.glob(
+                            "cross_site_lifecycle_health_trends_*.csv"
+                        ),
+                        reverse=True,
+                    )
+                    if trend_reports:
+                        st.write(
+                            f"Latest trend report: "
+                            f"{trend_reports[0].name}"
+                        )
+            else:
+                st.info(
+                    "No health snapshots yet. "
+                    "Run: marketsentry "
+                    "snapshot-cross-site-lifecycle-health"
+                )
+        except Exception:
+            pass
+    else:
+        st.info(
+            "No database available for health trends. "
+            "Run: marketsentry "
+            "snapshot-cross-site-lifecycle-health"
+        )
+
+
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""
     st.header("Reports")

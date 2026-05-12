@@ -429,6 +429,33 @@ CREATE TABLE IF NOT EXISTS cross_site_alert_lifecycle_snapshots (
 );
 """
 
+# Milestone 37: Cross-site lifecycle health snapshots table
+CREATE_CROSS_SITE_LIFECYCLE_HEALTH_SNAPSHOTS_TABLE = """
+CREATE TABLE IF NOT EXISTS cross_site_lifecycle_health_snapshots (
+    health_snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    property_id INTEGER NOT NULL,
+    candidate_id INTEGER,
+    captured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    lifecycle_health_score REAL DEFAULT 100.0,
+    lifecycle_health_label TEXT DEFAULT 'excellent',
+    open_alert_count INTEGER DEFAULT 0,
+    high_or_critical_open_alert_count INTEGER DEFAULT 0,
+    lifecycle_gap_count INTEGER DEFAULT 0,
+    stale_open_alert_count INTEGER DEFAULT 0,
+    needs_reparse_count INTEGER DEFAULT 0,
+    needs_manual_review_count INTEGER DEFAULT 0,
+    alert_burden_label TEXT DEFAULT 'none',
+    repeated_patterns INTEGER DEFAULT 0,
+    oldest_open_alert_age_days INTEGER,
+    avg_time_to_resolution_days REAL,
+    latest_lifecycle_event_at TEXT,
+    component_summary TEXT,
+    recommended_review_action TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 # Index definitions for performance
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_candidates_review_status ON candidate_review_queue(review_status);",
@@ -469,6 +496,9 @@ CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_cs_triage_actions_applied ON cross_site_alert_triage_actions(applied_at);",
     # Milestone 35: Cross-site alert lifecycle snapshots indexes
     "CREATE INDEX IF NOT EXISTS idx_cs_lifecycle_snapshots_captured ON cross_site_alert_lifecycle_snapshots(captured_at);",
+    # Milestone 37: Cross-site lifecycle health snapshots indexes
+    "CREATE INDEX IF NOT EXISTS idx_cs_health_snapshots_property ON cross_site_lifecycle_health_snapshots(property_id);",
+    "CREATE INDEX IF NOT EXISTS idx_cs_health_snapshots_captured ON cross_site_lifecycle_health_snapshots(captured_at);",
 ]
 
 # All schema statements in order
@@ -485,4 +515,5 @@ ALL_SCHEMA_STATEMENTS = [
     CREATE_CROSS_SITE_TREND_ALERTS_TABLE,
     CREATE_CROSS_SITE_ALERT_TRIAGE_ACTIONS_TABLE,
     CREATE_CROSS_SITE_ALERT_LIFECYCLE_SNAPSHOTS_TABLE,
+    CREATE_CROSS_SITE_LIFECYCLE_HEALTH_SNAPSHOTS_TABLE,
 ] + CREATE_INDEXES

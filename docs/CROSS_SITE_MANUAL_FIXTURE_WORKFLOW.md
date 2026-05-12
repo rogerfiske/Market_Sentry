@@ -933,3 +933,59 @@ python -m marketsentry export-cross-site-lifecycle-health-report --format both -
 ### Reminder: Health Score Is Operational/Review-Only
 
 Lifecycle health scores are operational metrics. They do not indicate property investment quality, seller intent, or purchase suitability. They do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results.
+
+## Lifecycle Health Trends (Milestone 37)
+
+### What Are Lifecycle Health Trend Snapshots?
+
+Lifecycle health trend snapshots are append-only records that capture per-property health scores at a point in time. By comparing consecutive snapshots, operators can track whether a property's operational health is improving, degrading, or stable.
+
+### Health Snapshot Concept
+
+Each snapshot records the full health state of a property: health score, health label, open alert counts, lifecycle gap counts, reparse/manual review backlogs, component summary, and recommended action. Snapshots are only created when material changes are detected (score delta >= 5, label change, alert count change, gap count change, or backlog count change). Use `--force` to create snapshots regardless.
+
+### Health Snapshot Command
+
+```bash
+# Create health snapshots for all watched properties
+marketsentry snapshot-cross-site-lifecycle-health
+
+# Force snapshot even without material changes
+marketsentry snapshot-cross-site-lifecycle-health --force
+```
+
+Output includes: properties scanned, snapshots created, snapshots skipped, material changes detected, and label counts.
+
+### Health Trend Report Command
+
+```bash
+# Export lifecycle health trend report CSV
+marketsentry export-cross-site-lifecycle-health-trend-report
+
+# Custom output directory
+marketsentry export-cross-site-lifecycle-health-trend-report --output-dir data/exports
+```
+
+The trend report compares current vs previous health snapshots and includes trend direction (improved, degraded, stable, new) for each property.
+
+### Health Trend Summary Command
+
+```bash
+marketsentry cross-site-lifecycle-health-trend-summary
+```
+
+Shows: properties with health snapshots, improved/degraded/stable/new counts, attention_required and needs_review current counts, and recommended next actions.
+
+### Scheduled Local Health Report
+
+The batch script `scripts/run_lifecycle_health_report.bat` automates health reporting:
+
+1. Exports the lifecycle health report (Milestone 36)
+2. Creates health snapshots (Milestone 37)
+3. Exports the lifecycle health trend report (Milestone 37)
+
+The script logs to `logs/scheduled/` and does not perform live retrieval or alert/watchlist mutation.
+
+### Reminder: Health Trends Are Operational/Review-Only
+
+Lifecycle health trend snapshots are operational metrics. The only database write is the append-only snapshot record. Health trends do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results. They do not indicate property investment quality, seller intent, or purchase suitability.

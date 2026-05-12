@@ -2107,3 +2107,125 @@ class CrossSiteLifecycleHealthRunResult(BaseModel):
     summary: Optional[CrossSiteLifecycleHealthSummary] = None
     export_paths: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
+
+
+# ── Milestone 37: Lifecycle Health Trend Snapshots ──
+
+
+class CrossSiteLifecycleHealthSnapshot(BaseModel):
+    """One point-in-time health snapshot for a single property."""
+
+    health_snapshot_id: int = 0
+    property_id: int = 0
+    candidate_id: Optional[int] = None
+    captured_at: Optional[str] = None
+    lifecycle_health_score: float = 100.0
+    lifecycle_health_label: str = "excellent"
+    open_alert_count: int = 0
+    high_or_critical_open_alert_count: int = 0
+    lifecycle_gap_count: int = 0
+    stale_open_alert_count: int = 0
+    needs_reparse_count: int = 0
+    needs_manual_review_count: int = 0
+    alert_burden_label: str = "none"
+    repeated_patterns: int = 0
+    oldest_open_alert_age_days: Optional[int] = None
+    avg_time_to_resolution_days: Optional[float] = None
+    latest_lifecycle_event_at: Optional[str] = None
+    component_summary: str = ""
+    recommended_review_action: str = ""
+    notes: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class CrossSiteLifecycleHealthTrendChange(BaseModel):
+    """Delta between two health snapshots for a single property."""
+
+    property_id: int = 0
+    candidate_id: Optional[int] = None
+    address: str = ""
+    city: str = ""
+    zip_code: str = ""
+    current_health_score: float = 100.0
+    previous_health_score: float = 100.0
+    health_score_delta: float = 0.0
+    current_health_label: str = "excellent"
+    previous_health_label: str = "excellent"
+    health_label_changed: bool = False
+    current_open_alert_count: int = 0
+    previous_open_alert_count: int = 0
+    open_alert_delta: int = 0
+    current_high_or_critical_open_alert_count: int = 0
+    previous_high_or_critical_open_alert_count: int = 0
+    high_or_critical_delta: int = 0
+    current_lifecycle_gap_count: int = 0
+    previous_lifecycle_gap_count: int = 0
+    lifecycle_gap_delta: int = 0
+    current_needs_reparse_count: int = 0
+    previous_needs_reparse_count: int = 0
+    needs_reparse_delta: int = 0
+    current_needs_manual_review_count: int = 0
+    previous_needs_manual_review_count: int = 0
+    needs_manual_review_delta: int = 0
+    trend_direction: str = "stable"
+    trend_summary: str = ""
+    recommended_review_action: str = ""
+
+
+class CrossSiteLifecycleHealthTrendReportRow(BaseModel):
+    """One row in the lifecycle health trend CSV report."""
+
+    property_id: int = 0
+    candidate_id: Optional[int] = None
+    address: str = ""
+    city: str = ""
+    zip_code: str = ""
+    current_health_score: float = 100.0
+    previous_health_score: float = 100.0
+    health_score_delta: float = 0.0
+    current_health_label: str = "excellent"
+    previous_health_label: str = "excellent"
+    health_label_changed: bool = False
+    current_open_alert_count: int = 0
+    previous_open_alert_count: int = 0
+    open_alert_delta: int = 0
+    current_high_or_critical_open_alert_count: int = 0
+    previous_high_or_critical_open_alert_count: int = 0
+    high_or_critical_delta: int = 0
+    current_lifecycle_gap_count: int = 0
+    previous_lifecycle_gap_count: int = 0
+    lifecycle_gap_delta: int = 0
+    current_needs_reparse_count: int = 0
+    previous_needs_reparse_count: int = 0
+    needs_reparse_delta: int = 0
+    current_needs_manual_review_count: int = 0
+    previous_needs_manual_review_count: int = 0
+    needs_manual_review_delta: int = 0
+    trend_direction: str = "stable"
+    trend_summary: str = ""
+    recommended_review_action: str = ""
+
+
+class CrossSiteLifecycleHealthTrendSummary(BaseModel):
+    """Aggregate health trend summary across all properties."""
+
+    properties_with_snapshots: int = 0
+    improved_count: int = 0
+    degraded_count: int = 0
+    stable_count: int = 0
+    new_count: int = 0
+    attention_required_current_count: int = 0
+    needs_review_current_count: int = 0
+    recommended_next_actions: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
+class CrossSiteLifecycleHealthSnapshotRunResult(BaseModel):
+    """Result of running lifecycle health snapshot creation."""
+
+    properties_scanned: int = 0
+    snapshots_created: int = 0
+    snapshots_skipped: int = 0
+    material_changes_detected: int = 0
+    label_counts: Dict[str, int] = Field(default_factory=dict)
+    warnings: List[str] = Field(default_factory=list)

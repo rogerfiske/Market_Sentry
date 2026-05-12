@@ -1748,6 +1748,47 @@ The score starts at 100 and deducts for: open high/critical alerts (-10 each), l
 
 Health scoring does not change alert status, watchlist state, property data, or Quiet Score gatekeeper results. It is an operator-facing analytical aid.
 
+## Lifecycle Health Trends (Milestone 37)
+
+Lifecycle health trends track per-property health score movement over time using append-only snapshots.
+
+### Creating Health Snapshots
+
+```bash
+python -m marketsentry snapshot-cross-site-lifecycle-health
+python -m marketsentry snapshot-cross-site-lifecycle-health --force
+```
+
+Snapshots are skipped on the same day with no material change unless `--force` is set. Material changes include: score change >= 5 points, label change, open alert count change, high/critical count change, lifecycle gap count change, or needs_reparse/manual_review count change.
+
+### Exporting Health Trend Report
+
+```bash
+python -m marketsentry export-cross-site-lifecycle-health-trend-report
+```
+
+Exports to `data/exports/cross_site_lifecycle_health_trends_YYYYMMDD_HHMMSS.csv`.
+
+### Health Trend Summary
+
+```bash
+python -m marketsentry cross-site-lifecycle-health-trend-summary
+```
+
+Shows improved/degraded/stable/new counts, attention_required and needs_review current counts, and recommended next actions.
+
+### Scheduled Health Report Script
+
+```bash
+scripts\run_lifecycle_health_report.bat
+```
+
+Runs health report export, health snapshot, and trend report export. No alert mutation.
+
+### Reminder: Health Trends Are Read-Only
+
+Health trend snapshots are append-only. They do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

@@ -2828,6 +2828,190 @@ def cross_site_lifecycle_health_summary(
 
 
 @app.command()
+def snapshot_cross_site_lifecycle_health(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Path to database file.",
+    ),
+    force: bool = typer.Option(
+        False, "--force",
+        help="Force snapshot even if same-day with no change.",
+    ),
+) -> None:
+    """Create append-only health snapshots for all scored properties.
+
+    Computes current health scores and stores per-property snapshots.
+    Skips same-day/no-change snapshots unless --force is set.
+    Append-only. Does not mutate alert or watchlist state.
+    """
+    from marketsentry.cross_site_lifecycle_health_trends import (
+        create_lifecycle_health_snapshots,
+    )
+
+    try:
+        result = create_lifecycle_health_snapshots(
+            database_path=db, force=force,
+        )
+
+        console.print(
+            f"\n[bold]Lifecycle Health Snapshot Results[/bold]"
+        )
+        console.print(
+            f"Properties scanned: {result.properties_scanned}"
+        )
+        console.print(
+            f"Snapshots created: {result.snapshots_created}"
+        )
+        console.print(
+            f"Snapshots skipped: {result.snapshots_skipped}"
+        )
+        console.print(
+            f"Material changes detected: "
+            f"{result.material_changes_detected}"
+        )
+
+        if result.label_counts:
+            label_table = Table(title="Health Label Counts")
+            label_table.add_column("Label", style="cyan")
+            label_table.add_column("Count", style="white")
+            for label, count in result.label_counts.items():
+                label_table.add_row(label, str(count))
+            console.print(label_table)
+
+        console.print(
+            "\nAppend-only snapshot. No alert mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Health snapshot error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_cross_site_lifecycle_health_trend_report(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Path to database file.",
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Directory for export.",
+    ),
+) -> None:
+    """Export lifecycle health trend report to CSV.
+
+    Compares latest and previous health snapshots for each property,
+    computes trend changes, and writes a CSV report. Read-only.
+    """
+    from marketsentry.cross_site_lifecycle_health_trends import (
+        export_lifecycle_health_trend_report as do_export,
+    )
+
+    try:
+        path = do_export(
+            database_path=db, output_dir=output_dir,
+        )
+        if path:
+            console.print(
+                f"[green]Trend report exported:[/green] {path}"
+            )
+            # Count rows
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    import csv as csv_mod
+                    reader = csv_mod.DictReader(f)
+                    rows = list(reader)
+                    console.print(f"Row count: {len(rows)}")
+                    directions = {}
+                    for r in rows:
+                        d = r.get("trend_direction", "")
+                        directions[d] = directions.get(d, 0) + 1
+                    for d, c in directions.items():
+                        console.print(f"  {d}: {c}")
+            except Exception:
+                pass
+        else:
+            console.print(
+                "[yellow]No health snapshots found.[/yellow] "
+                "Run snapshot-cross-site-lifecycle-health first."
+            )
+
+        console.print(
+            "\nRead-only export. No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export health trend report error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def cross_site_lifecycle_health_trend_summary(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Path to database file.",
+    ),
+) -> None:
+    """Show lifecycle health trend summary.
+
+    Displays improved/degraded/stable/new counts, attention_required
+    and needs_review current counts, and recommended next actions.
+    Read-only.
+    """
+    from marketsentry.cross_site_lifecycle_health_trends import (
+        summarize_lifecycle_health_trends,
+    )
+
+    try:
+        summary = summarize_lifecycle_health_trends(
+            database_path=db,
+        )
+
+        console.print(
+            "\n[bold]Lifecycle Health Trend Summary[/bold]"
+        )
+        console.print(
+            f"Properties with health snapshots: "
+            f"{summary.properties_with_snapshots}"
+        )
+
+        trend_table = Table(title="Trend Direction Counts")
+        trend_table.add_column("Direction", style="cyan")
+        trend_table.add_column("Count", style="white")
+        trend_table.add_row("improved", str(summary.improved_count))
+        trend_table.add_row("degraded", str(summary.degraded_count))
+        trend_table.add_row("stable", str(summary.stable_count))
+        trend_table.add_row("new", str(summary.new_count))
+        console.print(trend_table)
+
+        console.print(
+            f"\nattention_required (current): "
+            f"{summary.attention_required_current_count}"
+        )
+        console.print(
+            f"needs_review (current): "
+            f"{summary.needs_review_current_count}"
+        )
+
+        if summary.recommended_next_actions:
+            console.print("\nRecommended next actions:")
+            for act in summary.recommended_next_actions:
+                console.print(f"  - {act}")
+
+        if summary.warnings:
+            for w in summary.warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+
+        console.print(
+            "\nRead-only health trend summary. "
+            "No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Health trend summary error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",
