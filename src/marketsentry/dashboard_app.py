@@ -962,6 +962,137 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
         )
 
 
+    # ---- Lifecycle Health ----
+    st.subheader("Lifecycle Health")
+    st.caption(
+        "Property-level lifecycle health scores. "
+        "Read-only operator health metric. Does not mutate alerts."
+    )
+
+    if db_path and Path(db_path).exists():
+        try:
+            from marketsentry.cross_site_alert_lifecycle_health import (
+                calculate_lifecycle_health_scores,
+                summarize_lifecycle_health_scores,
+            )
+
+            health_scores = calculate_lifecycle_health_scores(
+                database_path=db_path,
+            )
+
+            if health_scores:
+                health_summary = summarize_lifecycle_health_scores(
+                    health_scores,
+                )
+
+                # Label counts
+                col1, col2, col3, col4, col5 = st.columns(5)
+                labels_cols = [col1, col2, col3, col4, col5]
+                label_names = [
+                    "excellent", "good", "watch",
+                    "needs_review", "attention_required",
+                ]
+                for col, lbl in zip(labels_cols, label_names):
+                    with col:
+                        st.metric(
+                            lbl.replace("_", " ").title(),
+                            health_summary.label_counts.get(lbl, 0),
+                        )
+
+                # Filter by label
+                selected_label = st.selectbox(
+                    "Filter by health label",
+                    ["All"] + label_names,
+                    key="health_label_filter",
+                )
+
+                filtered = health_scores
+                if selected_label != "All":
+                    filtered = [
+                        s for s in health_scores
+                        if s.lifecycle_health_label == selected_label
+                    ]
+
+                # Lowest health score properties table
+                if filtered:
+                    health_data = [{
+                        "Property ID": s.property_id,
+                        "Address": s.address,
+                        "Score": s.lifecycle_health_score,
+                        "Label": s.lifecycle_health_label,
+                        "Open": s.open_alert_count,
+                        "High/Crit": (
+                            s.high_or_critical_open_alert_count
+                        ),
+                        "Gaps": s.lifecycle_gap_count,
+                        "Stale": s.stale_open_alert_count,
+                        "Burden": s.alert_burden_label,
+                        "Action": s.recommended_review_action,
+                    } for s in filtered]
+                    health_df = pd.DataFrame(health_data)
+                    st.dataframe(
+                        health_df, use_container_width=True,
+                    )
+
+                # Component summary for worst properties
+                if health_summary.lowest_health_properties:
+                    with st.expander(
+                        "Component Details (Lowest Scores)"
+                    ):
+                        for sc in (
+                            health_summary.lowest_health_properties[:3]
+                        ):
+                            st.write(
+                                f"**Property {sc.property_id}** "
+                                f"({sc.address}): "
+                                f"{sc.lifecycle_health_score} "
+                                f"({sc.lifecycle_health_label})"
+                            )
+                            if sc.components:
+                                comp_data = [{
+                                    "Component": c.component_name,
+                                    "Delta": (
+                                        f"{c.component_score_delta:+.0f}"
+                                    ),
+                                    "Severity": c.severity,
+                                    "Explanation": c.explanation,
+                                } for c in sc.components
+                                    if c.component_score_delta != 0]
+                                if comp_data:
+                                    st.dataframe(
+                                        pd.DataFrame(comp_data),
+                                        use_container_width=True,
+                                    )
+
+                # Latest health report link
+                export_dir = Path("data/exports")
+                if export_dir.exists():
+                    health_reports = sorted(
+                        export_dir.glob(
+                            "cross_site_lifecycle_health_*.csv"
+                        ),
+                        reverse=True,
+                    )
+                    if health_reports:
+                        st.write(
+                            f"Latest report: {health_reports[0].name}"
+                        )
+            else:
+                st.info(
+                    "No properties with alerts to score. "
+                    "Run: marketsentry "
+                    "cross-site-lifecycle-health-summary"
+                )
+        except Exception:
+            pass
+    else:
+        st.info(
+            "No database available for health scoring. "
+            "Run: marketsentry "
+            "cross-site-lifecycle-health-summary"
+        )
+
+
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""
     st.header("Reports")

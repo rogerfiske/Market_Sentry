@@ -2621,6 +2621,213 @@ def export_cross_site_alert_lifecycle_trend_report(
 
 
 @app.command()
+def export_cross_site_lifecycle_health_report(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Path to database file.",
+    ),
+    output_dir: Optional[str] = typer.Option(
+        None, "--output-dir", help="Directory for export.",
+    ),
+    format: str = typer.Option(
+        "csv", "--format", help="Report format: csv, md, or both.",
+    ),
+) -> None:
+    """Export lifecycle health scores report.
+
+    Calculates a 0-100 health score for each property based on
+    alert lifecycle metrics. Exports CSV and/or Markdown report.
+    Read-only. Does not mutate alert or watchlist state.
+    """
+    from marketsentry.cross_site_alert_lifecycle_health import (
+        export_lifecycle_health_report,
+    )
+
+    try:
+        result = export_lifecycle_health_report(
+            database_path=db,
+            output_dir=output_dir,
+            format=format,
+        )
+
+        if result.export_paths:
+            for p in result.export_paths:
+                console.print(
+                    f"[green]Report exported:[/green] {p}"
+                )
+        else:
+            console.print(
+                "[yellow]No properties with alerts found to score.[/yellow]"
+            )
+
+        if result.summary:
+            s = result.summary
+            console.print(f"\nProperties scored: {s.properties_scored}")
+            for label, count in s.label_counts.items():
+                console.print(f"  {label}: {count}")
+
+        if result.warnings:
+            for w in result.warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+
+        console.print(
+            "\nRead-only report. No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export health report error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def cross_site_lifecycle_health_summary(
+    db: Optional[str] = typer.Option(
+        None, "--db", help="Path to database file.",
+    ),
+    property_id: Optional[int] = typer.Option(
+        None, "--property-id", help="Score a specific property.",
+    ),
+) -> None:
+    """Show lifecycle health score summary.
+
+    Displays health label counts, lowest-scoring properties,
+    and recommended next actions. Read-only.
+    """
+    from marketsentry.cross_site_alert_lifecycle_health import (
+        calculate_lifecycle_health_score_for_property,
+        calculate_lifecycle_health_scores,
+        summarize_lifecycle_health_scores,
+    )
+
+    try:
+        if property_id is not None:
+            score = calculate_lifecycle_health_score_for_property(
+                property_id=property_id,
+                database_path=db,
+            )
+            console.print(
+                f"\n[bold]Lifecycle Health Score "
+                f"for Property {property_id}[/bold]"
+            )
+            table = Table(title="Health Score Details")
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="white")
+            table.add_row("Address", score.address or "N/A")
+            table.add_row(
+                "Health Score",
+                str(score.lifecycle_health_score),
+            )
+            table.add_row("Health Label", score.lifecycle_health_label)
+            table.add_row(
+                "Open Alerts", str(score.open_alert_count),
+            )
+            table.add_row(
+                "High/Critical Open",
+                str(score.high_or_critical_open_alert_count),
+            )
+            table.add_row(
+                "Lifecycle Gaps",
+                str(score.lifecycle_gap_count),
+            )
+            table.add_row(
+                "Stale Open Alerts",
+                str(score.stale_open_alert_count),
+            )
+            table.add_row(
+                "Needs Reparse", str(score.needs_reparse_count),
+            )
+            table.add_row(
+                "Needs Manual Review",
+                str(score.needs_manual_review_count),
+            )
+            table.add_row(
+                "Alert Burden", score.alert_burden_label,
+            )
+            table.add_row(
+                "Repeated Patterns",
+                str(score.repeated_patterns),
+            )
+            table.add_row(
+                "Recommended Action",
+                score.recommended_review_action,
+            )
+            console.print(table)
+
+            if score.components:
+                ctable = Table(title="Score Components")
+                ctable.add_column("Component", style="cyan")
+                ctable.add_column("Delta", style="white")
+                ctable.add_column("Severity", style="white")
+                ctable.add_column("Explanation", style="white")
+                for c in score.components:
+                    ctable.add_row(
+                        c.component_name,
+                        f"{c.component_score_delta:+.0f}",
+                        c.severity,
+                        c.explanation,
+                    )
+                console.print(ctable)
+        else:
+            scores = calculate_lifecycle_health_scores(
+                database_path=db,
+            )
+            summary = summarize_lifecycle_health_scores(scores)
+
+            console.print("\n[bold]Lifecycle Health Summary[/bold]")
+            console.print(
+                f"Properties scored: {summary.properties_scored}"
+            )
+
+            label_table = Table(title="Health Label Counts")
+            label_table.add_column("Label", style="cyan")
+            label_table.add_column("Count", style="white")
+            for label, count in summary.label_counts.items():
+                label_table.add_row(label, str(count))
+            console.print(label_table)
+
+            console.print(
+                f"\nattention_required: "
+                f"{summary.attention_required_count}"
+            )
+            console.print(
+                f"needs_review: {summary.needs_review_count}"
+            )
+
+            if summary.lowest_health_properties:
+                low_table = Table(
+                    title="Lowest Health Score Properties"
+                )
+                low_table.add_column("Property ID", style="cyan")
+                low_table.add_column("Address", style="white")
+                low_table.add_column("Score", style="white")
+                low_table.add_column("Label", style="white")
+                low_table.add_column("Action", style="white")
+                for sc in summary.lowest_health_properties:
+                    low_table.add_row(
+                        str(sc.property_id),
+                        sc.address or "N/A",
+                        str(sc.lifecycle_health_score),
+                        sc.lifecycle_health_label,
+                        sc.recommended_review_action,
+                    )
+                console.print(low_table)
+
+            if summary.recommended_next_actions:
+                console.print("\nRecommended next actions:")
+                for act in summary.recommended_next_actions:
+                    console.print(f"  - {act}")
+
+        console.print(
+            "\nRead-only health assessment. No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Health summary error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

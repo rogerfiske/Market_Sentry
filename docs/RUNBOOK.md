@@ -1712,6 +1712,42 @@ Use `scripts/run_alert_lifecycle_trend_report.bat` to automate snapshot and repo
 
 Lifecycle trend snapshots do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results. The only database write is the append-only snapshot record.
 
+## Lifecycle Health Scoring (Milestone 36)
+
+Property-level lifecycle health scoring computes a 0-100 score for each watched property based on alert lifecycle metrics. Higher scores indicate better operational lifecycle health. This is an operator-health metric only — it does not indicate property desirability.
+
+### Health Labels
+
+- **excellent** (90-100): No immediate action needed.
+- **good** (75-89): Continue monitoring.
+- **watch** (60-74): Address lifecycle gaps when possible.
+- **needs_review** (40-59): Review recommended. Triage open alerts.
+- **attention_required** (0-39): Immediate review recommended.
+
+### Viewing Health Summary
+
+```bash
+python -m marketsentry cross-site-lifecycle-health-summary
+python -m marketsentry cross-site-lifecycle-health-summary --property-id 1
+```
+
+### Exporting Health Report
+
+```bash
+python -m marketsentry export-cross-site-lifecycle-health-report
+python -m marketsentry export-cross-site-lifecycle-health-report --format both
+```
+
+Exports to `data/exports/cross_site_lifecycle_health_YYYYMMDD_HHMMSS.csv`.
+
+### Score Components
+
+The score starts at 100 and deducts for: open high/critical alerts (-10 each), lifecycle gaps (-5 each), stale open alerts (-4 each), needs_reparse (-6 each), needs_manual_review (-6 each), repeated patterns (-3 each), old acknowledged alerts (-2 each), and high alert burden (-5).
+
+### Reminder: Lifecycle Health Is Read-Only
+
+Health scoring does not change alert status, watchlist state, property data, or Quiet Score gatekeeper results. It is an operator-facing analytical aid.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

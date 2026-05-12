@@ -886,3 +886,50 @@ Each metric returns average days, median days, count of alerts used, and count o
 ### Reminder: Lifecycle Trends Are Read-Only
 
 Lifecycle trend snapshots do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results. The only database write is the append-only snapshot record.
+
+## Lifecycle Health Scoring (Milestone 36)
+
+### What Is Lifecycle Health Scoring?
+
+Lifecycle health scoring computes a 0-100 score for each watched property based on alert lifecycle metrics. Higher scores indicate better operational lifecycle health. The score is an operator-health metric, not a property desirability indicator.
+
+### Health Labels
+
+| Label | Range | Meaning |
+| ----- | ----- | ------- |
+| excellent | 90-100 | No immediate action needed |
+| good | 75-89 | Continue monitoring |
+| watch | 60-74 | Address gaps when possible |
+| needs_review | 40-59 | Review recommended |
+| attention_required | 0-39 | Immediate review recommended |
+
+### Score Components
+
+The score starts at 100 and deducts for operational health indicators:
+
+- Open high/critical alerts: -10 each
+- Lifecycle gaps: -5 each
+- Stale open alerts: -4 each
+- Needs reparse backlog: -6 each
+- Needs manual review backlog: -6 each
+- Repeated unresolved patterns: -3 each
+- Old acknowledged alerts: -2 each
+- High alert burden: -5
+
+### Summary Command
+
+```bash
+python -m marketsentry cross-site-lifecycle-health-summary
+python -m marketsentry cross-site-lifecycle-health-summary --property-id 1
+```
+
+### Report Export Command
+
+```bash
+python -m marketsentry export-cross-site-lifecycle-health-report
+python -m marketsentry export-cross-site-lifecycle-health-report --format both --output-dir data/exports
+```
+
+### Reminder: Health Score Is Operational/Review-Only
+
+Lifecycle health scores are operational metrics. They do not indicate property investment quality, seller intent, or purchase suitability. They do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results.

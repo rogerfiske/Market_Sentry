@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -2016,4 +2016,94 @@ class CrossSiteAlertLifecycleSnapshotRunResult(BaseModel):
     was_skipped: bool = False
     skip_reason: Optional[str] = None
     trend_change: Optional[CrossSiteAlertLifecycleTrendChange] = None
+    warnings: List[str] = Field(default_factory=list)
+
+
+# ── Milestone 36: Property-Level Lifecycle Health Scoring ──
+
+
+class CrossSiteLifecycleHealthComponent(BaseModel):
+    """One component contributing to a property's health score."""
+
+    component_name: str = ""
+    component_score_delta: float = 0.0
+    severity: str = ""
+    explanation: str = ""
+    supporting_count: int = 0
+
+
+class CrossSiteLifecycleHealthScore(BaseModel):
+    """Health score for a single property."""
+
+    property_id: int = 0
+    candidate_id: Optional[int] = None
+    address: str = ""
+    city: str = ""
+    zip_code: str = ""
+    lifecycle_health_score: float = 100.0
+    lifecycle_health_label: str = "excellent"
+    components: List[CrossSiteLifecycleHealthComponent] = Field(
+        default_factory=list,
+    )
+    open_alert_count: int = 0
+    high_or_critical_open_alert_count: int = 0
+    lifecycle_gap_count: int = 0
+    stale_open_alert_count: int = 0
+    needs_reparse_count: int = 0
+    needs_manual_review_count: int = 0
+    alert_burden_label: str = "none"
+    repeated_patterns: int = 0
+    oldest_open_alert_age_days: Optional[int] = None
+    avg_time_to_resolution_days: Optional[float] = None
+    latest_lifecycle_event_at: Optional[str] = None
+    recommended_review_action: str = ""
+
+
+class CrossSiteLifecycleHealthReportRow(BaseModel):
+    """One row in the lifecycle health CSV report."""
+
+    property_id: int = 0
+    candidate_id: Optional[int] = None
+    address: str = ""
+    city: str = ""
+    zip_code: str = ""
+    lifecycle_health_score: float = 100.0
+    lifecycle_health_label: str = "excellent"
+    open_alert_count: int = 0
+    high_or_critical_open_alert_count: int = 0
+    lifecycle_gap_count: int = 0
+    stale_open_alert_count: int = 0
+    needs_reparse_count: int = 0
+    needs_manual_review_count: int = 0
+    alert_burden_label: str = "none"
+    repeated_patterns: int = 0
+    oldest_open_alert_age_days: Optional[int] = None
+    avg_time_to_resolution_days: Optional[float] = None
+    latest_lifecycle_event_at: Optional[str] = None
+    component_summary: str = ""
+    recommended_review_action: str = ""
+
+
+class CrossSiteLifecycleHealthSummary(BaseModel):
+    """Aggregate health summary across all scored properties."""
+
+    properties_scored: int = 0
+    label_counts: Dict[str, int] = Field(default_factory=dict)
+    attention_required_count: int = 0
+    needs_review_count: int = 0
+    lowest_health_properties: List["CrossSiteLifecycleHealthScore"] = Field(
+        default_factory=list,
+    )
+    recommended_next_actions: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
+class CrossSiteLifecycleHealthRunResult(BaseModel):
+    """Result of running lifecycle health scoring and report export."""
+
+    scores: List[CrossSiteLifecycleHealthScore] = Field(
+        default_factory=list,
+    )
+    summary: Optional[CrossSiteLifecycleHealthSummary] = None
+    export_paths: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
