@@ -3155,6 +3155,244 @@ def export_operations_digest(
         raise typer.Exit(code=1)
 
 
+# ── Milestone 39: Operations Digest History ────────────────────────────
+
+
+@app.command()
+def snapshot_operations_digest(
+    db: str = typer.Option(
+        "",
+        "--db",
+        help="Database path (default from config)",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Exports directory (optional)",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Create snapshot even without material changes",
+    ),
+) -> None:
+    """Create an operations digest snapshot.
+
+    Persists one aggregate snapshot row.  Skips same-day/no-change
+    snapshots unless --force is set.  This is an append-only operation
+    that does not mutate candidate, watchlist, or alert state.
+    """
+    try:
+        from marketsentry.operations_digest_history import (
+            create_operations_digest_snapshot,
+        )
+
+        db_path = db if db else None
+        result = create_operations_digest_snapshot(
+            db_path=db_path, force=force
+        )
+
+        console.print("[bold]Operations Digest Snapshot[/bold]")
+        if result.snapshot_created:
+            console.print(
+                f"  [green]Snapshot created[/green] "
+                f"(ID: {result.digest_snapshot_id})"
+            )
+        elif result.snapshot_skipped:
+            console.print(
+                f"  [yellow]Snapshot skipped[/yellow]: "
+                f"{result.skip_reason}"
+            )
+
+        console.print(f"  Digest score: {result.digest_score}")
+        console.print(f"  Status: {result.digest_status_label}")
+
+        if result.key_counts:
+            console.print("[bold cyan]Key Counts[/bold cyan]")
+            for k, v in sorted(result.key_counts.items()):
+                if v > 0:
+                    console.print(f"    {k}: {v}")
+
+        if result.material_changes:
+            console.print("[bold cyan]Material Changes[/bold cyan]")
+            for c in result.material_changes:
+                console.print(f"    - {c}")
+
+        if result.warnings:
+            for w in result.warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+
+        console.print(
+            "\nAppend-only snapshot. "
+            "No candidate/watchlist/alert mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Snapshot operations digest error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_operations_digest_comparison_report(
+    db: str = typer.Option(
+        "",
+        "--db",
+        help="Database path (default from config)",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for comparison reports",
+    ),
+    fmt: str = typer.Option(
+        "csv",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export a digest snapshot comparison report.
+
+    Compares the latest two snapshots and exports a CSV and/or Markdown
+    report.  This is a read-only export.  No mutations are performed.
+    """
+    try:
+        from marketsentry.operations_digest_history import (
+            export_operations_digest_comparison_report as _export,
+            get_latest_operations_digest_snapshot,
+            get_previous_operations_digest_snapshot,
+            calculate_operations_digest_trend_change,
+        )
+
+        db_path = db if db else None
+        paths = _export(
+            db_path=db_path, output_dir=output_dir, fmt=fmt
+        )
+
+        console.print("[bold]Operations Digest Comparison Report[/bold]")
+        if not paths:
+            console.print(
+                "[yellow]No snapshots found. "
+                "Run snapshot-operations-digest first.[/yellow]"
+            )
+            return
+
+        for p in paths:
+            console.print(f"  Report: {p}")
+        console.print(f"  Row count: 1")
+
+        # Show trend direction
+        current = get_latest_operations_digest_snapshot(db_path)
+        previous = get_previous_operations_digest_snapshot(db_path)
+        if current and previous and previous.digest_snapshot_id:
+            changes = calculate_operations_digest_trend_change(
+                current, previous
+            )
+            improved = sum(
+                1 for c in changes if c.trend_direction == "improved"
+            )
+            degraded = sum(
+                1 for c in changes if c.trend_direction == "degraded"
+            )
+            if improved > degraded:
+                console.print("  Trend direction: [green]improved[/green]")
+            elif degraded > improved:
+                console.print("  Trend direction: [red]degraded[/red]")
+            else:
+                console.print("  Trend direction: stable")
+        else:
+            console.print("  Trend direction: new")
+
+        console.print(
+            "\nRead-only comparison report. "
+            "No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export operations digest comparison report error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def operations_digest_history_summary(
+    db: str = typer.Option(
+        "",
+        "--db",
+        help="Database path (default from config)",
+    ),
+) -> None:
+    """Show a summary of operations digest snapshot history.
+
+    Displays snapshot count, latest/previous scores, trend direction,
+    backlog deltas, and recommended next local actions.
+    This is a read-only summary.  No mutations are performed.
+    """
+    try:
+        from marketsentry.operations_digest_history import (
+            summarize_operations_digest_history,
+        )
+
+        db_path = db if db else None
+        summary = summarize_operations_digest_history(db_path)
+
+        console.print("[bold]Operations Digest History Summary[/bold]")
+        console.print(f"  Snapshot count: {summary.snapshot_count}")
+        console.print(
+            f"  Latest digest score: {summary.latest_digest_score}"
+        )
+        console.print(
+            f"  Latest digest status: {summary.latest_digest_status}"
+        )
+        console.print(
+            f"  Previous digest score: {summary.previous_digest_score}"
+        )
+        console.print(
+            f"  Previous digest status: {summary.previous_digest_status}"
+        )
+
+        trend_style = ""
+        if summary.trend_direction == "improved":
+            trend_style = "green"
+        elif summary.trend_direction == "degraded":
+            trend_style = "red"
+        console.print(
+            f"  Trend direction: [{trend_style}]"
+            f"{summary.trend_direction}[/{trend_style}]"
+            if trend_style
+            else f"  Trend direction: {summary.trend_direction}"
+        )
+
+        if summary.trend_changes:
+            console.print("[bold cyan]Backlog Deltas[/bold cyan]")
+            for tc in summary.trend_changes:
+                if tc.delta != 0:
+                    console.print(
+                        f"    {tc.metric_name}: "
+                        f"{tc.previous_value} -> {tc.current_value} "
+                        f"({tc.delta:+d}, {tc.trend_direction})"
+                    )
+
+        if summary.recommended_next_actions:
+            console.print(
+                "[bold cyan]Recommended Next Local Actions[/bold cyan]"
+            )
+            for i, a in enumerate(summary.recommended_next_actions, 1):
+                console.print(f"    {i}. {a}")
+
+        console.print(
+            "\nRead-only history summary. "
+            "No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Operations digest history summary error: {e}")
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(

@@ -6,9 +6,21 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Watchlist Operations Digest (MVP 38)
+## Current Milestone: Operations Digest Historical Snapshots (MVP 39)
 
-This milestone adds a consolidated operations digest that summarizes all local reports into a single operator-facing view.
+This milestone adds historical snapshots and comparison reports for the Watchlist Operations Digest.
+
+- Append-only `operations_digest_snapshots` table with 34 metric columns
+- Digest score (0-100) and status labels: clear, light_review, active_review, heavy_review, backlog_attention
+- Material change detection with same-day/no-change skip and --force override
+- Snapshot-over-snapshot comparison report export to CSV and/or Markdown
+- CLI: `marketsentry snapshot-operations-digest`, `marketsentry export-operations-digest-comparison-report`, `marketsentry operations-digest-history-summary`
+- Dashboard: Operations Digest History subsection with score metrics, trend deltas, and comparison report link
+- Scheduled script updated: `scripts/run_operations_digest_report.bat` now runs digest export, snapshot, and comparison report
+- Digest history is append-only and read-only: no mutations to candidate, watchlist, alert, or property state
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 38: Watchlist Operations Digest
 
 - Consolidates candidate review, watchlist, Effective DOM, cross-site, alert/hygiene, lifecycle health, and retrieval metrics into one digest
 - Property review priority ranking: immediate_review, high_review, normal_review, monitor
@@ -1658,7 +1670,8 @@ Market_Sentry/
     ├── test_milestone_35.py           # Alert lifecycle trend snapshots tests
     ├── test_milestone_36.py           # Property-level lifecycle health scoring tests
     ├── test_milestone_37.py           # Lifecycle health trend snapshots tests
-    └── test_milestone_38.py           # Watchlist operations digest tests
+    ├── test_milestone_38.py           # Watchlist operations digest tests
+    └── test_milestone_39.py           # Operations digest history tests
 ```
 
 ## Running Tests
@@ -1753,6 +1766,7 @@ MIT
   - [Decision 035: Property-Level Lifecycle Health Scoring](docs/decisions/035-lifecycle-health-scoring.md)
   - [Decision 036: Lifecycle Health Trend Snapshots](docs/decisions/036-lifecycle-health-trend-snapshots.md)
   - [Decision 037: Watchlist Operations Digest](docs/decisions/037-operations-digest.md)
+  - [Decision 038: Operations Digest History](docs/decisions/038-operations-digest-history.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

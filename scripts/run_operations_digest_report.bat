@@ -1,6 +1,7 @@
 @echo off
 REM Market Sentry - Operations Digest Report
-REM Runs operations digest export. Report command only. No alert mutation.
+REM Runs operations digest export, snapshot, and comparison report.
+REM Report commands only. No alert mutation. No live retrieval.
 
 set LOGDIR=logs\scheduled
 if not exist %LOGDIR% mkdir %LOGDIR%
@@ -12,5 +13,13 @@ set LOGFILE=%LOGDIR%\operations_digest_%TIMESTAMP%.log
 echo [%date% %time%] Starting operations digest report >> %LOGFILE%
 
 python -m marketsentry export-operations-digest --format both >> %LOGFILE% 2>&1
+
+echo [%date% %time%] Creating operations digest snapshot >> %LOGFILE%
+
+python -m marketsentry snapshot-operations-digest >> %LOGFILE% 2>&1
+
+echo [%date% %time%] Exporting operations digest comparison report >> %LOGFILE%
+
+python -m marketsentry export-operations-digest-comparison-report --format both >> %LOGFILE% 2>&1
 
 echo [%date% %time%] Operations digest report complete >> %LOGFILE%

@@ -1814,7 +1814,46 @@ Exports to `data/exports/operations_digest_YYYYMMDD_HHMMSS.csv` and/or `.md`.
 scripts\run_operations_digest_report.bat
 ```
 
-Runs the operations digest export. No alert mutation. No live retrieval.
+Runs the operations digest export, snapshot, and comparison report. No alert mutation. No live retrieval.
+
+### Operations Digest History (Milestone 39)
+
+#### Creating a Digest Snapshot
+
+```bash
+python -m marketsentry snapshot-operations-digest
+python -m marketsentry snapshot-operations-digest --force
+```
+
+Creates an append-only snapshot of digest metrics. Skips same-day/no-change snapshots unless `--force` is set. Shows digest score (0-100), status label, key counts, and material changes detected.
+
+#### Digest Status Labels
+
+| Score Range | Label | Meaning |
+| ------- | ------- | ------- |
+| 90-100 | clear | Minimal review backlog |
+| 75-89 | light_review | Some items need attention |
+| 60-74 | active_review | Moderate review backlog |
+| 40-59 | heavy_review | Significant review needed |
+| 0-39 | backlog_attention | Large backlog requiring attention |
+
+#### Exporting a Comparison Report
+
+```bash
+python -m marketsentry export-operations-digest-comparison-report
+python -m marketsentry export-operations-digest-comparison-report --format both
+python -m marketsentry export-operations-digest-comparison-report --format md
+```
+
+Exports to `data/exports/operations_digest_comparison_YYYYMMDD_HHMMSS.csv` and/or `.md`.
+
+#### Viewing Digest History Summary
+
+```bash
+python -m marketsentry operations-digest-history-summary
+```
+
+Shows snapshot count, latest/previous digest scores, trend direction, backlog deltas, and recommended next local actions.
 
 ### Operations Digest Sections
 

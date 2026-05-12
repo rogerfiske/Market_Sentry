@@ -1026,3 +1026,40 @@ The batch script `scripts/run_operations_digest_report.bat` automates digest exp
 ### Reminder: Operations Digest Is Read-Only
 
 The operations digest is entirely read-only. It does not change candidate decisions, alert status, watchlist state, property data, or Quiet Score gatekeeper results. It does not indicate property investment quality, seller intent, or purchase suitability.
+
+## Operations Digest History (Milestone 39)
+
+### What Is Digest History?
+
+Digest history tracks high-level operations changes over time through append-only snapshots. Each snapshot captures aggregate metric counts from the operations digest and computes a digest score (0-100) that reflects the current local review backlog.
+
+### Digest Snapshot Command
+
+```bash
+marketsentry snapshot-operations-digest
+marketsentry snapshot-operations-digest --force
+```
+
+Creates one aggregate snapshot row. Skips same-day/no-change snapshots unless `--force` is set. Material changes include: candidate backlog changes, active watched count changes, high/critical alert changes, lifecycle attention changes, digest score changes >= 5, and digest status label changes.
+
+### Digest Comparison Report Command
+
+```bash
+marketsentry export-operations-digest-comparison-report --format csv
+marketsentry export-operations-digest-comparison-report --format md
+marketsentry export-operations-digest-comparison-report --format both
+```
+
+Exports snapshot-over-snapshot comparison to `data/exports/operations_digest_comparison_YYYYMMDD_HHMMSS.csv` and/or `.md`. Shows trend direction (improved, degraded, stable, new).
+
+### Digest History Summary Command
+
+```bash
+marketsentry operations-digest-history-summary
+```
+
+Shows snapshot count, latest/previous digest scores and statuses, trend direction, backlog deltas, and recommended next local actions.
+
+### Reminder: Digest History Is Operational and Review-Only
+
+Digest history is an operational metrics tracking tool. It does not mutate candidate decisions, watchlist state, alert status, or property data. The digest score is a local review backlog metric and is not purchase advice, property desirability, or seller intent. Quiet Score gatekeeper remains unchanged.

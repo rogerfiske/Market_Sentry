@@ -456,6 +456,49 @@ CREATE TABLE IF NOT EXISTS cross_site_lifecycle_health_snapshots (
 );
 """
 
+# Milestone 39: Operations digest snapshots table (append-only)
+CREATE_OPERATIONS_DIGEST_SNAPSHOTS_TABLE = """
+CREATE TABLE IF NOT EXISTS operations_digest_snapshots (
+    digest_snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    captured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    candidate_count INTEGER DEFAULT 0,
+    pending_user_decision_count INTEGER DEFAULT 0,
+    strong_review_count INTEGER DEFAULT 0,
+    reject_location_noise_count INTEGER DEFAULT 0,
+    watched_property_count INTEGER DEFAULT 0,
+    active_watched_count INTEGER DEFAULT 0,
+    high_priority_watched_count INTEGER DEFAULT 0,
+    gas_evidence_count INTEGER DEFAULT 0,
+    garage_evidence_count INTEGER DEFAULT 0,
+    county_reset_applied_count INTEGER DEFAULT 0,
+    high_churn_count INTEGER DEFAULT 0,
+    high_effective_dom_delta_count INTEGER DEFAULT 0,
+    cross_site_observed_property_count INTEGER DEFAULT 0,
+    low_cross_site_confidence_count INTEGER DEFAULT 0,
+    high_discrepancy_severity_count INTEGER DEFAULT 0,
+    open_alert_count INTEGER DEFAULT 0,
+    high_or_critical_open_alert_count INTEGER DEFAULT 0,
+    stale_open_alert_count INTEGER DEFAULT 0,
+    needs_reparse_count INTEGER DEFAULT 0,
+    needs_manual_review_count INTEGER DEFAULT 0,
+    archive_candidate_count INTEGER DEFAULT 0,
+    lifecycle_attention_required_count INTEGER DEFAULT 0,
+    lifecycle_needs_review_count INTEGER DEFAULT 0,
+    lifecycle_degraded_trend_count INTEGER DEFAULT 0,
+    lifecycle_gap_count INTEGER DEFAULT 0,
+    retrieval_pending_capture_count INTEGER DEFAULT 0,
+    retrieval_health_issue_count INTEGER DEFAULT 0,
+    top_priority_count INTEGER DEFAULT 0,
+    immediate_review_count INTEGER DEFAULT 0,
+    high_review_count INTEGER DEFAULT 0,
+    next_action_count INTEGER DEFAULT 0,
+    digest_score INTEGER DEFAULT 100,
+    digest_status_label TEXT DEFAULT 'clear',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 # Index definitions for performance
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_candidates_review_status ON candidate_review_queue(review_status);",
@@ -499,6 +542,8 @@ CREATE_INDEXES = [
     # Milestone 37: Cross-site lifecycle health snapshots indexes
     "CREATE INDEX IF NOT EXISTS idx_cs_health_snapshots_property ON cross_site_lifecycle_health_snapshots(property_id);",
     "CREATE INDEX IF NOT EXISTS idx_cs_health_snapshots_captured ON cross_site_lifecycle_health_snapshots(captured_at);",
+    # Milestone 39: Operations digest snapshots indexes
+    "CREATE INDEX IF NOT EXISTS idx_digest_snapshots_captured ON operations_digest_snapshots(captured_at);",
 ]
 
 # All schema statements in order
@@ -516,4 +561,5 @@ ALL_SCHEMA_STATEMENTS = [
     CREATE_CROSS_SITE_ALERT_TRIAGE_ACTIONS_TABLE,
     CREATE_CROSS_SITE_ALERT_LIFECYCLE_SNAPSHOTS_TABLE,
     CREATE_CROSS_SITE_LIFECYCLE_HEALTH_SNAPSHOTS_TABLE,
+    CREATE_OPERATIONS_DIGEST_SNAPSHOTS_TABLE,
 ] + CREATE_INDEXES

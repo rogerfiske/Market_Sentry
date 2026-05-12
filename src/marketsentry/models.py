@@ -2306,3 +2306,131 @@ class OperationsDigestRunResult(BaseModel):
     next_action_count: int = 0
     export_paths: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Milestone 39: Operations Digest History models
+# ---------------------------------------------------------------------------
+
+
+class OperationsDigestSnapshot(BaseModel):
+    """One point-in-time snapshot of operations digest metrics."""
+
+    digest_snapshot_id: int = 0
+    captured_at: str = ""
+    candidate_count: int = 0
+    pending_user_decision_count: int = 0
+    strong_review_count: int = 0
+    reject_location_noise_count: int = 0
+    watched_property_count: int = 0
+    active_watched_count: int = 0
+    high_priority_watched_count: int = 0
+    gas_evidence_count: int = 0
+    garage_evidence_count: int = 0
+    county_reset_applied_count: int = 0
+    high_churn_count: int = 0
+    high_effective_dom_delta_count: int = 0
+    cross_site_observed_property_count: int = 0
+    low_cross_site_confidence_count: int = 0
+    high_discrepancy_severity_count: int = 0
+    open_alert_count: int = 0
+    high_or_critical_open_alert_count: int = 0
+    stale_open_alert_count: int = 0
+    needs_reparse_count: int = 0
+    needs_manual_review_count: int = 0
+    archive_candidate_count: int = 0
+    lifecycle_attention_required_count: int = 0
+    lifecycle_needs_review_count: int = 0
+    lifecycle_degraded_trend_count: int = 0
+    lifecycle_gap_count: int = 0
+    retrieval_pending_capture_count: int = 0
+    retrieval_health_issue_count: int = 0
+    top_priority_count: int = 0
+    immediate_review_count: int = 0
+    high_review_count: int = 0
+    next_action_count: int = 0
+    digest_score: int = 100
+    digest_status_label: str = "clear"
+    notes: str = ""
+    created_at: str = ""
+
+
+class OperationsDigestTrendChange(BaseModel):
+    """Describes the trend between two digest snapshots."""
+
+    metric_name: str = ""
+    current_value: int = 0
+    previous_value: int = 0
+    delta: int = 0
+    trend_direction: str = "stable"
+
+
+class OperationsDigestComparisonReportRow(BaseModel):
+    """One row in the comparison report export."""
+
+    current_snapshot_id: int = 0
+    current_captured_at: str = ""
+    previous_snapshot_id: int = 0
+    previous_captured_at: str = ""
+    digest_score_current: int = 0
+    digest_score_previous: int = 0
+    digest_score_delta: int = 0
+    digest_status_current: str = ""
+    digest_status_previous: str = ""
+    digest_status_changed: bool = False
+    candidate_count_current: int = 0
+    candidate_count_previous: int = 0
+    candidate_count_delta: int = 0
+    pending_user_decision_current: int = 0
+    pending_user_decision_previous: int = 0
+    pending_user_decision_delta: int = 0
+    active_watched_current: int = 0
+    active_watched_previous: int = 0
+    active_watched_delta: int = 0
+    high_or_critical_open_alerts_current: int = 0
+    high_or_critical_open_alerts_previous: int = 0
+    high_or_critical_open_alerts_delta: int = 0
+    lifecycle_attention_required_current: int = 0
+    lifecycle_attention_required_previous: int = 0
+    lifecycle_attention_required_delta: int = 0
+    lifecycle_needs_review_current: int = 0
+    lifecycle_needs_review_previous: int = 0
+    lifecycle_needs_review_delta: int = 0
+    retrieval_health_issues_current: int = 0
+    retrieval_health_issues_previous: int = 0
+    retrieval_health_issues_delta: int = 0
+    top_priority_count_current: int = 0
+    top_priority_count_previous: int = 0
+    top_priority_count_delta: int = 0
+    trend_direction: str = "stable"
+    trend_summary: str = ""
+    recommended_review_action: str = ""
+
+
+class OperationsDigestHistorySummary(BaseModel):
+    """Summary of digest history across snapshots."""
+
+    snapshot_count: int = 0
+    latest_digest_score: int = 0
+    latest_digest_status: str = ""
+    previous_digest_score: int = 0
+    previous_digest_status: str = ""
+    trend_direction: str = "new"
+    trend_changes: List[OperationsDigestTrendChange] = Field(
+        default_factory=list
+    )
+    recommended_next_actions: List[str] = Field(default_factory=list)
+
+
+class OperationsDigestSnapshotRunResult(BaseModel):
+    """Result of creating a digest snapshot."""
+
+    snapshot_created: bool = False
+    snapshot_skipped: bool = False
+    skip_reason: str = ""
+    digest_snapshot_id: int = 0
+    digest_score: int = 0
+    digest_status_label: str = ""
+    material_changes: List[str] = Field(default_factory=list)
+    key_counts: Dict[str, int] = Field(default_factory=dict)
+    warnings: List[str] = Field(default_factory=list)

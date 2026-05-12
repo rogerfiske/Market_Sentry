@@ -32,7 +32,7 @@ All scripts are located in the `scripts/` directory:
 | `run_alert_hygiene_report.bat` | Run cross-site alert hygiene check and export reports |
 | `run_alert_lifecycle_trend_report.bat` | Run lifecycle snapshot and trend report export |
 | `run_lifecycle_health_report.bat` | Run lifecycle health report, snapshot, and trend report |
-| `run_operations_digest_report.bat` | Run operations digest export (Markdown and CSV) |
+| `run_operations_digest_report.bat` | Run operations digest export, snapshot, and comparison report |
 | `run_marketsentry_task.ps1` | Generic PowerShell wrapper for any command |
 | `install_task_scheduler_watchlist_refresh.ps1` | Install weekly scheduled task |
 | `uninstall_task_scheduler_watchlist_refresh.ps1` | Remove scheduled task |

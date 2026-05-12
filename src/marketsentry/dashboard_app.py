@@ -1280,6 +1280,125 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
             "Run: marketsentry export-operations-digest"
         )
 
+    # ── Milestone 39: Operations Digest History subsection ──
+
+    st.subheader("Operations Digest History")
+    st.caption(
+        "Historical digest snapshots and trend comparison. "
+        "Read-only view."
+    )
+
+    if db_path:
+        try:
+            from marketsentry.operations_digest_history import (
+                get_latest_operations_digest_snapshot,
+                get_previous_operations_digest_snapshot,
+                calculate_operations_digest_trend_change,
+            )
+
+            latest_snap = get_latest_operations_digest_snapshot(db_path)
+            prev_snap = get_previous_operations_digest_snapshot(db_path)
+
+            if latest_snap and latest_snap.digest_snapshot_id:
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric(
+                        "Latest Digest Score",
+                        latest_snap.digest_score,
+                        delta=(
+                            latest_snap.digest_score - prev_snap.digest_score
+                            if prev_snap and prev_snap.digest_snapshot_id
+                            else None
+                        ),
+                    )
+                with col2:
+                    st.metric(
+                        "Latest Status",
+                        latest_snap.digest_status_label,
+                    )
+                with col3:
+                    if prev_snap and prev_snap.digest_snapshot_id:
+                        st.metric(
+                            "Previous Status",
+                            prev_snap.digest_status_label,
+                        )
+                    else:
+                        st.metric("Previous Status", "N/A")
+
+                # Trend direction
+                if prev_snap and prev_snap.digest_snapshot_id:
+                    changes = calculate_operations_digest_trend_change(
+                        latest_snap, prev_snap
+                    )
+                    improved = sum(
+                        1 for c in changes
+                        if c.trend_direction == "improved"
+                    )
+                    degraded = sum(
+                        1 for c in changes
+                        if c.trend_direction == "degraded"
+                    )
+                    if improved > degraded:
+                        trend_dir = "improved"
+                    elif degraded > improved:
+                        trend_dir = "degraded"
+                    else:
+                        trend_dir = "stable"
+
+                    st.markdown(f"**Trend direction:** {trend_dir}")
+
+                    # Deltas table
+                    delta_rows = []
+                    for c in changes:
+                        if c.delta != 0:
+                            delta_rows.append({
+                                "Metric": c.metric_name,
+                                "Previous": c.previous_value,
+                                "Current": c.current_value,
+                                "Delta": c.delta,
+                                "Direction": c.trend_direction,
+                            })
+                    if delta_rows:
+                        import pandas as _pd_hist
+                        st.dataframe(
+                            _pd_hist.DataFrame(delta_rows),
+                            use_container_width=True,
+                        )
+                else:
+                    st.info("Only one snapshot available. No trend yet.")
+
+                # Latest comparison report link
+                from pathlib import Path as _PH
+                exp_h = _PH(exports_dir)
+                if exp_h.is_dir():
+                    comp_files = sorted(
+                        [
+                            f for f in exp_h.iterdir()
+                            if f.name.startswith(
+                                "operations_digest_comparison_"
+                            )
+                            and f.name.endswith(".md")
+                        ],
+                        key=lambda p: p.stat().st_mtime,
+                        reverse=True,
+                    )
+                    if comp_files:
+                        st.caption(
+                            f"Latest comparison: {comp_files[0]}"
+                        )
+            else:
+                st.info(
+                    "No digest snapshots found. "
+                    "Run: marketsentry snapshot-operations-digest"
+                )
+        except Exception:
+            pass
+    else:
+        st.info(
+            "No database available for digest history. "
+            "Run: marketsentry snapshot-operations-digest"
+        )
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""
