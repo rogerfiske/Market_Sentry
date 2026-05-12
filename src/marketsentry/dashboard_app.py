@@ -1206,6 +1206,80 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
             "snapshot-cross-site-lifecycle-health"
         )
 
+    # ---- Operations Digest ----
+    st.subheader("Operations Digest")
+    st.caption(
+        "Consolidated watchlist operations summary. "
+        "Read-only: no mutations are performed."
+    )
+
+    if db_path:
+        try:
+            from marketsentry.operations_digest import build_operations_digest
+
+            digest = build_operations_digest(db_path, exports_dir)
+
+            col1, col2, col3 = st.columns(3)
+            total_metrics = sum(len(s.metrics) for s in digest.sections)
+            col1.metric("Sections", len(digest.sections))
+            col2.metric("Metrics", total_metrics)
+            col3.metric("Priorities", len(digest.top_priorities))
+
+            for sec in digest.sections:
+                if sec.metrics:
+                    with st.expander(sec.section_name, expanded=False):
+                        rows = []
+                        for m in sec.metrics:
+                            rows.append({
+                                "Metric": m.metric_name,
+                                "Value": m.metric_value,
+                                "Severity": m.severity,
+                                "Notes": m.notes,
+                            })
+                        if rows:
+                            import pandas as _pd
+                            st.dataframe(_pd.DataFrame(rows), use_container_width=True)
+
+            if digest.top_priorities:
+                st.markdown("**Top Review Priorities**")
+                p_rows = []
+                for p in digest.top_priorities:
+                    p_rows.append({
+                        "Property": p.property_id,
+                        "Address": f"{p.address}, {p.city}",
+                        "Priority": p.priority_label,
+                        "Reasons": "; ".join(p.reasons),
+                        "Action": p.recommended_action,
+                    })
+                import pandas as _pd2
+                st.dataframe(_pd2.DataFrame(p_rows), use_container_width=True)
+
+            if digest.next_actions:
+                st.markdown("**Recommended Next Local Actions**")
+                for i, a in enumerate(digest.next_actions, 1):
+                    st.markdown(f"{i}. {a.action}  \n   `{a.command}`")
+
+            # Latest digest file link
+            from pathlib import Path as _P
+            exp = _P(exports_dir)
+            if exp.is_dir():
+                digest_files = sorted(
+                    [f for f in exp.iterdir()
+                     if f.name.startswith("operations_digest_") and f.name.endswith(".md")],
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                if digest_files:
+                    st.caption(f"Latest digest: {digest_files[0]}")
+
+        except Exception:
+            pass
+    else:
+        st.info(
+            "No database available for operations digest. "
+            "Run: marketsentry export-operations-digest"
+        )
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

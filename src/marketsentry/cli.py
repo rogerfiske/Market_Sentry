@@ -3011,6 +3011,150 @@ def cross_site_lifecycle_health_trend_summary(
         raise typer.Exit(code=1)
 
 
+# ── Milestone 38: Watchlist Operations Digest ──
+
+
+@app.command()
+def operations_digest(
+    db: str = typer.Option(
+        "",
+        "--db",
+        help="Database path (default from config)",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory containing existing export reports",
+    ),
+) -> None:
+    """Show the consolidated watchlist operations digest.
+
+    This is a read-only summary. No mutations are performed.
+    """
+    try:
+        from marketsentry.operations_digest import build_operations_digest
+
+        db_path = db if db else None
+        digest = build_operations_digest(db_path, exports_dir)
+
+        console.print("[bold]Watchlist Operations Digest[/bold]")
+        console.print(f"Generated: {digest.generated_at}\n")
+
+        for sec in digest.sections:
+            console.print(f"[bold cyan]{sec.section_name}[/bold cyan]")
+            if sec.metrics:
+                tbl = Table(show_header=True)
+                tbl.add_column("Metric")
+                tbl.add_column("Value")
+                tbl.add_column("Severity")
+                for m in sec.metrics:
+                    style = ""
+                    if m.severity == "warning":
+                        style = "yellow"
+                    tbl.add_row(m.metric_name, m.metric_value, m.severity,
+                                style=style)
+                console.print(tbl)
+            else:
+                console.print("  No data available.")
+            console.print()
+
+        if digest.top_priorities:
+            console.print("[bold cyan]Top Review Priorities[/bold cyan]")
+            tbl = Table(show_header=True)
+            tbl.add_column("Property")
+            tbl.add_column("Address")
+            tbl.add_column("Priority")
+            tbl.add_column("Reasons")
+            for p in digest.top_priorities:
+                style = ""
+                if p.priority_label == "immediate_review":
+                    style = "red"
+                elif p.priority_label == "high_review":
+                    style = "yellow"
+                tbl.add_row(
+                    str(p.property_id),
+                    f"{p.address}, {p.city}",
+                    p.priority_label,
+                    "; ".join(p.reasons),
+                    style=style,
+                )
+            console.print(tbl)
+            console.print()
+
+        if digest.next_actions:
+            console.print("[bold cyan]Recommended Next Local Actions[/bold cyan]")
+            for i, a in enumerate(digest.next_actions, 1):
+                console.print(f"  {i}. {a.action}")
+                console.print(f"     Command: [dim]{a.command}[/dim]")
+            console.print()
+
+        console.print(
+            "Read-only operations digest. "
+            "No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Operations digest error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_operations_digest(
+    db: str = typer.Option(
+        "",
+        "--db",
+        help="Database path (default from config)",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for digest reports",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: md, csv, or both",
+    ),
+) -> None:
+    """Export the operations digest as Markdown and/or CSV.
+
+    This is a read-only export. No mutations are performed.
+    """
+    try:
+        from marketsentry.operations_digest import (
+            export_operations_digest as _export,
+        )
+
+        db_path = db if db else None
+        result = _export(
+            db_path=db_path,
+            output_dir=output_dir,
+            exports_dir=output_dir,
+            fmt=fmt,
+        )
+
+        console.print("[bold]Operations Digest Export[/bold]")
+        for p in result.export_paths:
+            console.print(f"  Report: {p}")
+        console.print(f"  Sections: {result.sections_built}")
+        console.print(f"  Metrics: {result.metric_count}")
+        console.print(f"  Priorities: {result.priority_count}")
+        console.print(f"  Next actions: {result.next_action_count}")
+        if result.warnings:
+            for w in result.warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+        console.print(
+            "\nRead-only digest export. "
+            "No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export operations digest error: {e}")
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(

@@ -1785,6 +1785,60 @@ scripts\run_lifecycle_health_report.bat
 
 Runs health report export, health snapshot, and trend report export. No alert mutation.
 
+## Operations Digest (Milestone 38)
+
+The operations digest consolidates all local reports into a single concise operator summary. It is entirely read-only and does not mutate candidate, watchlist, alert, or property state.
+
+### Viewing the Operations Digest
+
+```bash
+python -m marketsentry operations-digest
+```
+
+Shows: candidate review counts, watchlist counts, Effective DOM/churn metrics, cross-site validation metrics, alert/hygiene counts, lifecycle health metrics, retrieval operations status, top review priorities, and recommended next local actions.
+
+### Exporting the Operations Digest
+
+```bash
+python -m marketsentry export-operations-digest
+python -m marketsentry export-operations-digest --format csv
+python -m marketsentry export-operations-digest --format md
+python -m marketsentry export-operations-digest --format both
+```
+
+Exports to `data/exports/operations_digest_YYYYMMDD_HHMMSS.csv` and/or `.md`.
+
+### Scheduled Operations Digest Script
+
+```bash
+scripts\run_operations_digest_report.bat
+```
+
+Runs the operations digest export. No alert mutation. No live retrieval.
+
+### Operations Digest Sections
+
+| Section | Metrics |
+| ------- | ------- |
+| Candidate Review | Total candidates, per-decision counts, pending decisions |
+| Watchlist | Watched property count, active/high-priority, gas/garage evidence |
+| Effective DOM / Churn | County reset, high churn, DOM delta indicators |
+| Cross-Site Validation | Observation count, low confidence, high discrepancy severity |
+| Alerts and Hygiene | Open/stale/high-critical alerts, archive candidates |
+| Lifecycle Health | Properties scored, attention_required, needs_review, trend counts |
+| Retrieval Operations | Pending capture queue, live retrieval status |
+
+### Review Priorities
+
+The digest ranks watched properties by review urgency:
+
+- **immediate_review**: Lifecycle health attention_required or multiple high/critical alerts
+- **high_review**: High/critical open alerts or combined issues
+- **normal_review**: Stale alerts or moderate churn
+- **monitor**: Minor indicators only
+
+The digest does not change alert status, watchlist state, property data, or Quiet Score gatekeeper results.
+
 ### Reminder: Health Trends Are Read-Only
 
 Health trend snapshots are append-only. They do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results.

@@ -6,20 +6,27 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Lifecycle Health Trend Snapshots and Scheduled Health Reports (MVP 37)
+## Current Milestone: Watchlist Operations Digest (MVP 38)
 
-This milestone adds lifecycle health trend snapshots and scheduled local health reports to track health-score movement over time.
+This milestone adds a consolidated operations digest that summarizes all local reports into a single operator-facing view.
 
-- Append-only lifecycle metric snapshots with alert status counts, gap counts, backlog indicators
-- Time-to-action metrics: time-to-first-triage, time-to-resolution, time-to-archive (avg/median days)
-- Throughput metrics: triage/resolution/archive actions in 7-day and 30-day windows
-- Same-day duplicate skip with material change detection (--force to override)
-- Trend change analysis: improving, worsening, or stable direction with summary and recommended action
-- Lifecycle trend report export to CSV with current/previous/delta columns
-- CLI: `marketsentry snapshot-cross-site-alert-lifecycle`, `marketsentry export-cross-site-alert-lifecycle-trend-report`
-- Dashboard: Lifecycle Trends and Throughput subsection with snapshot metrics, trend comparison table
-- Scheduled script: `scripts/run_alert_lifecycle_trend_report.bat` for automated snapshot and report
-- Lifecycle trends are read-only except for append-only snapshot writes: no mutations to alert state or watchlist status
+- Consolidates candidate review, watchlist, Effective DOM, cross-site, alert/hygiene, lifecycle health, and retrieval metrics into one digest
+- Property review priority ranking: immediate_review, high_review, normal_review, monitor
+- Recommended next local actions generated from digest metrics
+- Export to Markdown and/or CSV
+- CLI: `marketsentry operations-digest`, `marketsentry export-operations-digest`
+- Dashboard: Operations Digest subsection with section expanders, priority table, and next actions
+- Scheduled script: `scripts/run_operations_digest_report.bat`
+- Operations digest is entirely read-only: no mutations to candidate, watchlist, alert, or property state
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 37: Lifecycle Health Trend Snapshots and Scheduled Health Reports
+
+- Append-only lifecycle health snapshots with material change detection
+- Trend change analysis: improved, degraded, stable, new
+- Lifecycle health trend report export to CSV
+- CLI: `marketsentry snapshot-cross-site-lifecycle-health`, `marketsentry export-cross-site-lifecycle-health-trend-report`, `marketsentry cross-site-lifecycle-health-trend-summary`
+- Scheduled script: `scripts/run_lifecycle_health_report.bat`
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
 ### MVP 33: Profile Comparison and Last-Used Profile Preference
@@ -1650,7 +1657,8 @@ Market_Sentry/
     ├── test_milestone_34.py           # Alert lifecycle audit trail tests
     ├── test_milestone_35.py           # Alert lifecycle trend snapshots tests
     ├── test_milestone_36.py           # Property-level lifecycle health scoring tests
-    └── test_milestone_37.py           # Lifecycle health trend snapshots tests
+    ├── test_milestone_37.py           # Lifecycle health trend snapshots tests
+    └── test_milestone_38.py           # Watchlist operations digest tests
 ```
 
 ## Running Tests
@@ -1744,6 +1752,7 @@ MIT
   - [Decision 034: Alert Lifecycle Trend Snapshots](docs/decisions/034-alert-lifecycle-trend-snapshots.md)
   - [Decision 035: Property-Level Lifecycle Health Scoring](docs/decisions/035-lifecycle-health-scoring.md)
   - [Decision 036: Lifecycle Health Trend Snapshots](docs/decisions/036-lifecycle-health-trend-snapshots.md)
+  - [Decision 037: Watchlist Operations Digest](docs/decisions/037-operations-digest.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

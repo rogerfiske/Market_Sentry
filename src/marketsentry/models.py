@@ -2229,3 +2229,80 @@ class CrossSiteLifecycleHealthSnapshotRunResult(BaseModel):
     material_changes_detected: int = 0
     label_counts: Dict[str, int] = Field(default_factory=dict)
     warnings: List[str] = Field(default_factory=list)
+
+
+# ── Milestone 38: Watchlist Operations Digest ──
+
+
+class OperationsDigestMetric(BaseModel):
+    """One metric row inside a digest section."""
+
+    metric_name: str = ""
+    metric_value: str = ""
+    severity: str = "info"
+    notes: str = ""
+    source_report_path: str = ""
+
+
+class OperationsDigestSection(BaseModel):
+    """One section of the operations digest."""
+
+    section_name: str = ""
+    metrics: List[OperationsDigestMetric] = Field(default_factory=list)
+
+
+class OperationsDigestPropertyPriority(BaseModel):
+    """A single property in the ranked review priority list."""
+
+    property_id: int = 0
+    address: str = ""
+    city: str = ""
+    zip_code: str = ""
+    priority_label: str = "no_current_action"
+    reasons: List[str] = Field(default_factory=list)
+    recommended_action: str = ""
+
+
+class OperationsDigestNextAction(BaseModel):
+    """One recommended next local action."""
+
+    action: str = ""
+    command: str = ""
+    priority: str = "normal"
+    notes: str = ""
+
+
+class OperationsDigestSummary(BaseModel):
+    """Top-level digest summary with all sections."""
+
+    generated_at: str = ""
+    sections: List[OperationsDigestSection] = Field(default_factory=list)
+    top_priorities: List[OperationsDigestPropertyPriority] = Field(
+        default_factory=list
+    )
+    next_actions: List[OperationsDigestNextAction] = Field(
+        default_factory=list
+    )
+    warnings: List[str] = Field(default_factory=list)
+
+
+class OperationsDigestReportRow(BaseModel):
+    """One row in the CSV export of the digest."""
+
+    section: str = ""
+    metric_name: str = ""
+    metric_value: str = ""
+    severity: str = "info"
+    notes: str = ""
+    source_report_path: str = ""
+
+
+class OperationsDigestRunResult(BaseModel):
+    """Result of building and optionally exporting the digest."""
+
+    sections_built: int = 0
+    metric_count: int = 0
+    priority_count: int = 0
+    next_action_count: int = 0
+    export_paths: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)

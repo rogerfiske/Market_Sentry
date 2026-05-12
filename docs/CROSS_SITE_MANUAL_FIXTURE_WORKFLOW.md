@@ -989,3 +989,40 @@ The script logs to `logs/scheduled/` and does not perform live retrieval or aler
 ### Reminder: Health Trends Are Operational/Review-Only
 
 Lifecycle health trend snapshots are operational metrics. The only database write is the append-only snapshot record. Health trends do not change alert status, watchlist state, property data, or Quiet Score gatekeeper results. They do not indicate property investment quality, seller intent, or purchase suitability.
+
+## Operations Digest (Milestone 38)
+
+### What Is the Operations Digest?
+
+The operations digest consolidates all local reports into a single concise operator summary. It provides a unified view of candidate review status, watchlist health, Effective DOM/churn, cross-site validation, alert hygiene, lifecycle health, and retrieval operations.
+
+### Operations Digest Command
+
+```bash
+marketsentry operations-digest
+```
+
+Shows all digest sections, top review priorities, and recommended next local actions.
+
+### Operations Digest Export Command
+
+```bash
+# Export as Markdown and CSV
+marketsentry export-operations-digest
+
+# Export CSV only
+marketsentry export-operations-digest --format csv
+
+# Export Markdown only
+marketsentry export-operations-digest --format md
+```
+
+Exports to `data/exports/operations_digest_YYYYMMDD_HHMMSS.csv` and/or `.md`.
+
+### Scheduled Operations Digest Report
+
+The batch script `scripts/run_operations_digest_report.bat` automates digest export. It logs to `logs/scheduled/` and does not perform live retrieval or alert/watchlist mutation.
+
+### Reminder: Operations Digest Is Read-Only
+
+The operations digest is entirely read-only. It does not change candidate decisions, alert status, watchlist state, property data, or Quiet Score gatekeeper results. It does not indicate property investment quality, seller intent, or purchase suitability.
