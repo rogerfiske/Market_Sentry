@@ -3777,6 +3777,185 @@ def export_portfolio_review_comparison(
 
 
 @app.command()
+def portfolio_review_trends(
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with review pack CSV exports",
+    ),
+    limit: int = typer.Option(
+        10,
+        "--limit",
+        help="Maximum number of top property changes to display",
+    ),
+) -> None:
+    """Show portfolio review trend analysis.
+
+    Analyzes sequential portfolio review pack CSV exports to show
+    aggregate burden trends and per-property trend changes.
+    This is a read-only analysis. No mutations are performed.
+    """
+    try:
+        from marketsentry.portfolio_review_trends import (
+            build_portfolio_trend_series,
+            build_property_trend_series,
+            load_portfolio_review_pack_series,
+            summarize_portfolio_review_trends,
+        )
+
+        series = load_portfolio_review_pack_series(exports_dir)
+        if not series:
+            console.print(
+                "[yellow]No portfolio review pack CSV files found "
+                f"in {exports_dir}[/yellow]"
+            )
+            raise typer.Exit(code=0)
+
+        portfolio_points = build_portfolio_trend_series(series)
+        property_points = build_property_trend_series(series)
+        summary = summarize_portfolio_review_trends(
+            portfolio_points, property_points
+        )
+
+        console.print(
+            f"\n[bold]Portfolio Review Trends[/bold]"
+        )
+        console.print(f"Pack files analyzed: {summary.pack_count}")
+        console.print(
+            f"Date range: {summary.first_pack_date}"
+            f" to {summary.latest_pack_date}"
+        )
+        console.print(
+            f"Latest aggregate burden: "
+            f"{summary.latest_burden_score} "
+            f"({summary.latest_burden_label})"
+        )
+        console.print(
+            f"Burden trend: {summary.burden_trend_direction}"
+        )
+        console.print(
+            f"Properties tracked: "
+            f"{summary.total_properties_tracked}"
+        )
+        console.print(
+            f"  Improved: {summary.improved_count}"
+            f"  Degraded: {summary.degraded_count}"
+            f"  Stable: {summary.stable_count}"
+            f"  New: {summary.new_count}"
+        )
+
+        # Top property trend changes
+        changed = [
+            pt for pt in property_points
+            if pt.trend_direction in ("improved", "degraded")
+        ]
+        if changed:
+            changed.sort(
+                key=lambda x: (
+                    0 if x.trend_direction == "degraded" else 1
+                )
+            )
+            console.print(
+                f"\n[bold]Top Property Changes "
+                f"(limit {limit}):[/bold]"
+            )
+            for pt in changed[:limit]:
+                console.print(
+                    f"  {pt.address}: {pt.trend_direction}"
+                    f" - {pt.trend_summary[:80]}"
+                )
+
+        console.print(
+            "\nRead-only trend analysis. No mutations performed."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Portfolio review trends error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_portfolio_review_trends(
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with review pack CSV exports",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for trend reports",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export portfolio review trend report.
+
+    Analyzes all portfolio review pack CSV exports and produces
+    trend reports in CSV and/or Markdown format.
+    This is a read-only export. No mutations are performed.
+    """
+    try:
+        from marketsentry.portfolio_review_trends import (
+            export_portfolio_review_trend_report,
+        )
+
+        result = export_portfolio_review_trend_report(
+            exports_dir=exports_dir,
+            output_dir=output_dir,
+            fmt=fmt,
+        )
+
+        if result.warnings:
+            for w in result.warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+            raise typer.Exit(code=0)
+
+        console.print(
+            f"\n[bold]Portfolio Review Trend Report[/bold]"
+        )
+        for p in result.export_paths:
+            console.print(f"  Exported: {p}")
+        console.print(
+            f"Source files: {result.source_file_count}"
+        )
+        console.print(
+            f"Portfolio trend points: "
+            f"{result.portfolio_trend_points}"
+        )
+        console.print(
+            f"Property trend rows: {result.property_trend_rows}"
+        )
+        if result.summary:
+            s = result.summary
+            console.print(
+                f"Latest burden: {s.latest_burden_score} "
+                f"({s.latest_burden_label})"
+            )
+            console.print(
+                f"Burden trend: {s.burden_trend_direction}"
+            )
+        console.print(
+            "\nRead-only trend export. No mutations performed."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export portfolio review trends error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

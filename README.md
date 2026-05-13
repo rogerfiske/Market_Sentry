@@ -6,9 +6,23 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Portfolio Review Pack Comparison (MVP 41)
+## Current Milestone: Portfolio Review Pack Trend Visualization (MVP 42)
 
-This milestone adds historical comparison reports for portfolio review packs.
+This milestone adds portfolio review pack trend visualization and aggregate trend scoring from sequential CSV exports.
+
+- Discover and load all portfolio review pack CSV exports chronologically
+- Portfolio-level trend series: property counts, priority counts, lifecycle health, alert burden, DOM/churn/confidence averages per pack
+- Per-property trend series: first/latest seen, label changes, metric deltas (health score, alerts, DOM v2, churn, confidence), trend direction
+- Aggregate review burden score (0-100): low_burden, moderate_burden, elevated_burden, high_burden
+- Trend directions: improved, degraded, stable, new, insufficient_data
+- Export trend reports to CSV and/or Markdown with portfolio_summary and property_trend row types
+- CLI: `marketsentry portfolio-review-trends`, `marketsentry export-portfolio-review-trends`
+- Dashboard: Portfolio Review Trends subsection with burden metrics, portfolio trend table, property trend table
+- Scheduled script updated: `scripts/run_portfolio_review_pack_report.bat` now runs pack export, comparison, and trends
+- Trends are entirely read-only: no mutations to candidate, watchlist, alert, or property state
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 41: Portfolio Review Pack Comparison
 
 - Compare current review pack CSV to previous review pack CSV
 - Detect per-property changes: added, removed, priority change, lifecycle health change, alert burden change, Effective DOM movement, Churn Index movement, cross-site confidence change
@@ -18,7 +32,6 @@ This milestone adds historical comparison reports for portfolio review packs.
 - Export comparison report to CSV and/or Markdown
 - CLI: `marketsentry compare-portfolio-review-packs`, `marketsentry export-portfolio-review-comparison`
 - Dashboard: Portfolio Review Comparison subsection with change metrics and property changes table
-- Scheduled script updated: `scripts/run_portfolio_review_pack_report.bat` now runs both review pack export and comparison
 - Comparison is entirely read-only: no mutations to candidate, watchlist, alert, or property state
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
@@ -1700,7 +1713,8 @@ Market_Sentry/
     ├── test_milestone_38.py           # Watchlist operations digest tests
     ├── test_milestone_39.py           # Operations digest history tests
     ├── test_milestone_40.py           # Portfolio review pack tests
-    └── test_milestone_41.py           # Portfolio review comparison tests
+    ├── test_milestone_41.py           # Portfolio review comparison tests
+    └── test_milestone_42.py           # Portfolio review trends tests
 ```
 
 ## Running Tests
@@ -1746,11 +1760,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 32: (To Be Determined)
+### MVP 43: (To Be Determined)
 
-Milestones 1-31 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
+Milestones 1-42 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-**Note:** Milestone 31 (Configurable Alert Expiration Rules and Operator Approval Gates) is now complete.
+**Note:** Milestone 42 (Portfolio Review Pack Trend Visualization and Aggregate Trend Scoring) is now complete.
 
 ## Repository
 
@@ -1798,6 +1812,7 @@ MIT
   - [Decision 038: Operations Digest History](docs/decisions/038-operations-digest-history.md)
   - [Decision 039: Portfolio Review Pack](docs/decisions/039-portfolio-review-pack.md)
   - [Decision 040: Portfolio Review Comparison](docs/decisions/040-portfolio-review-comparison.md)
+  - [Decision 041: Portfolio Review Trends](docs/decisions/041-portfolio-review-trends.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

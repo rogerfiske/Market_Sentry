@@ -1979,6 +1979,50 @@ Exports to `data/exports/portfolio_review_comparison_YYYYMMDD_HHMMSS.md` and/or 
 
 Portfolio review comparison is an analytical aid. It does not mutate candidate decisions, watchlist state, alert status, or property data. Quiet Score gatekeeper remains unchanged.
 
+## Portfolio Review Trends (Milestone 42)
+
+### Viewing Trends
+
+```bash
+python -m marketsentry portfolio-review-trends
+python -m marketsentry portfolio-review-trends --exports-dir data/exports --limit 20
+```
+
+Analyzes all portfolio review pack CSV exports in chronological order. Shows aggregate burden score, burden trend direction, and top property trend changes.
+
+### Exporting Trend Report
+
+```bash
+python -m marketsentry export-portfolio-review-trends --format md
+python -m marketsentry export-portfolio-review-trends --format csv
+python -m marketsentry export-portfolio-review-trends --format both
+```
+
+Exports to `data/exports/portfolio_review_trends_YYYYMMDD_HHMMSS.md` and/or `.csv`.
+
+### What Trends Are Tracked
+
+**Portfolio-level (per pack):**
+
+- Property count, priority counts (immediate, high, normal, monitor, low)
+- Quiet gatekeeper fail/missing counts
+- Lifecycle attention required and needs review counts
+- Open alerts and high/critical alert totals
+- Average lifecycle health score, cross-site confidence, churn index, Effective DOM v2
+- Aggregate review burden score (0-100) with labels: low_burden, moderate_burden, elevated_burden, high_burden
+
+**Per-property (across packs):**
+
+- First/latest seen dates, times seen
+- Priority label and lifecycle health label change counts
+- Metric deltas (first to latest): lifecycle health score, open alert count, Effective DOM v2, Churn Index, cross-site confidence
+- Trend direction: improved, degraded, stable, new, insufficient_data
+- Trend summary with neutral wording
+
+### Reminder: Trends Are Read-Only
+
+Portfolio review trends are a local analytical review aid. They do not mutate candidate decisions, watchlist state, alert status, or property data. They do not make purchase recommendations or infer seller intent. Quiet Score gatekeeper remains unchanged.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

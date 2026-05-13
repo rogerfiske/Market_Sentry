@@ -1604,6 +1604,117 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
     except Exception:
         pass
 
+    # --- Portfolio Review Trends subsection ---
+    st.subheader("Portfolio Review Trends")
+    try:
+        from marketsentry.portfolio_review_trends import (
+            build_portfolio_trend_series,
+            build_property_trend_series,
+            load_portfolio_review_pack_series,
+            summarize_portfolio_review_trends,
+        )
+
+        trend_series = load_portfolio_review_pack_series(
+            exports_dir
+        )
+        if trend_series:
+            trend_portfolio = build_portfolio_trend_series(
+                trend_series
+            )
+            trend_property = build_property_trend_series(
+                trend_series
+            )
+            trend_summary = summarize_portfolio_review_trends(
+                trend_portfolio, trend_property
+            )
+
+            st.metric(
+                "Pack Files Found", trend_summary.pack_count
+            )
+            st.caption(
+                f"Date range: {trend_summary.first_pack_date}"
+                f" to {trend_summary.latest_pack_date}"
+            )
+
+            tc1, tc2, tc3 = st.columns(3)
+            with tc1:
+                st.metric(
+                    "Latest Burden Score",
+                    trend_summary.latest_burden_score,
+                )
+            with tc2:
+                st.metric(
+                    "Burden Label",
+                    trend_summary.latest_burden_label,
+                )
+            with tc3:
+                st.metric(
+                    "Burden Trend",
+                    trend_summary.burden_trend_direction,
+                )
+
+            # Portfolio trend table
+            if trend_portfolio:
+                st.caption("Portfolio Trend Over Time")
+                ptable = []
+                for tp in trend_portfolio:
+                    ptable.append({
+                        "Date": tp.captured_at,
+                        "Properties": tp.property_count,
+                        "Immediate": tp.immediate_review_count,
+                        "High": tp.high_review_count,
+                        "Alerts": tp.open_alert_total,
+                        "Burden": tp.aggregate_review_burden_score,
+                        "Label": tp.aggregate_review_status_label,
+                    })
+                st.dataframe(ptable, use_container_width=True)
+
+            # Property trend table
+            if trend_property:
+                st.caption("Property Trends")
+                prtable = []
+                for pp in trend_property[:20]:
+                    prtable.append({
+                        "Address": pp.address,
+                        "Times Seen": pp.times_seen,
+                        "Trend": pp.trend_direction,
+                        "Priority": pp.latest_priority_label,
+                        "Health": pp.latest_lifecycle_health_label,
+                        "Alert Delta": (
+                            pp.open_alert_delta_first_to_latest
+                        ),
+                        "Summary": pp.trend_summary[:60],
+                    })
+                st.dataframe(prtable, use_container_width=True)
+
+            # Latest trend report link
+            from pathlib import Path as _PT
+            trend_p = _PT(exports_dir)
+            if trend_p.is_dir():
+                trend_files = sorted(
+                    [
+                        f for f in trend_p.iterdir()
+                        if f.name.startswith(
+                            "portfolio_review_trends_"
+                        )
+                        and f.name.endswith(".md")
+                    ],
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                if trend_files:
+                    st.caption(
+                        f"Latest trend report: {trend_files[0]}"
+                    )
+        else:
+            st.info(
+                "No portfolio review pack CSV files found for "
+                "trend analysis. "
+                "Run: marketsentry export-portfolio-review-pack"
+            )
+    except Exception:
+        pass
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

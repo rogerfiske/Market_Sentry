@@ -1113,3 +1113,29 @@ The scheduled script `run_portfolio_review_pack_report.bat` now runs both review
 ### Reminder: Comparison Is Read-Only
 
 The comparison report is an analytical aid. It does not change candidate decisions, alert status, watchlist state, property data, or Quiet Score gatekeeper results.
+
+## Portfolio Review Trends (Milestone 42)
+
+### Using Trends for Offline Review
+
+After accumulating multiple review pack CSV exports over time, analyze the full series for trends:
+
+```bash
+marketsentry portfolio-review-trends
+marketsentry export-portfolio-review-trends --format both
+```
+
+The trend report shows:
+
+- Portfolio-level burden over time (aggregate review burden score 0-100)
+- Per-property trend direction: improved, degraded, stable, new, insufficient_data
+- Priority label and lifecycle health label change counts
+- Metric deltas for lifecycle health score, open alerts, Effective DOM v2, Churn Index, and cross-site confidence
+
+Use these trends alongside comparison reports to identify which properties are consistently improving or degrading across multiple review cycles.
+
+The scheduled script `run_portfolio_review_pack_report.bat` now runs pack export, comparison, and trend analysis automatically.
+
+### Reminder: Trends Are Read-Only
+
+The trend report is an analytical aid for offline review. It does not change candidate decisions, alert status, watchlist state, property data, or Quiet Score gatekeeper results.
