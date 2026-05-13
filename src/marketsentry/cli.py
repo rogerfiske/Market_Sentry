@@ -5344,6 +5344,235 @@ def export_portfolio_alert_email_digest(
 
 
 @app.command()
+def local_operations_bundle(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Path to exports directory",
+    ),
+) -> None:
+    """Show local operations bundle summary.
+
+    Builds a command inventory, report inventory, script safety
+    inventory, config inventory, safety audit, schema inventory,
+    and smoke test summary. Read-only; no mutations, no outbound
+    notifications.
+    """
+    try:
+        from marketsentry.local_operations_bundle import (
+            build_local_operations_bundle,
+        )
+
+        bundle = build_local_operations_bundle(
+            db_path=db,
+            exports_dir=exports_dir,
+        )
+        s = bundle.summary
+
+        console.print(
+            "\n[bold]Local Operations Bundle Summary"
+            "[/bold]"
+        )
+        console.print(f"Generated: {s.generated_at}")
+        console.print(f"Commands: {s.command_count}")
+        console.print(
+            f"Report groups with files: "
+            f"{s.report_group_count}"
+        )
+        console.print(
+            f"Safety audit: {s.safety_audit_pass} pass, "
+            f"{s.safety_audit_warn} warn, "
+            f"{s.safety_audit_fail} fail"
+        )
+        console.print(
+            f"Scripts: {s.script_safe_count} safe, "
+            f"{s.script_review_count} review, "
+            f"{s.script_unsafe_count} unsafe"
+        )
+        console.print(
+            f"Configs: {s.config_valid_count} present, "
+            f"{s.config_missing_count} missing"
+        )
+        console.print(
+            f"Database tables: {s.table_count}"
+        )
+        console.print(
+            f"Smoke tests: {s.smoke_test_pass} pass, "
+            f"{s.smoke_test_warn} warn, "
+            f"{s.smoke_test_fail} fail"
+        )
+        console.print(
+            "\n[bold yellow]No mutations performed."
+            "[/bold yellow] "
+            "Read-only bundle summary. "
+            "No outbound notifications."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Local operations bundle error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_local_operations_bundle(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Path to exports directory",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for bundle reports",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export local operations bundle to CSV and/or Markdown.
+
+    Builds a complete operations bundle and exports to local
+    files. Read-only; no mutations, no outbound notifications.
+    """
+    try:
+        from marketsentry.local_operations_bundle import (
+            build_local_operations_bundle,
+            export_local_operations_bundle as _export,
+        )
+
+        bundle = build_local_operations_bundle(
+            db_path=db,
+            exports_dir=exports_dir,
+        )
+        result = _export(
+            bundle, output_dir=output_dir, fmt=fmt
+        )
+
+        console.print(
+            "\n[bold]Local Operations Bundle Export"
+            "[/bold]"
+        )
+
+        for p in result.output_paths:
+            console.print(f"  Exported: {p}")
+
+        s = result.summary
+        console.print(
+            f"Commands: {s.command_count}  "
+            f"Reports: {s.report_group_count}  "
+            f"Scripts: {s.script_safe_count} safe"
+        )
+        console.print(
+            f"Safety audit: {s.safety_audit_pass} pass, "
+            f"{s.safety_audit_warn} warn, "
+            f"{s.safety_audit_fail} fail"
+        )
+        console.print(
+            "\n[bold yellow]No mutations performed."
+            "[/bold yellow] "
+            "Local file export only. "
+            "No outbound notifications."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export local operations bundle error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def local_operations_smoke_test(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    temp_db: bool = typer.Option(
+        True,
+        "--temp-db/--no-temp-db",
+        help="Use a temporary database for smoke test",
+    ),
+) -> None:
+    """Run local read-only smoke test.
+
+    Verifies package imports, config loads, database init,
+    dashboard import, key module imports, and export directory
+    existence. Does not invoke live retrieval or send outbound
+    notifications.
+    """
+    try:
+        from marketsentry.local_operations_bundle import (
+            run_local_smoke_test,
+        )
+
+        checks = run_local_smoke_test(
+            db_path=db, use_temp_db=temp_db
+        )
+
+        console.print(
+            "\n[bold]Local Operations Smoke Test[/bold]"
+        )
+
+        pass_count = 0
+        warn_count = 0
+        fail_count = 0
+
+        for chk in checks:
+            if chk.status == "pass":
+                icon = "[green]PASS[/green]"
+                pass_count += 1
+            elif chk.status == "warning":
+                icon = "[yellow]WARN[/yellow]"
+                warn_count += 1
+            else:
+                icon = "[red]FAIL[/red]"
+                fail_count += 1
+            console.print(
+                f"  {icon}  {chk.check_name}: {chk.detail}"
+            )
+
+        console.print(
+            f"\nResults: {pass_count} pass, "
+            f"{warn_count} warn, {fail_count} fail"
+        )
+        console.print(
+            "\n[bold yellow]No live retrieval invoked."
+            "[/bold yellow] "
+            "No outbound notifications sent."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Local operations smoke test error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

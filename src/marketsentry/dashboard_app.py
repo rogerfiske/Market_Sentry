@@ -2272,6 +2272,123 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
     except Exception:
         pass
 
+    # --- Local Operations Bundle subsection (M48) ---
+    try:
+        from marketsentry.local_operations_bundle import (
+            build_local_operations_bundle,
+        )
+
+        st.subheader("Local Operations Bundle")
+
+        bundle = build_local_operations_bundle(
+            db_path=db_path,
+            exports_dir=exports_dir,
+        )
+        s = bundle.summary
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Commands", s.command_count)
+        col2.metric("Report Groups", s.report_group_count)
+        col3.metric("DB Tables", s.table_count)
+
+        col4, col5, col6 = st.columns(3)
+        col4.metric("Safety Pass", s.safety_audit_pass)
+        col5.metric("Safety Warn", s.safety_audit_warn)
+        col6.metric("Safety Fail", s.safety_audit_fail)
+
+        # Safety audit table
+        if bundle.safety_checks:
+            with st.expander("Safety Audit Details"):
+                sa_rows = [
+                    {
+                        "Check": c.check_name,
+                        "Status": c.status,
+                        "Detail": c.detail,
+                        "Action": (
+                            c.recommended_local_action or "-"
+                        ),
+                    }
+                    for c in bundle.safety_checks
+                ]
+                st.table(sa_rows)
+
+        # Report freshness table
+        if bundle.reports:
+            with st.expander("Report Freshness"):
+                rf_rows = [
+                    {
+                        "Report": r.report_type,
+                        "Freshness": r.freshness,
+                        "Files": r.file_count,
+                        "Latest": (
+                            r.latest_modified or "-"
+                        ),
+                    }
+                    for r in bundle.reports
+                ]
+                st.table(rf_rows)
+
+        # Script safety table
+        if bundle.scripts:
+            with st.expander("Scheduled Script Safety"):
+                ss_rows = [
+                    {
+                        "Script": sc.script_path,
+                        "Status": sc.safe_status,
+                        "Live": (
+                            "Yes"
+                            if sc.contains_live_retrieval_command
+                            else "No"
+                        ),
+                        "Mutation": (
+                            "Yes"
+                            if sc.contains_mutation_command
+                            else "No"
+                        ),
+                    }
+                    for sc in bundle.scripts
+                ]
+                st.table(ss_rows)
+
+        # Config inventory table
+        if bundle.configs:
+            with st.expander("Configuration Inventory"):
+                ci_rows = [
+                    {
+                        "Config": cf.config_path,
+                        "Exists": (
+                            "Yes" if cf.exists else "No"
+                        ),
+                        "Status": cf.validation_status,
+                    }
+                    for cf in bundle.configs
+                ]
+                st.table(ci_rows)
+
+        # Latest bundle report link
+        from pathlib import Path as _P
+
+        bundle_files = sorted(
+            _P(exports_dir).glob(
+                "local_operations_bundle_*.*"
+            ),
+            key=lambda p: p.stat().st_mtime
+            if p.exists()
+            else 0,
+            reverse=True,
+        )
+        if bundle_files:
+            st.info(
+                f"Latest bundle report: {bundle_files[0]}"
+            )
+
+        st.caption(
+            "Read-only operations bundle. "
+            "No mutations. No outbound notifications."
+        )
+    except Exception:
+        pass
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

@@ -2257,6 +2257,58 @@ The email digest draft is a local file export. It does not send email, connect t
 
 See `docs/PORTFOLIO_ALERT_EMAIL_DIGEST.md` for full documentation.
 
+## Local Operations Bundle (Milestone 48)
+
+The local operations bundle aggregates command inventory, report freshness, script safety, config validation, safety audit, schema inventory, and smoke test results into a single release-candidate summary.
+
+### Preview Bundle Summary
+
+```bash
+# Show bundle summary in terminal
+marketsentry local-operations-bundle
+
+# With custom database path
+marketsentry local-operations-bundle --db data/market_sentry.db
+```
+
+### Export Bundle Reports
+
+```bash
+# Export Markdown and CSV bundle reports
+marketsentry export-local-operations-bundle --format both
+
+# Export to custom directory
+marketsentry export-local-operations-bundle --output-dir reports/bundles --format both
+```
+
+### Run Smoke Test
+
+```bash
+# Run local smoke test with temporary database
+marketsentry local-operations-smoke-test
+
+# Run smoke test against existing database
+marketsentry local-operations-smoke-test --no-temp-db --db data/market_sentry.db
+```
+
+### Bundle Contents
+
+The bundle report includes:
+
+- **Command Inventory**: All CLI commands with category, purpose, mutation flags, and scheduler safety
+- **Report Inventory**: All report groups in data/exports/ with file counts, row counts, and freshness labels
+- **Script Safety Inventory**: All scheduled scripts with live retrieval, mutation, and notification detection
+- **Config Inventory**: Template and local config files with validation status
+- **Safety Audit**: Static checks for browser automation, outbound notifications, walkability, Quiet Score modifications, and network imports
+- **Schema Inventory**: Database table counts, column counts, and index counts
+- **Smoke Test**: Package import, config load, database init, module imports, and export directory checks
+
+### Reminder: Operations Bundle Is Read-Only
+
+The operations bundle is a local audit/reporting tool. It does not mutate candidate, watchlist, or alert state. It does not send outbound notifications or perform live retrieval.
+
+See `docs/LOCAL_OPERATIONS_BUNDLE.md` for full documentation.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

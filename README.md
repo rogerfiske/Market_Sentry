@@ -1821,13 +1821,28 @@ mypy src/
 - No SMTP, Gmail, Outlook, webhooks, SMS, or outbound notifications
 - No credentials stored or requested
 
+### MVP 48: Local Operations Bundle and Release Candidate Hardening
+
+- Command inventory with 45+ CLI commands categorized by purpose and safety flags
+- Report inventory scanning data/exports/ for 20 report groups with freshness labels
+- Scheduled script safety inventory with live retrieval, mutation, and notification detection
+- Configuration inventory for templates and local config files
+- Local safety audit with 7 static checks (browser automation, notifications, walkability, etc.)
+- Database schema inventory via SQLite introspection
+- Local smoke test verifying imports, config, DB init, and export directories
+- Markdown and CSV bundle export
+- 3 new CLI commands: local-operations-bundle, export-local-operations-bundle, local-operations-smoke-test
+- Dashboard Local Operations Bundle subsection
+- Dedicated scheduled script: run_local_operations_bundle_report.bat
+- Read-only audit module; no mutations, no outbound notifications
+
 ## Next Planned Milestone
 
-### MVP 48: (To Be Determined)
+### MVP 49: (To Be Determined)
 
-Milestones 1-47 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
+Milestones 1-48 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-**Note:** Milestone 47 (Local Email Digest Draft Export for Portfolio Focus Alerts) is now complete.
+**Note:** Milestone 48 (Local Operations Bundle and Release Candidate Hardening) is now complete.
 
 ## Repository
 

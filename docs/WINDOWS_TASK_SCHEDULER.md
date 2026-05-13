@@ -34,6 +34,7 @@ All scripts are located in the `scripts/` directory:
 | `run_lifecycle_health_report.bat` | Run lifecycle health report, snapshot, and trend report |
 | `run_operations_digest_report.bat` | Run operations digest export, snapshot, and comparison report |
 | `run_portfolio_review_pack_report.bat` | Run portfolio review pack export, comparison, trend, alert digest, alert persistence, run comparison, focus digest, and email digest draft report |
+| `run_local_operations_bundle_report.bat` | Run local operations bundle export with command, report, script, config, safety, and smoke test inventory |
 | `run_marketsentry_task.ps1` | Generic PowerShell wrapper for any command |
 | `install_task_scheduler_watchlist_refresh.ps1` | Install weekly scheduled task |
 | `uninstall_task_scheduler_watchlist_refresh.ps1` | Remove scheduled task |

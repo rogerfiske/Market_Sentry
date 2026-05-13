@@ -1249,3 +1249,20 @@ marketsentry export-portfolio-alert-email-digest --format both --include-eml
 ```
 
 The email digest draft is a local file only. No email is sent. To share the content, manually copy/paste from the exported file into your preferred email client. No credentials are stored or required.
+
+### Local Operations Bundle (Milestone 48)
+
+Before starting the weekly review cycle, operators can run the local operations bundle to verify system readiness:
+
+```bash
+# Show operations bundle summary
+marketsentry local-operations-bundle
+
+# Export full bundle report
+marketsentry export-local-operations-bundle --format both
+
+# Run smoke test
+marketsentry local-operations-smoke-test
+```
+
+The bundle checks command inventory, report freshness, script safety, config validation, and runs a lightweight smoke test. It is read-only and does not mutate any state.
