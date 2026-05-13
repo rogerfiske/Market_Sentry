@@ -3956,6 +3956,177 @@ def export_portfolio_review_trends(
 
 
 @app.command()
+def portfolio_trend_alerts(
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with review pack CSV exports",
+    ),
+    limit: int = typer.Option(
+        20,
+        "--limit",
+        help="Maximum number of alerts to display",
+    ),
+) -> None:
+    """Show portfolio trend threshold alerts.
+
+    Evaluates trend data from portfolio review pack CSV exports
+    against threshold rules and shows triggered alerts.
+    This is a read-only analysis. No mutations are performed.
+    No outbound notifications are sent.
+    """
+    try:
+        from marketsentry.portfolio_trend_alerts import (
+            evaluate_portfolio_trend_alerts,
+        )
+
+        digest = evaluate_portfolio_trend_alerts(exports_dir)
+        s = digest.summary
+
+        console.print(
+            f"\n[bold]Portfolio Trend Alerts[/bold]"
+        )
+        console.print(
+            f"Pack files analyzed: {s.pack_count}"
+        )
+        if s.pack_count:
+            console.print(
+                f"Date range: {s.first_pack_date}"
+                f" to {s.latest_pack_date}"
+            )
+        console.print(
+            f"Total alerts: {s.total_alerts}"
+        )
+        console.print(
+            f"  High: {s.high_count}"
+            f"  Warning: {s.warning_count}"
+            f"  Info: {s.info_count}"
+        )
+
+        if digest.alerts:
+            console.print(
+                f"\n[bold]Top Alerts "
+                f"(limit {limit}):[/bold]"
+            )
+            # Sort: high first, then warning, then info
+            severity_order = {
+                "high": 0, "warning": 1, "info": 2
+            }
+            sorted_alerts = sorted(
+                digest.alerts,
+                key=lambda a: severity_order.get(
+                    a.severity, 3
+                ),
+            )
+            for a in sorted_alerts[:limit]:
+                tag = a.severity.upper()
+                console.print(
+                    f"  [{tag}] {a.message[:80]}"
+                )
+            # Recommended actions
+            actionable = [
+                a for a in sorted_alerts
+                if a.recommended_local_action
+                and a.severity in ("warning", "high")
+            ]
+            if actionable:
+                console.print(
+                    f"\n[bold]Recommended Local "
+                    f"Actions:[/bold]"
+                )
+                for a in actionable[:10]:
+                    prefix = (
+                        a.address if a.address
+                        else "Portfolio"
+                    )
+                    console.print(
+                        f"  {prefix}: "
+                        f"{a.recommended_local_action}"
+                    )
+
+        console.print(
+            "\nRead-only alert analysis. "
+            "No mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Portfolio trend alerts error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_portfolio_trend_alert_digest(
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with review pack CSV exports",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for alert digest",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export portfolio trend alert digest.
+
+    Evaluates all trend alert rules and exports a digest
+    in CSV and/or Markdown format.
+    This is a read-only export. No mutations are performed.
+    No outbound notifications are sent.
+    """
+    try:
+        from marketsentry.portfolio_trend_alerts import (
+            export_portfolio_trend_alert_digest as _export,
+        )
+
+        result = _export(
+            exports_dir=exports_dir,
+            output_dir=output_dir,
+            fmt=fmt,
+        )
+
+        if result.warnings:
+            for w in result.warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+
+        console.print(
+            f"\n[bold]Portfolio Trend Alert Digest[/bold]"
+        )
+        for p in result.export_paths:
+            console.print(f"  Exported: {p}")
+        console.print(
+            f"Alert count: {result.alert_count}"
+        )
+        if result.summary:
+            console.print(
+                f"  High: {result.summary.high_count}"
+                f"  Warning: {result.summary.warning_count}"
+                f"  Info: {result.summary.info_count}"
+            )
+        console.print(
+            "\nRead-only alert digest export. "
+            "No mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export portfolio trend alert digest error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

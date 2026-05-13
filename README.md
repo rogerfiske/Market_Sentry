@@ -6,9 +6,29 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Portfolio Review Pack Trend Visualization (MVP 42)
+## Current Milestone: Portfolio Trend Threshold Alerts (MVP 43)
 
-This milestone adds portfolio review pack trend visualization and aggregate trend scoring from sequential CSV exports.
+This milestone adds portfolio trend threshold alerts and a local notification-style digest.
+
+- Aggregate review burden threshold alerts (score >= 60 warning, >= 80 high)
+- Aggregate burden increase alerts (delta >= 15)
+- Burden label worsening alerts (to elevated_burden or high_burden)
+- Degraded property trend alerts
+- Rising immediate/high review backlog alerts
+- Rising high/critical alert burden alerts
+- Rising lifecycle attention/needs_review burden alerts
+- Worsening cross-site confidence trend alerts
+- High churn trend alerts
+- Lifecycle health score drop and label worsening alerts
+- Open alert count increase and Effective DOM v2 increase alerts
+- Local notification-style Markdown and CSV digest export
+- CLI: `marketsentry portfolio-trend-alerts`, `marketsentry export-portfolio-trend-alert-digest`
+- Dashboard: Portfolio Trend Alerts subsection with severity counts, aggregate alerts table, property alerts table
+- Scheduled script updated: `scripts/run_portfolio_review_pack_report.bat` now runs pack, comparison, trends, and alert digest
+- Trend alerts are entirely read-only: no mutations to candidate, watchlist, alert, or property state
+- No outbound notifications sent. No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 42: Portfolio Review Pack Trend Visualization
 
 - Discover and load all portfolio review pack CSV exports chronologically
 - Portfolio-level trend series: property counts, priority counts, lifecycle health, alert burden, DOM/churn/confidence averages per pack
@@ -18,7 +38,6 @@ This milestone adds portfolio review pack trend visualization and aggregate tren
 - Export trend reports to CSV and/or Markdown with portfolio_summary and property_trend row types
 - CLI: `marketsentry portfolio-review-trends`, `marketsentry export-portfolio-review-trends`
 - Dashboard: Portfolio Review Trends subsection with burden metrics, portfolio trend table, property trend table
-- Scheduled script updated: `scripts/run_portfolio_review_pack_report.bat` now runs pack export, comparison, and trends
 - Trends are entirely read-only: no mutations to candidate, watchlist, alert, or property state
 - No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
 
@@ -1714,7 +1733,8 @@ Market_Sentry/
     ├── test_milestone_39.py           # Operations digest history tests
     ├── test_milestone_40.py           # Portfolio review pack tests
     ├── test_milestone_41.py           # Portfolio review comparison tests
-    └── test_milestone_42.py           # Portfolio review trends tests
+    ├── test_milestone_42.py           # Portfolio review trends tests
+    └── test_milestone_43.py           # Portfolio trend alerts tests
 ```
 
 ## Running Tests
@@ -1760,11 +1780,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 43: (To Be Determined)
+### MVP 44: (To Be Determined)
 
-Milestones 1-42 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
+Milestones 1-43 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-**Note:** Milestone 42 (Portfolio Review Pack Trend Visualization and Aggregate Trend Scoring) is now complete.
+**Note:** Milestone 43 (Portfolio Trend Threshold Alerts and Local Notification Digest) is now complete.
 
 ## Repository
 
@@ -1813,6 +1833,7 @@ MIT
   - [Decision 039: Portfolio Review Pack](docs/decisions/039-portfolio-review-pack.md)
   - [Decision 040: Portfolio Review Comparison](docs/decisions/040-portfolio-review-comparison.md)
   - [Decision 041: Portfolio Review Trends](docs/decisions/041-portfolio-review-trends.md)
+  - [Decision 042: Portfolio Trend Alerts](docs/decisions/042-portfolio-trend-alerts.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

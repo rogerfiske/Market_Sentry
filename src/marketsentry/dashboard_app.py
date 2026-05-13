@@ -1715,6 +1715,102 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
     except Exception:
         pass
 
+    # --- Portfolio Trend Alerts subsection ---
+    st.subheader("Portfolio Trend Alerts")
+    try:
+        from marketsentry.portfolio_trend_alerts import (
+            evaluate_portfolio_trend_alerts,
+        )
+
+        alert_digest = evaluate_portfolio_trend_alerts(
+            exports_dir
+        )
+        a_summary = alert_digest.summary
+
+        ac1, ac2, ac3, ac4 = st.columns(4)
+        with ac1:
+            st.metric("Total Alerts", a_summary.total_alerts)
+        with ac2:
+            st.metric("High", a_summary.high_count)
+        with ac3:
+            st.metric("Warning", a_summary.warning_count)
+        with ac4:
+            st.metric("Info", a_summary.info_count)
+
+        if a_summary.pack_count:
+            st.caption(
+                f"Source packs: {a_summary.pack_count} "
+                f"({a_summary.first_pack_date}"
+                f" to {a_summary.latest_pack_date})"
+            )
+
+        # Top aggregate alerts
+        agg_alerts = [
+            a for a in alert_digest.alerts
+            if a.alert_scope == "portfolio"
+        ]
+        if agg_alerts:
+            st.caption("Aggregate Portfolio Alerts")
+            agg_data = []
+            for a in agg_alerts[:10]:
+                agg_data.append({
+                    "Severity": a.severity,
+                    "Type": a.alert_type,
+                    "Message": a.message[:80],
+                    "Action": (
+                        a.recommended_local_action[:50]
+                    ),
+                })
+            st.dataframe(agg_data, use_container_width=True)
+
+        # Top property alerts
+        prop_alerts = [
+            a for a in alert_digest.alerts
+            if a.alert_scope == "property"
+        ]
+        if prop_alerts:
+            st.caption("Property Trend Alerts")
+            severity_order = {
+                "high": 0, "warning": 1, "info": 2,
+            }
+            prop_sorted = sorted(
+                prop_alerts,
+                key=lambda a: severity_order.get(
+                    a.severity, 3
+                ),
+            )
+            prop_data = []
+            for a in prop_sorted[:20]:
+                prop_data.append({
+                    "Severity": a.severity,
+                    "Address": a.address,
+                    "Type": a.alert_type,
+                    "Message": a.message[:60],
+                })
+            st.dataframe(prop_data, use_container_width=True)
+
+        # Latest alert digest link
+        from pathlib import Path as _PA
+        alert_p = _PA(exports_dir)
+        if alert_p.is_dir():
+            alert_files = sorted(
+                [
+                    f for f in alert_p.iterdir()
+                    if f.name.startswith(
+                        "portfolio_trend_alert_digest_"
+                    )
+                    and f.name.endswith(".md")
+                ],
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if alert_files:
+                st.caption(
+                    f"Latest alert digest: {alert_files[0]}"
+                )
+    except Exception:
+        pass
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

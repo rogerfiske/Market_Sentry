@@ -1139,3 +1139,29 @@ The scheduled script `run_portfolio_review_pack_report.bat` now runs pack export
 ### Reminder: Trends Are Read-Only
 
 The trend report is an analytical aid for offline review. It does not change candidate decisions, alert status, watchlist state, property data, or Quiet Score gatekeeper results.
+
+## Portfolio Trend Alerts (Milestone 43)
+
+### Using Trend Alert Digest for Offline Review
+
+After generating trend reports, the alert digest highlights properties and portfolio metrics that crossed threshold rules:
+
+```bash
+marketsentry portfolio-trend-alerts
+marketsentry export-portfolio-trend-alert-digest --format both
+```
+
+The alert digest flags:
+
+- Aggregate burden score crossing warning (60) or high (80) thresholds
+- Burden increases, label worsening, and backlog growth
+- Individual property degradation, health score drops, alert increases, confidence drops, churn increases, and DOM v2 increases
+- Severity levels: info, warning, high
+
+Use the alert digest alongside trend and comparison reports to prioritize which properties need immediate review attention.
+
+The scheduled script `run_portfolio_review_pack_report.bat` now runs pack export, comparison, trend analysis, and alert digest automatically.
+
+### Reminder: Trend Alerts Are Read-Only
+
+The alert digest is a local analytical aid for offline review. It does not change candidate decisions, alert status, watchlist state, property data, or Quiet Score gatekeeper results. No outbound notifications are sent.

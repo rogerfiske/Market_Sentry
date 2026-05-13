@@ -2023,6 +2023,56 @@ Exports to `data/exports/portfolio_review_trends_YYYYMMDD_HHMMSS.md` and/or `.cs
 
 Portfolio review trends are a local analytical review aid. They do not mutate candidate decisions, watchlist state, alert status, or property data. They do not make purchase recommendations or infer seller intent. Quiet Score gatekeeper remains unchanged.
 
+## Portfolio Trend Alerts (Milestone 43)
+
+### Viewing Trend Alerts
+
+```bash
+python -m marketsentry portfolio-trend-alerts
+python -m marketsentry portfolio-trend-alerts --exports-dir data/exports --limit 20
+```
+
+Evaluates portfolio trend data against threshold rules and shows triggered alerts with severity levels (info, warning, high).
+
+### Exporting Alert Digest
+
+```bash
+python -m marketsentry export-portfolio-trend-alert-digest --format md
+python -m marketsentry export-portfolio-trend-alert-digest --format csv
+python -m marketsentry export-portfolio-trend-alert-digest --format both
+```
+
+Exports to `data/exports/portfolio_trend_alert_digest_YYYYMMDD_HHMMSS.md` and/or `.csv`.
+
+### Default Alert Rules
+
+**Aggregate portfolio alerts:**
+
+- Burden score >= 80: high severity
+- Burden score >= 60: warning severity
+- Burden increase >= 15 from previous pack: warning
+- Burden label changed to elevated_burden or high_burden: warning/high
+- Immediate review count increased: warning
+- High review count increased by >= 2: warning
+- High/critical alert total increased: high
+- Lifecycle attention/needs_review count increased by >= 2: warning
+- Avg cross-site confidence dropped >= 15: warning
+- High churn property count increased by >= 2: warning
+
+**Property-level alerts:**
+
+- Property trend direction is degraded: warning
+- Lifecycle health score decreased by >= 15: warning
+- Lifecycle health label is needs_review or attention_required (with change): high
+- Open alert count increased by >= 2: warning
+- Cross-site confidence decreased by >= 15: warning
+- Churn Index increased by >= 1.5: warning
+- Effective DOM v2 increased by >= 30 days: info
+
+### Reminder: Trend Alerts Are Read-Only
+
+Portfolio trend alerts are local review prompts only. They do not mutate candidate decisions, watchlist state, alert status, or property data. No outbound notifications (email, SMS, webhook) are sent. Quiet Score gatekeeper remains unchanged.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.
