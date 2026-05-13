@@ -5154,6 +5154,195 @@ def validate_portfolio_alert_focus_config(
         raise typer.Exit(code=1)
 
 
+# -----------------------------------------------------------------------
+# Milestone 47 - Local Email Digest Draft Export
+# -----------------------------------------------------------------------
+
+
+@app.command()
+def portfolio_alert_email_digest(
+    preference_config: Optional[str] = typer.Option(
+        None,
+        "--preference-config",
+        help="Path to highlight preferences JSON config",
+    ),
+    limit: int = typer.Option(
+        25, "--limit", help="Maximum focus items to include"
+    ),
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with export files",
+    ),
+) -> None:
+    """Preview a local email digest draft for portfolio alerts.
+
+    Builds a local email-style digest from focus alert items.
+    Shows subject line, severity counts, and body preview.
+
+    Does NOT send email. Local draft only. No outbound
+    notifications sent.
+    """
+    try:
+        from marketsentry.portfolio_alert_email_digest import (
+            build_portfolio_alert_email_digest,
+            summarize_portfolio_alert_email_digest,
+        )
+
+        db_path = db if Path(db).is_file() else None
+        draft = build_portfolio_alert_email_digest(
+            preference_config=preference_config,
+            db_path=db_path,
+            exports_dir=exports_dir,
+            limit=limit,
+        )
+        summary = summarize_portfolio_alert_email_digest(draft)
+
+        console.print(
+            f"\n[bold]Portfolio Alert Email Digest "
+            f"Draft[/bold]"
+        )
+        console.print(f"Subject: {draft.subject}")
+        console.print(f"Profile: {draft.focus_profile}")
+        console.print(
+            f"Focus items: {summary.focus_item_count}"
+        )
+        console.print(
+            f"  High: {summary.high_count}  "
+            f"Warning: {summary.warning_count}  "
+            f"Info: {summary.info_count}"
+        )
+        console.print(
+            f"Sections: {summary.section_count}"
+        )
+        console.print(
+            f"Status: {summary.sent_status}"
+        )
+
+        # Show preview of first few lines
+        preview_lines = draft.plain_text_body.split("\n")[:8]
+        console.print(
+            f"\n[bold]Body Preview[/bold]"
+        )
+        for line in preview_lines:
+            console.print(f"  {line}")
+        if len(draft.plain_text_body.split("\n")) > 8:
+            console.print("  ...")
+
+        console.print(
+            "\n[bold yellow]No email sent.[/bold yellow] "
+            "This is a local draft only. "
+            "No outbound notifications."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Portfolio alert email digest error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_portfolio_alert_email_digest(
+    preference_config: Optional[str] = typer.Option(
+        None,
+        "--preference-config",
+        help="Path to highlight preferences JSON config",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for digest files",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: txt, md, both, or all",
+    ),
+    include_eml: bool = typer.Option(
+        False,
+        "--include-eml",
+        help="Include .eml draft file",
+    ),
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with export files",
+    ),
+) -> None:
+    """Export a local email digest draft to files.
+
+    Exports plain-text and/or Markdown email digest draft
+    files. Optionally includes a .eml file.
+
+    Does NOT send email. Local file export only.
+    No outbound notifications sent.
+    """
+    try:
+        from marketsentry.portfolio_alert_email_digest import (
+            export_portfolio_alert_email_digest as _export,
+        )
+
+        db_path = db if Path(db).is_file() else None
+        result = _export(
+            preference_config=preference_config,
+            db_path=db_path,
+            exports_dir=exports_dir,
+            output_dir=output_dir,
+            fmt=fmt,
+            include_eml=include_eml,
+        )
+
+        console.print(
+            f"\n[bold]Portfolio Alert Email Digest "
+            f"Draft Export[/bold]"
+        )
+        console.print(f"Subject: {result.subject}")
+        console.print(
+            f"Focus items: {result.focus_item_count}"
+        )
+        console.print(
+            f"  High: {result.high_count}  "
+            f"Warning: {result.warning_count}  "
+            f"Info: {result.info_count}"
+        )
+
+        for p in result.output_paths:
+            console.print(f"  Exported: {p}")
+
+        console.print(
+            f"Status: {result.sent_status}"
+        )
+
+        console.print(
+            "\n[bold yellow]No email sent.[/bold yellow] "
+            "Local file export only. "
+            "No outbound notifications."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export portfolio alert email digest error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(

@@ -1806,13 +1806,28 @@ mypy src/
 - Scheduled script updated with focus digest export
 - Focus preferences are display-only and do not mutate candidate/watchlist/alert state
 
+### MVP 47: Local Email Digest Draft Export for Portfolio Focus Alerts
+
+- Local email-style digest draft from focus alert items (no email sent)
+- 5 models: PortfolioAlertEmailDigestDraft, PortfolioAlertEmailDigestSection, PortfolioAlertEmailDigestExportResult, PortfolioAlertEmailDigestSummary, PortfolioAlertEmailDigestRunResult
+- 6 functions: build_digest/build_subject/build_plain_text/build_markdown/export/summarize
+- Subject line suggestion, plain-text body, Markdown body
+- Optional .eml file generation (Python standard library only, no sending)
+- Safety note and manual copy/paste instructions in every draft
+- sent_status always "not_sent"
+- 2 new CLI commands: portfolio-alert-email-digest, export-portfolio-alert-email-digest
+- Dashboard Portfolio Alert Email Draft subsection
+- Scheduled script updated with email digest export
+- No SMTP, Gmail, Outlook, webhooks, SMS, or outbound notifications
+- No credentials stored or requested
+
 ## Next Planned Milestone
 
-### MVP 47: (To Be Determined)
+### MVP 48: (To Be Determined)
 
-Milestones 1-46 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
+Milestones 1-47 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-**Note:** Milestone 46 (Local Alert Highlight Preferences and Dashboard Focus Views) is now complete.
+**Note:** Milestone 47 (Local Email Digest Draft Export for Portfolio Focus Alerts) is now complete.
 
 ## Repository
 

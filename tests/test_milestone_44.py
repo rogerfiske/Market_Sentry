@@ -1225,7 +1225,14 @@ class TestScheduledScriptSafety:
             line for line in content.splitlines()
             if not line.strip().startswith("REM")
         ]
-        text = "\n".join(lines)
+        # Exclude known safe local-only email digest export command
+        # (M47 adds export-portfolio-alert-email-digest which is
+        # a local file export, not an outbound notification)
+        filtered = [
+            line for line in lines
+            if "export-portfolio-alert-email-digest" not in line
+        ]
+        text = "\n".join(filtered)
         assert "email" not in text.lower()
         assert "sms" not in text.lower()
         assert "webhook" not in text.lower()

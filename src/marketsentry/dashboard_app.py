@@ -2194,6 +2194,84 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
     except Exception:
         pass
 
+    # --- Portfolio Alert Email Draft subsection (M47) ---
+    st.subheader("Portfolio Alert Email Draft")
+    try:
+        from marketsentry.portfolio_alert_email_digest import (
+            build_portfolio_alert_email_digest,
+            summarize_portfolio_alert_email_digest,
+        )
+
+        _db_for_email = db_path if db_path else None
+        draft = build_portfolio_alert_email_digest(
+            db_path=_db_for_email,
+            exports_dir=exports_dir,
+        )
+        email_summary = summarize_portfolio_alert_email_digest(
+            draft
+        )
+
+        st.write(f"**Subject:** {draft.subject}")
+        st.write(f"**Focus profile:** {draft.focus_profile}")
+        st.write(
+            f"**Status:** {email_summary.sent_status} "
+            f"(local draft only)"
+        )
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(
+                "Focus Items",
+                email_summary.focus_item_count,
+            )
+        with col2:
+            st.metric("High", email_summary.high_count)
+        with col3:
+            st.metric("Warning", email_summary.warning_count)
+
+        # Preview body
+        if draft.plain_text_body:
+            preview = "\n".join(
+                draft.plain_text_body.split("\n")[:12]
+            )
+            with st.expander("Body Preview"):
+                st.text(preview)
+                if len(
+                    draft.plain_text_body.split("\n")
+                ) > 12:
+                    st.caption("(truncated)")
+
+        # Latest email draft export path
+        from pathlib import Path as _PE
+        email_p = _PE(exports_dir)
+        if email_p.is_dir():
+            email_files = sorted(
+                [
+                    f for f in email_p.iterdir()
+                    if f.name.startswith(
+                        "portfolio_alert_email_digest_"
+                    )
+                    and (
+                        f.name.endswith(".md")
+                        or f.name.endswith(".txt")
+                    )
+                ],
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if email_files:
+                st.caption(
+                    f"Latest email draft: "
+                    f"{email_files[0]}"
+                )
+
+        st.warning(
+            "Local draft only. No email has been sent. "
+            "No outbound notifications."
+        )
+    except Exception:
+        pass
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

@@ -1232,3 +1232,20 @@ marketsentry export-portfolio-alert-focus-digest --format both
 ```
 
 Focus preferences are display-only. They do not change alert evaluation, history, or candidate/watchlist/alert state. No outbound notifications are sent.
+
+### Local Email Digest Draft (Milestone 47)
+
+After reviewing focus alerts, operators can generate a local email-style draft for manual review and sharing:
+
+```bash
+# Preview the email digest draft
+marketsentry portfolio-alert-email-digest
+
+# Export draft files (plain-text and Markdown)
+marketsentry export-portfolio-alert-email-digest --format both
+
+# Export with optional .eml file
+marketsentry export-portfolio-alert-email-digest --format both --include-eml
+```
+
+The email digest draft is a local file only. No email is sent. To share the content, manually copy/paste from the exported file into your preferred email client. No credentials are stored or required.

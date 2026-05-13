@@ -159,3 +159,7 @@ Focus items are built from:
 - No walkability fields are referenced
 - No browser automation is used
 - Invalid configs do not break default commands unless explicitly supplied
+
+## Email Digest Rendering (Milestone 47)
+
+Focused items can be rendered into a local email draft file using `marketsentry export-portfolio-alert-email-digest`. The email digest reads focused items and generates a subject line, plain-text body, and Markdown body as local files. An optional `.eml` file can also be generated. No email is sent. See `docs/PORTFOLIO_ALERT_EMAIL_DIGEST.md` for details.

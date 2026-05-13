@@ -2205,6 +2205,58 @@ Focus preferences affect display/focus only. They do not change alert evaluation
 
 See `docs/PORTFOLIO_ALERT_FOCUS_PREFERENCES.md` for full documentation.
 
+## Local Email Digest Draft Export (Milestone 47)
+
+The local email digest draft generates an email-style document from portfolio focus alert items. The draft is exported as local files only. No email is sent, no SMTP/Gmail/Outlook connection is made, and no credentials are stored or requested.
+
+### Generate and Preview
+
+```bash
+# Preview email digest draft
+marketsentry portfolio-alert-email-digest
+
+# Preview with custom focus preferences
+marketsentry portfolio-alert-email-digest --preference-config config/portfolio_alert_highlight_preferences.json
+
+# Limit to top 10 items
+marketsentry portfolio-alert-email-digest --limit 10
+```
+
+### Export Draft Files
+
+```bash
+# Export plain-text and Markdown drafts
+marketsentry export-portfolio-alert-email-digest --format both
+
+# Export with optional .eml file
+marketsentry export-portfolio-alert-email-digest --format both --include-eml
+
+# Export with custom preferences and output directory
+marketsentry export-portfolio-alert-email-digest --preference-config config/portfolio_alert_highlight_preferences.json --output-dir data/exports
+```
+
+### Draft Content
+
+Each email digest draft includes:
+
+- Subject line suggestion
+- Generated timestamp
+- Safety note: local draft only, not sent
+- Alert focus profile used
+- Alert counts by severity (high, warning, info)
+- Top high-severity focus items
+- Persistent alerts
+- Aggregate burden alerts
+- Property-level degraded trend alerts
+- Recommended local review actions
+- Manual copy/paste instructions
+
+### Reminder: Email Digest Is Local-Only
+
+The email digest draft is a local file export. It does not send email, connect to any service, store credentials, or queue outbound notifications. To send the content, manually copy/paste from the exported file into your preferred email client.
+
+See `docs/PORTFOLIO_ALERT_EMAIL_DIGEST.md` for full documentation.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.
