@@ -33,7 +33,7 @@ All scripts are located in the `scripts/` directory:
 | `run_alert_lifecycle_trend_report.bat` | Run lifecycle snapshot and trend report export |
 | `run_lifecycle_health_report.bat` | Run lifecycle health report, snapshot, and trend report |
 | `run_operations_digest_report.bat` | Run operations digest export, snapshot, and comparison report |
-| `run_portfolio_review_pack_report.bat` | Run portfolio review pack export, comparison, trend, and alert digest report |
+| `run_portfolio_review_pack_report.bat` | Run portfolio review pack export, comparison, trend, alert digest, alert persistence, and run comparison report |
 | `run_marketsentry_task.ps1` | Generic PowerShell wrapper for any command |
 | `install_task_scheduler_watchlist_refresh.ps1` | Install weekly scheduled task |
 | `uninstall_task_scheduler_watchlist_refresh.ps1` | Remove scheduled task |

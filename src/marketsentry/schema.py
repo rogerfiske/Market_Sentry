@@ -499,6 +499,56 @@ CREATE TABLE IF NOT EXISTS operations_digest_snapshots (
 );
 """
 
+# Milestone 45: Portfolio trend alert history tables (append-only)
+CREATE_PORTFOLIO_TREND_ALERT_RUNS_TABLE = """
+CREATE TABLE IF NOT EXISTS portfolio_trend_alert_runs (
+    run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_key TEXT UNIQUE,
+    evaluated_at TIMESTAMP,
+    rule_config_path TEXT,
+    rule_config_mode TEXT,
+    rules_evaluated_count INTEGER DEFAULT 0,
+    alerts_generated_count INTEGER DEFAULT 0,
+    high_count INTEGER DEFAULT 0,
+    warning_count INTEGER DEFAULT 0,
+    info_count INTEGER DEFAULT 0,
+    portfolio_alert_count INTEGER DEFAULT 0,
+    property_alert_count INTEGER DEFAULT 0,
+    source_pack_count INTEGER DEFAULT 0,
+    source_date_range_start TEXT,
+    source_date_range_end TEXT,
+    digest_csv_path TEXT,
+    digest_md_path TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+CREATE_PORTFOLIO_TREND_ALERT_HISTORY_TABLE = """
+CREATE TABLE IF NOT EXISTS portfolio_trend_alert_history (
+    history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER,
+    alert_key TEXT,
+    alert_scope TEXT,
+    property_id INTEGER,
+    candidate_id INTEGER,
+    address TEXT,
+    severity TEXT,
+    alert_type TEXT,
+    rule_id TEXT,
+    rule_name TEXT,
+    metric_name TEXT,
+    previous_value TEXT,
+    current_value TEXT,
+    delta_value TEXT,
+    message TEXT,
+    recommended_local_action TEXT,
+    source_pack_file TEXT,
+    generated_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 # Index definitions for performance
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_candidates_review_status ON candidate_review_queue(review_status);",
@@ -544,6 +594,14 @@ CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_cs_health_snapshots_captured ON cross_site_lifecycle_health_snapshots(captured_at);",
     # Milestone 39: Operations digest snapshots indexes
     "CREATE INDEX IF NOT EXISTS idx_digest_snapshots_captured ON operations_digest_snapshots(captured_at);",
+    # Milestone 45: Portfolio trend alert history indexes
+    "CREATE INDEX IF NOT EXISTS idx_pt_alert_runs_evaluated ON portfolio_trend_alert_runs(evaluated_at);",
+    "CREATE INDEX IF NOT EXISTS idx_pt_alert_history_run ON portfolio_trend_alert_history(run_id);",
+    "CREATE INDEX IF NOT EXISTS idx_pt_alert_history_key ON portfolio_trend_alert_history(alert_key);",
+    "CREATE INDEX IF NOT EXISTS idx_pt_alert_history_property ON portfolio_trend_alert_history(property_id);",
+    "CREATE INDEX IF NOT EXISTS idx_pt_alert_history_type ON portfolio_trend_alert_history(alert_type);",
+    "CREATE INDEX IF NOT EXISTS idx_pt_alert_history_severity ON portfolio_trend_alert_history(severity);",
+    "CREATE INDEX IF NOT EXISTS idx_pt_alert_history_generated ON portfolio_trend_alert_history(generated_at);",
 ]
 
 # All schema statements in order
@@ -562,4 +620,6 @@ ALL_SCHEMA_STATEMENTS = [
     CREATE_CROSS_SITE_ALERT_LIFECYCLE_SNAPSHOTS_TABLE,
     CREATE_CROSS_SITE_LIFECYCLE_HEALTH_SNAPSHOTS_TABLE,
     CREATE_OPERATIONS_DIGEST_SNAPSHOTS_TABLE,
+    CREATE_PORTFOLIO_TREND_ALERT_RUNS_TABLE,
+    CREATE_PORTFOLIO_TREND_ALERT_HISTORY_TABLE,
 ] + CREATE_INDEXES

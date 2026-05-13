@@ -157,3 +157,13 @@ marketsentry export-portfolio-trend-alert-digest --rule-config config/portfolio_
 - Walkability and live retrieval metrics are rejected
 - Built-in rule IDs cannot be overridden by user config
 - Invalid configs do not break default commands unless explicitly supplied
+
+## Alert History (Milestone 45)
+
+Evaluated alerts can be persisted locally as append-only history using:
+
+```bash
+marketsentry persist-portfolio-trend-alerts
+```
+
+This creates one run row and one history row per alert. History enables comparison of current vs. previous runs to identify new, persistent, disappeared, worsened, and improved alerts. History is append-only and does not mutate candidate, watchlist, or alert state.

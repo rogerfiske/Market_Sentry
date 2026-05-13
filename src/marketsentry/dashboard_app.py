@@ -1857,6 +1857,224 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
     except Exception:
         pass
 
+    # --- Portfolio Trend Alert History subsection (M45) ---
+    st.subheader("Portfolio Trend Alert History")
+    try:
+        from marketsentry.portfolio_trend_alert_history import (
+            get_latest_portfolio_trend_alert_run,
+            get_previous_portfolio_trend_alert_run,
+            compare_portfolio_trend_alert_runs,
+            summarize_portfolio_trend_alert_history,
+        )
+
+        db_path = str(
+            Path(config.database_path)
+            if hasattr(config, "database_path")
+            else Path("data/market_sentry.db")
+        )
+
+        latest_run = get_latest_portfolio_trend_alert_run(
+            db_path
+        )
+        if latest_run:
+            # Latest run summary
+            st.caption("Latest Run Summary")
+            lc1, lc2, lc3, lc4 = st.columns(4)
+            with lc1:
+                st.metric("Run ID", latest_run.run_id)
+            with lc2:
+                st.metric(
+                    "Alerts",
+                    latest_run.alerts_generated_count,
+                )
+            with lc3:
+                st.metric("High", latest_run.high_count)
+            with lc4:
+                st.metric(
+                    "Warning", latest_run.warning_count
+                )
+
+            st.caption(
+                f"Evaluated: {latest_run.evaluated_at} | "
+                f"Config: {latest_run.rule_config_mode}"
+            )
+
+            # Previous run summary
+            prev_run = (
+                get_previous_portfolio_trend_alert_run(
+                    db_path
+                )
+            )
+            if prev_run:
+                st.caption("Previous Run Summary")
+                pc1, pc2, pc3, pc4 = st.columns(4)
+                with pc1:
+                    st.metric("Run ID", prev_run.run_id)
+                with pc2:
+                    st.metric(
+                        "Alerts",
+                        prev_run.alerts_generated_count,
+                    )
+                with pc3:
+                    st.metric("High", prev_run.high_count)
+                with pc4:
+                    st.metric(
+                        "Warning", prev_run.warning_count
+                    )
+
+            # Comparison counts
+            _, comp_counts = (
+                compare_portfolio_trend_alert_runs(
+                    db_path, limit=50
+                )
+            )
+            if comp_counts.get("current_run_id"):
+                st.caption("Current vs Previous Comparison")
+                cc1, cc2, cc3, cc4 = st.columns(4)
+                with cc1:
+                    st.metric(
+                        "New",
+                        comp_counts.get("new", 0),
+                    )
+                with cc2:
+                    st.metric(
+                        "Persistent",
+                        comp_counts.get("persistent", 0),
+                    )
+                with cc3:
+                    st.metric(
+                        "Disappeared",
+                        comp_counts.get("disappeared", 0),
+                    )
+                with cc4:
+                    st.metric(
+                        "Worsened",
+                        comp_counts.get("worsened", 0),
+                    )
+
+            # History summary
+            hist_summary = (
+                summarize_portfolio_trend_alert_history(
+                    db_path, days=30
+                )
+            )
+            if hist_summary.run_count > 0:
+                st.caption(
+                    f"History (30 days): "
+                    f"{hist_summary.run_count} runs, "
+                    f"{hist_summary.total_history_rows} "
+                    f"history rows, "
+                    f"{hist_summary.recurring_alert_count} "
+                    f"recurring alerts"
+                )
+
+                # Recurring alert table
+                if hist_summary.properties_with_repeated_alerts:
+                    st.caption(
+                        "Properties with Repeated Alerts"
+                    )
+                    rep_data = []
+                    for p in (
+                        hist_summary
+                        .properties_with_repeated_alerts[:10]
+                    ):
+                        rep_data.append({
+                            "Property": p.get(
+                                "property_id", ""
+                            ),
+                            "Address": str(
+                                p.get("address", "")
+                            )[:30],
+                            "Alerts": p.get(
+                                "alert_count", 0
+                            ),
+                            "Runs": p.get(
+                                "run_count", 0
+                            ),
+                        })
+                    st.dataframe(
+                        rep_data,
+                        use_container_width=True,
+                    )
+
+                # Persistent high alert table
+                if hist_summary.persistent_high_alerts:
+                    st.caption(
+                        "Persistent High Alerts"
+                    )
+                    high_data = []
+                    for h in (
+                        hist_summary
+                        .persistent_high_alerts[:10]
+                    ):
+                        high_data.append({
+                            "Type": h.get(
+                                "alert_type", ""
+                            ),
+                            "Address": str(
+                                h.get("address", "")
+                            )[:25],
+                            "Runs": h.get(
+                                "run_count", 0
+                            ),
+                            "First Seen": str(
+                                h.get(
+                                    "first_seen", ""
+                                )
+                            )[:10],
+                        })
+                    st.dataframe(
+                        high_data,
+                        use_container_width=True,
+                    )
+
+            # Latest history/comparison report links
+            from pathlib import Path as _PH
+            hist_p = _PH(exports_dir)
+            if hist_p.is_dir():
+                hist_files = sorted(
+                    [
+                        f for f in hist_p.iterdir()
+                        if f.name.startswith(
+                            "portfolio_trend_alert_history_"
+                        )
+                        and f.name.endswith(".md")
+                    ],
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                if hist_files:
+                    st.caption(
+                        f"Latest history report: "
+                        f"{hist_files[0]}"
+                    )
+
+                comp_files = sorted(
+                    [
+                        f for f in hist_p.iterdir()
+                        if f.name.startswith(
+                            "portfolio_trend_alert_"
+                            "run_comparison_"
+                        )
+                        and f.name.endswith(".md")
+                    ],
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                if comp_files:
+                    st.caption(
+                        f"Latest comparison report: "
+                        f"{comp_files[0]}"
+                    )
+        else:
+            st.info(
+                "No alert history runs found. "
+                "Run persist-portfolio-trend-alerts "
+                "to generate history."
+            )
+    except Exception:
+        pass
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

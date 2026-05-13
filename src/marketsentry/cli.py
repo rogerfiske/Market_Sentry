@@ -4349,6 +4349,454 @@ def validate_portfolio_trend_alert_rules(
 
 
 @app.command()
+def persist_portfolio_trend_alerts(
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with review pack CSV exports",
+    ),
+    rule_config: Optional[str] = typer.Option(
+        None,
+        "--rule-config",
+        help="Path to custom rule config JSON",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Directory for output digest files",
+    ),
+    write_digest: bool = typer.Option(
+        True,
+        "--write-digest/--no-write-digest",
+        help="Whether to export digest files",
+    ),
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to SQLite database",
+    ),
+) -> None:
+    """Evaluate and persist portfolio trend alerts.
+
+    Evaluates alerts, optionally exports digest, and persists
+    one run row plus one history row per alert to the database.
+    This is append-only operational history.
+
+    No candidate/watchlist/alert mutation.
+    No outbound notifications are sent.
+    """
+    try:
+        from marketsentry.portfolio_trend_alert_history import (
+            persist_portfolio_trend_alerts as _persist,
+        )
+        from marketsentry.database import init_db
+
+        init_db(db)
+
+        summary = _persist(
+            db_path=db,
+            exports_dir=exports_dir,
+            output_dir=output_dir,
+            rule_config=rule_config,
+            write_digest=write_digest,
+        )
+
+        console.print(
+            f"\n[bold]Portfolio Trend Alert Persistence"
+            f"[/bold]"
+        )
+        console.print(f"Run ID: {summary.run_id}")
+        console.print(
+            f"Alerts persisted: {summary.alerts_persisted}"
+        )
+        console.print(f"  High: {summary.high_count}")
+        console.print(f"  Warning: {summary.warning_count}")
+        console.print(f"  Info: {summary.info_count}")
+        console.print(
+            f"  Portfolio: {summary.portfolio_alert_count}"
+        )
+        console.print(
+            f"  Property: {summary.property_alert_count}"
+        )
+        if summary.digest_csv_path:
+            console.print(
+                f"Digest CSV: {summary.digest_csv_path}"
+            )
+        if summary.digest_md_path:
+            console.print(
+                f"Digest MD: {summary.digest_md_path}"
+            )
+        console.print(
+            "\nAppend-only history. "
+            "No candidate/watchlist/alert state modified. "
+            "No outbound notifications sent."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Persist portfolio trend alerts error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def compare_portfolio_trend_alert_runs(
+    current_run_id: Optional[int] = typer.Option(
+        None,
+        "--current-run-id",
+        help="Current run ID (default: latest)",
+    ),
+    previous_run_id: Optional[int] = typer.Option(
+        None,
+        "--previous-run-id",
+        help="Previous run ID (default: auto-detect)",
+    ),
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to SQLite database",
+    ),
+    limit: int = typer.Option(
+        20,
+        "--limit",
+        help="Maximum comparison rows",
+    ),
+) -> None:
+    """Compare current vs previous portfolio trend alert runs.
+
+    Shows new, persistent, disappeared, worsened, improved,
+    and unchanged alerts between two evaluation runs.
+
+    Read-only. No mutations. No outbound notifications.
+    """
+    try:
+        from marketsentry.portfolio_trend_alert_history import (
+            compare_portfolio_trend_alert_runs as _compare,
+        )
+        from marketsentry.database import init_db
+
+        init_db(db)
+
+        rows, counts = _compare(
+            db_path=db,
+            current_run_id=current_run_id,
+            previous_run_id=previous_run_id,
+            limit=limit,
+        )
+
+        console.print(
+            f"\n[bold]Portfolio Trend Alert Run "
+            f"Comparison[/bold]"
+        )
+        console.print(
+            f"Current run: "
+            f"{counts.get('current_run_id', 'N/A')}"
+        )
+        console.print(
+            f"Previous run: "
+            f"{counts.get('previous_run_id', 'N/A')}"
+        )
+        console.print(
+            f"\nNew: {counts.get('new', 0)}"
+        )
+        console.print(
+            f"Persistent: {counts.get('persistent', 0)}"
+        )
+        console.print(
+            f"Disappeared (not present in latest "
+            f"evaluation): {counts.get('disappeared', 0)}"
+        )
+        console.print(
+            f"Severity increased: "
+            f"{counts.get('worsened', 0)}"
+        )
+        console.print(
+            f"Severity decreased: "
+            f"{counts.get('improved', 0)}"
+        )
+        console.print(
+            f"Unchanged: {counts.get('unchanged', 0)}"
+        )
+
+        if rows:
+            console.print(f"\nTop {len(rows)} rows:")
+            for r in rows:
+                addr = r.address[:30] if r.address else ""
+                console.print(
+                    f"  [{r.comparison_status}] "
+                    f"{addr} - {r.alert_type} "
+                    f"({r.summary})"
+                )
+
+        console.print(
+            "\nRead-only comparison. "
+            "No mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Compare portfolio trend alert runs "
+            f"error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def portfolio_trend_alert_history_summary(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to SQLite database",
+    ),
+    property_id: Optional[int] = typer.Option(
+        None,
+        "--property-id",
+        help="Filter by property ID",
+    ),
+    days: int = typer.Option(
+        30,
+        "--days",
+        help="Lookback period in days",
+    ),
+) -> None:
+    """Show portfolio trend alert history summary.
+
+    Displays run count, recurring alerts, frequent alert
+    types, and persistent high alerts.
+
+    Read-only. No mutations. No outbound notifications.
+    """
+    try:
+        from marketsentry.portfolio_trend_alert_history import (
+            summarize_portfolio_trend_alert_history,
+        )
+        from marketsentry.database import init_db
+
+        init_db(db)
+
+        summary = summarize_portfolio_trend_alert_history(
+            db_path=db,
+            property_id=property_id,
+            days=days,
+        )
+
+        console.print(
+            f"\n[bold]Portfolio Trend Alert History "
+            f"Summary[/bold]"
+        )
+        console.print(f"Lookback: {summary.days} days")
+        console.print(f"Runs: {summary.run_count}")
+        console.print(
+            f"Total history rows: "
+            f"{summary.total_history_rows}"
+        )
+        console.print(
+            f"Recurring alerts: "
+            f"{summary.recurring_alert_count}"
+        )
+
+        if summary.most_frequent_alert_types:
+            console.print(
+                f"\n[bold]Most Frequent Alert Types:[/bold]"
+            )
+            for t in summary.most_frequent_alert_types:
+                console.print(
+                    f"  {t['alert_type']}: {t['count']}"
+                )
+
+        if summary.properties_with_repeated_alerts:
+            console.print(
+                f"\n[bold]Properties with Repeated "
+                f"Alerts:[/bold]"
+            )
+            for p in summary.properties_with_repeated_alerts:
+                console.print(
+                    f"  ID {p['property_id']} "
+                    f"({p['address']}): "
+                    f"{p['alert_count']} alerts in "
+                    f"{p['run_count']} runs"
+                )
+
+        if summary.persistent_high_alerts:
+            console.print(
+                f"\n[bold]Persistent High Alerts:[/bold]"
+            )
+            for h in summary.persistent_high_alerts:
+                console.print(
+                    f"  {h['alert_type']} "
+                    f"({h['address']}): "
+                    f"{h['run_count']} runs, "
+                    f"first seen {h['first_seen'][:10]}"
+                )
+
+        console.print(
+            "\nRead-only summary. "
+            "No mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Portfolio trend alert history summary "
+            f"error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_portfolio_trend_alert_history_report(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to SQLite database",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+    days: int = typer.Option(
+        30,
+        "--days",
+        help="Lookback period in days",
+    ),
+) -> None:
+    """Export portfolio trend alert history report.
+
+    Exports CSV and/or Markdown reports of alert history
+    with recurring alert counts and first/last seen dates.
+
+    Read-only export. No mutations. No outbound notifications.
+    """
+    try:
+        from marketsentry.portfolio_trend_alert_history import (
+            export_portfolio_trend_alert_history_report
+            as _export,
+        )
+        from marketsentry.database import init_db
+
+        init_db(db)
+
+        paths = _export(
+            db_path=db,
+            output_dir=output_dir,
+            fmt=fmt,
+            days=days,
+        )
+
+        console.print(
+            f"\n[bold]Portfolio Trend Alert History "
+            f"Report[/bold]"
+        )
+        for p in paths:
+            console.print(f"  Exported: {p}")
+
+        if not paths:
+            console.print("  No history data to export.")
+
+        console.print(
+            "\nRead-only export. "
+            "No mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export portfolio trend alert history "
+            f"report error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_portfolio_trend_alert_run_comparison(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to SQLite database",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export current vs previous alert run comparison report.
+
+    Exports CSV and/or Markdown comparison of the latest
+    two alert evaluation runs showing new, persistent,
+    disappeared, worsened, and improved alerts.
+
+    Read-only export. No mutations. No outbound notifications.
+    """
+    try:
+        from marketsentry.portfolio_trend_alert_history import (
+            export_portfolio_trend_alert_comparison_report
+            as _export,
+        )
+        from marketsentry.database import init_db
+
+        init_db(db)
+
+        paths = _export(
+            db_path=db,
+            output_dir=output_dir,
+            fmt=fmt,
+        )
+
+        console.print(
+            f"\n[bold]Portfolio Trend Alert Run "
+            f"Comparison Report[/bold]"
+        )
+        for p in paths:
+            console.print(f"  Exported: {p}")
+
+        if not paths:
+            console.print(
+                "  No comparison data to export."
+            )
+
+        console.print(
+            "\nRead-only export. "
+            "No mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export portfolio trend alert run "
+            f"comparison error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

@@ -20,4 +20,8 @@ python -m marketsentry export-portfolio-review-trends --format both >> %LOGFILE%
 
 python -m marketsentry export-portfolio-trend-alert-digest --format both >> %LOGFILE% 2>&1
 
+python -m marketsentry persist-portfolio-trend-alerts >> %LOGFILE% 2>&1
+
+python -m marketsentry export-portfolio-trend-alert-run-comparison --format both >> %LOGFILE% 2>&1
+
 echo [%date% %time%] Portfolio review pack report complete >> %LOGFILE%

@@ -1191,3 +1191,24 @@ marketsentry export-portfolio-trend-alert-digest --rule-config config/portfolio_
 The config supports `merge` mode (custom rules added after built-ins) and `replace` mode (only custom rules used). Disabled rules are valid in the config but are not evaluated. Built-in rule IDs cannot be overridden by custom configs.
 
 See `docs/PORTFOLIO_TREND_ALERT_RULES.md` for the full config schema and examples.
+
+## Portfolio Trend Alert History (Milestone 45)
+
+### Persistent vs Transient Trend Alerts
+
+Portfolio trend alerts can be transient (present in one evaluation but not the next) or persistent (recurring across multiple evaluations). Milestone 45 adds append-only history to distinguish these patterns:
+
+```bash
+# Persist alert evaluation results
+marketsentry persist-portfolio-trend-alerts
+
+# Compare latest run to previous run
+marketsentry compare-portfolio-trend-alert-runs
+
+# View history summary
+marketsentry portfolio-trend-alert-history-summary --days 30
+```
+
+Alerts that disappear from the latest evaluation are labeled "not present in latest evaluation" rather than "resolved", since absence of evidence is not evidence of resolution.
+
+Alert history is append-only operational data. It does not mutate candidate, watchlist, or alert state. No outbound notifications are sent.

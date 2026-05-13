@@ -2124,6 +2124,49 @@ See `docs/PORTFOLIO_TREND_ALERT_RULES.md` for full documentation.
 
 Custom rule configs are local review prompts only. They do not mutate candidate decisions, watchlist state, alert status, or property data. No outbound notifications are sent. Built-in rule IDs cannot be overridden. Walkability and live retrieval metrics are rejected.
 
+## Portfolio Trend Alert History (Milestone 45)
+
+Milestone 45 adds append-only persistence of portfolio trend alert evaluation results.
+
+### Persist Alert Evaluations
+
+```bash
+marketsentry persist-portfolio-trend-alerts
+marketsentry persist-portfolio-trend-alerts --exports-dir data/exports --db data/market_sentry.db
+marketsentry persist-portfolio-trend-alerts --rule-config config/portfolio_trend_alert_rules.json
+```
+
+Each run creates one row in `portfolio_trend_alert_runs` and one row per alert in `portfolio_trend_alert_history`. This is append-only; no existing rows are modified.
+
+### Compare Alert Runs
+
+```bash
+marketsentry compare-portfolio-trend-alert-runs
+marketsentry compare-portfolio-trend-alert-runs --db data/market_sentry.db --limit 20
+```
+
+Shows new, persistent, disappeared, worsened, improved, and unchanged alerts between the latest two runs.
+
+### History Summary
+
+```bash
+marketsentry portfolio-trend-alert-history-summary
+marketsentry portfolio-trend-alert-history-summary --days 30 --property-id 42
+```
+
+Shows run count, recurring alerts, most frequent alert types, properties with repeated alerts, and persistent high alerts.
+
+### Export History and Comparison Reports
+
+```bash
+marketsentry export-portfolio-trend-alert-history-report --format both
+marketsentry export-portfolio-trend-alert-run-comparison --format both
+```
+
+### Reminder: Alert History Is Append-Only
+
+Alert history persistence writes append-only rows. It does not mutate candidate decisions, watchlist state, alert status, or property data. No outbound notifications are sent. Disappeared alerts are labeled "not present in latest evaluation" rather than "resolved".
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.
