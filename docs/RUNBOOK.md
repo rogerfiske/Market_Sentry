@@ -2167,6 +2167,44 @@ marketsentry export-portfolio-trend-alert-run-comparison --format both
 
 Alert history persistence writes append-only rows. It does not mutate candidate decisions, watchlist state, alert status, or property data. No outbound notifications are sent. Disappeared alerts are labeled "not present in latest evaluation" rather than "resolved".
 
+## Portfolio Alert Focus Preferences (Milestone 46)
+
+Milestone 46 adds local alert highlight preferences that let the operator configure which alert categories should be emphasized in reports and dashboard views.
+
+### Generate Focus Preferences Template
+
+```bash
+marketsentry write-portfolio-alert-focus-template
+marketsentry write-portfolio-alert-focus-template --output config/my_focus.json
+marketsentry write-portfolio-alert-focus-template --overwrite
+```
+
+### Validate Focus Preferences
+
+```bash
+marketsentry validate-portfolio-alert-focus-config --preference-config config/portfolio_alert_highlight_preferences.json
+```
+
+### View Focus Items
+
+```bash
+marketsentry portfolio-alert-focus
+marketsentry portfolio-alert-focus --preference-config config/portfolio_alert_highlight_preferences.json --limit 10
+```
+
+### Export Focus Digest
+
+```bash
+marketsentry export-portfolio-alert-focus-digest --format both
+marketsentry export-portfolio-alert-focus-digest --preference-config config/portfolio_alert_highlight_preferences.json --format csv
+```
+
+### Reminder: Focus Preferences Are Display-Only
+
+Focus preferences affect display/focus only. They do not change alert evaluation, history, candidate/watchlist/alert state, or trigger outbound notifications. No database writes are performed by the focus module.
+
+See `docs/PORTFOLIO_ALERT_FOCUS_PREFERENCES.md` for full documentation.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

@@ -2075,6 +2075,125 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
     except Exception:
         pass
 
+    # --- Portfolio Alert Focus View subsection (M46) ---
+    st.subheader("Portfolio Alert Focus View")
+    try:
+        from marketsentry.portfolio_alert_focus import (
+            build_portfolio_alert_focus_items,
+            load_portfolio_alert_highlight_preferences,
+            summarize_portfolio_alert_focus,
+            validate_portfolio_alert_highlight_preferences,
+            DEFAULT_HIGHLIGHT_PREFERENCES_PATH,
+        )
+
+        # Load preferences
+        pref_path = DEFAULT_HIGHLIGHT_PREFERENCES_PATH
+        if pref_path.is_file():
+            prefs = load_portfolio_alert_highlight_preferences(
+                str(pref_path)
+            )
+            config_status = (
+                "Valid" if prefs.is_valid else "Invalid"
+            )
+        else:
+            prefs = load_portfolio_alert_highlight_preferences(
+                None
+            )
+            config_status = "Default (no config file)"
+
+        st.write(f"**Profile:** {prefs.profile_name}")
+        st.write(f"**Config status:** {config_status}")
+
+        if not prefs.is_valid and prefs.errors:
+            st.warning(
+                "Config errors: " + "; ".join(prefs.errors)
+            )
+
+        # Build focus items
+        _db_path = db_path if db_path else None
+        focus_items = build_portfolio_alert_focus_items(
+            prefs=prefs,
+            db_path=_db_path,
+            exports_dir=exports_dir,
+        )
+        focus_summary = summarize_portfolio_alert_focus(
+            focus_items, prefs
+        )
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(
+                "Focus Items",
+                focus_summary.total_focus_items,
+            )
+        with col2:
+            st.metric("High", focus_summary.high_count)
+        with col3:
+            st.metric("Warning", focus_summary.warning_count)
+
+        col4, col5, col6 = st.columns(3)
+        with col4:
+            st.metric("Info", focus_summary.info_count)
+        with col5:
+            st.metric(
+                "Portfolio", focus_summary.portfolio_items
+            )
+        with col6:
+            st.metric(
+                "Property", focus_summary.property_items
+            )
+
+        # Focus item table
+        if focus_items:
+            focus_data = []
+            for fi in focus_items:
+                focus_data.append({
+                    "Severity": fi.severity,
+                    "Address": (
+                        fi.address[:30] if fi.address else ""
+                    ),
+                    "Type": fi.alert_type,
+                    "Persistence": fi.persistence_count,
+                    "Trend": fi.trend_state or "N/A",
+                    "Reason": fi.focus_reason,
+                    "Source": fi.source,
+                })
+            st.dataframe(
+                focus_data, use_container_width=True
+            )
+        else:
+            st.info(
+                "No focus items matched current preferences."
+            )
+
+        # Latest focus digest link
+        from pathlib import Path as _PF
+        focus_p = _PF(exports_dir)
+        if focus_p.is_dir():
+            focus_files = sorted(
+                [
+                    f for f in focus_p.iterdir()
+                    if f.name.startswith(
+                        "portfolio_alert_focus_digest_"
+                    )
+                    and f.name.endswith(".md")
+                ],
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if focus_files:
+                st.caption(
+                    f"Latest focus digest: "
+                    f"{focus_files[0]}"
+                )
+
+        st.caption(
+            "Display-only view. No mutations. "
+            "No outbound notifications."
+        )
+    except Exception:
+        pass
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

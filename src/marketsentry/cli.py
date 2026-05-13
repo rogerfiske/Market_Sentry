@@ -4796,6 +4796,364 @@ def export_portfolio_trend_alert_run_comparison(
         raise typer.Exit(code=1)
 
 
+# -----------------------------------------------------------------------
+# Milestone 46 - Portfolio Alert Focus Preferences
+# -----------------------------------------------------------------------
+
+
+@app.command()
+def portfolio_alert_focus(
+    preference_config: Optional[str] = typer.Option(
+        None,
+        "--preference-config",
+        help="Path to highlight preferences JSON config",
+    ),
+    limit: int = typer.Option(
+        25, "--limit", help="Maximum focus items to display"
+    ),
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with export files",
+    ),
+) -> None:
+    """Show portfolio alert focus items based on preferences.
+
+    Displays focused alert items selected by highlight
+    preferences. Read-only view. No mutations. No outbound
+    notifications sent.
+    """
+    try:
+        from marketsentry.portfolio_alert_focus import (
+            build_portfolio_alert_focus_items,
+            load_portfolio_alert_highlight_preferences,
+            summarize_portfolio_alert_focus,
+        )
+
+        prefs = load_portfolio_alert_highlight_preferences(
+            preference_config
+        )
+        if not prefs.is_valid:
+            console.print(
+                f"[bold yellow]WARNING:[/bold yellow] "
+                f"Preference config has errors:"
+            )
+            for err in prefs.errors:
+                console.print(f"  - {err}")
+            console.print("Using default preferences.")
+            prefs = (
+                load_portfolio_alert_highlight_preferences(None)
+            )
+
+        if limit > 0:
+            prefs.max_items = limit
+
+        db_path = db if Path(db).is_file() else None
+        items = build_portfolio_alert_focus_items(
+            prefs=prefs,
+            db_path=db_path,
+            exports_dir=exports_dir,
+        )
+        summary = summarize_portfolio_alert_focus(items, prefs)
+
+        console.print(
+            f"\n[bold]Portfolio Alert Focus View[/bold]"
+        )
+        console.print(f"Profile: {prefs.profile_name}")
+        console.print(
+            f"Focus items: {summary.total_focus_items}"
+        )
+        console.print(
+            f"  High: {summary.high_count}  "
+            f"Warning: {summary.warning_count}  "
+            f"Info: {summary.info_count}"
+        )
+        console.print(
+            f"  Portfolio: {summary.portfolio_items}  "
+            f"Property: {summary.property_items}"
+        )
+        console.print(
+            f"  Persistent: {summary.persistent_items}"
+        )
+
+        if items:
+            console.print(
+                f"\n[bold]Top Focus Items[/bold]"
+            )
+            for i, item in enumerate(items, 1):
+                sev_color = {
+                    "high": "red",
+                    "warning": "yellow",
+                    "info": "blue",
+                }.get(item.severity, "white")
+                addr = (
+                    item.address[:35] if item.address else "N/A"
+                )
+                console.print(
+                    f"  {i}. [{sev_color}]{item.severity}[/{sev_color}]"
+                    f" | {addr}"
+                    f" | {item.alert_type}"
+                    f" | persist={item.persistence_count}"
+                    f" | {item.focus_reason}"
+                )
+        else:
+            console.print(
+                "\nNo focus items matched current preferences."
+            )
+
+        console.print(
+            "\nRead-only view. "
+            "No mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Portfolio alert focus error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_portfolio_alert_focus_digest(
+    preference_config: Optional[str] = typer.Option(
+        None,
+        "--preference-config",
+        help="Path to highlight preferences JSON config",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for digest files",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with export files",
+    ),
+) -> None:
+    """Export portfolio alert focus digest as CSV/Markdown.
+
+    Exports focused alert items selected by highlight
+    preferences. Read-only export. No mutations. No outbound
+    notifications sent.
+    """
+    try:
+        from marketsentry.portfolio_alert_focus import (
+            export_portfolio_alert_focus_digest as _export,
+            load_portfolio_alert_highlight_preferences,
+        )
+
+        prefs = load_portfolio_alert_highlight_preferences(
+            preference_config
+        )
+        if not prefs.is_valid:
+            console.print(
+                f"[bold yellow]WARNING:[/bold yellow] "
+                f"Preference config has errors:"
+            )
+            for err in prefs.errors:
+                console.print(f"  - {err}")
+            console.print("Using default preferences.")
+            prefs = (
+                load_portfolio_alert_highlight_preferences(None)
+            )
+
+        db_path = db if Path(db).is_file() else None
+        result = _export(
+            prefs=prefs,
+            db_path=db_path,
+            exports_dir=exports_dir,
+            output_dir=output_dir,
+            fmt=fmt,
+        )
+
+        console.print(
+            f"\n[bold]Portfolio Alert Focus Digest[/bold]"
+        )
+        if result.digest:
+            console.print(
+                f"Profile: "
+                f"{result.digest.summary.profile_name}"
+            )
+            console.print(
+                f"Focus items: "
+                f"{result.digest.summary.total_focus_items}"
+            )
+            console.print(
+                f"  High: "
+                f"{result.digest.summary.high_count}  "
+                f"Warning: "
+                f"{result.digest.summary.warning_count}  "
+                f"Info: "
+                f"{result.digest.summary.info_count}"
+            )
+
+        for p in result.export_paths:
+            console.print(f"  Exported: {p}")
+
+        if result.warnings:
+            for w in result.warnings:
+                console.print(
+                    f"  [yellow]Warning:[/yellow] {w}"
+                )
+
+        console.print(
+            "\nRead-only export. "
+            "No mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export portfolio alert focus digest error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def write_portfolio_alert_focus_template(
+    output: str = typer.Option(
+        "config/portfolio_alert_highlight_preferences"
+        ".example.json",
+        "--output",
+        help="Output path for the example config",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Overwrite existing file",
+    ),
+) -> None:
+    """Write an example alert focus preferences config file.
+
+    Creates a JSON template with example focus preferences.
+    Does not overwrite existing files unless --overwrite is set.
+    """
+    try:
+        from marketsentry.portfolio_alert_focus import (
+            write_portfolio_alert_highlight_template,
+        )
+
+        path, was_written = (
+            write_portfolio_alert_highlight_template(
+                output_path=output,
+                overwrite=overwrite,
+            )
+        )
+
+        if was_written:
+            console.print(
+                f"[bold green]SUCCESS:[/bold green] "
+                f"Example config written to: {path}"
+            )
+        else:
+            console.print(
+                f"[bold yellow]SKIPPED:[/bold yellow] "
+                f"File already exists: {path}"
+            )
+            console.print(
+                "Use --overwrite to replace."
+            )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Write portfolio alert focus template error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def validate_portfolio_alert_focus_config(
+    preference_config: str = typer.Option(
+        ...,
+        "--preference-config",
+        help="Path to highlight preferences JSON config",
+    ),
+) -> None:
+    """Validate a portfolio alert focus preferences config.
+
+    Checks JSON format, required fields, severity values,
+    sort order, and forbidden keys.
+    """
+    try:
+        from marketsentry.portfolio_alert_focus import (
+            validate_portfolio_alert_highlight_preferences,
+        )
+
+        prefs = validate_portfolio_alert_highlight_preferences(
+            preference_config
+        )
+
+        if prefs.is_valid:
+            console.print(
+                f"[bold green]VALID[/bold green] "
+                f"- {preference_config}"
+            )
+        else:
+            console.print(
+                f"[bold red]INVALID[/bold red] "
+                f"- {preference_config}"
+            )
+            for err in prefs.errors:
+                console.print(f"  [red]Error:[/red] {err}")
+
+        console.print(
+            f"  Profile: {prefs.profile_name}"
+        )
+        console.print(
+            f"  Max items: {prefs.max_items}"
+        )
+        console.print(
+            f"  Include severities: "
+            f"{prefs.include_severities}"
+        )
+        console.print(
+            f"  Exclude severities: "
+            f"{prefs.exclude_severities}"
+        )
+        console.print(
+            f"  Sort order: {prefs.sort_order}"
+        )
+        console.print(
+            f"  Include alert types: "
+            f"{len(prefs.include_alert_types)} types"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Validate portfolio alert focus config error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(

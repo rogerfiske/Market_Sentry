@@ -1212,3 +1212,23 @@ marketsentry portfolio-trend-alert-history-summary --days 30
 Alerts that disappear from the latest evaluation are labeled "not present in latest evaluation" rather than "resolved", since absence of evidence is not evidence of resolution.
 
 Alert history is append-only operational data. It does not mutate candidate, watchlist, or alert state. No outbound notifications are sent.
+
+### Alert Focus Profiles (Milestone 46)
+
+Local alert highlight preferences let operators configure which alert categories should be emphasized in reports and dashboard views. A JSON config file at `config/portfolio_alert_highlight_preferences.json` controls severity filtering, alert type inclusion/exclusion, persistence thresholds, scope filtering, and sort order.
+
+```bash
+# Generate a template config
+marketsentry write-portfolio-alert-focus-template
+
+# Validate config
+marketsentry validate-portfolio-alert-focus-config --preference-config config/portfolio_alert_highlight_preferences.json
+
+# View focused alerts
+marketsentry portfolio-alert-focus --preference-config config/portfolio_alert_highlight_preferences.json
+
+# Export focus digest
+marketsentry export-portfolio-alert-focus-digest --format both
+```
+
+Focus preferences are display-only. They do not change alert evaluation, history, or candidate/watchlist/alert state. No outbound notifications are sent.

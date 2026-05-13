@@ -1794,24 +1794,25 @@ ruff check src/ tests/
 mypy src/
 ```
 
+### MVP 46: Local Alert Highlight Preferences and Dashboard Focus Views
+
+- Local highlight preferences config (config/portfolio_alert_highlight_preferences.json)
+- 5 models: PortfolioAlertHighlightPreferences, PortfolioAlertFocusItem, PortfolioAlertFocusSummary, PortfolioAlertFocusDigest, PortfolioAlertFocusRunResult
+- 6 functions: load/validate/write_template/build_items/summarize/export_digest
+- Severity, alert type, persistence, and scope filtering
+- 4 sort orders: severity_then_persistence, persistence_then_severity, newest_first, property_then_severity
+- Dashboard Portfolio Alert Focus View subsection
+- 4 new CLI commands: portfolio-alert-focus, export-portfolio-alert-focus-digest, write-portfolio-alert-focus-template, validate-portfolio-alert-focus-config
+- Scheduled script updated with focus digest export
+- Focus preferences are display-only and do not mutate candidate/watchlist/alert state
+
 ## Next Planned Milestone
 
-### MVP 45: Portfolio Trend Alert History and Persistence
+### MVP 47: (To Be Determined)
 
-- Append-only alert evaluation history (portfolio_trend_alert_runs and portfolio_trend_alert_history tables)
-- Deterministic alert key generation for cross-run comparison
-- Current vs. previous run comparison (new, persistent, disappeared, worsened, improved, unchanged)
-- Recurring alert detection and persistent high alert tracking
-- History and comparison report exports (CSV and Markdown)
-- Dashboard Portfolio Trend Alert History subsection
-- 5 new CLI commands: persist-portfolio-trend-alerts, compare-portfolio-trend-alert-runs, portfolio-trend-alert-history-summary, export-portfolio-trend-alert-history-report, export-portfolio-trend-alert-run-comparison
-- Scheduled script updated with persist and comparison commands
+Milestones 1-46 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-### MVP 46: (To Be Determined)
-
-Milestones 1-45 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
-
-**Note:** Milestone 45 (Portfolio Trend Alert History and Persistence) is now complete.
+**Note:** Milestone 46 (Local Alert Highlight Preferences and Dashboard Focus Views) is now complete.
 
 ## Repository
 

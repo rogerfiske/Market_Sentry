@@ -1,0 +1,22 @@
+{
+  "profile_name": "default_focus",
+  "description": "Local display preferences for portfolio trend alert focus views.",
+  "include_severities": ["high", "warning"],
+  "exclude_severities": ["info"],
+  "include_alert_types": [
+    "aggregate_burden_high",
+    "aggregate_burden_increase",
+    "property_degraded",
+    "lifecycle_health_drop",
+    "cross_site_confidence_drop",
+    "churn_increase"
+  ],
+  "exclude_alert_types": [],
+  "minimum_persistence_count": 1,
+  "include_persistent_only": false,
+  "include_property_alerts": true,
+  "include_portfolio_alerts": true,
+  "max_items": 25,
+  "sort_order": "severity_then_persistence",
+  "notes": "Local display preferences only. No notifications are sent."
+}
