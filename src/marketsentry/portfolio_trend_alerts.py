@@ -10,14 +10,105 @@ prompts only.
 """
 
 import csv
+import json
 import logging
 import os
 from datetime import datetime
-from typing import Dict, List, Optional
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("marketsentry")
+
+
+# ---------------------------------------------------------------------------
+# Config constants
+# ---------------------------------------------------------------------------
+
+DEFAULT_RULE_CONFIG_PATH = Path(
+    "config/portfolio_trend_alert_rules.json"
+)
+EXAMPLE_RULE_CONFIG_PATH = Path(
+    "config/portfolio_trend_alert_rules.example.json"
+)
+
+ALLOWED_MODES = ("merge", "replace")
+ALLOWED_SCOPES = ("portfolio", "property")
+ALLOWED_COMPARISONS = (
+    ">=", ">", "<=", "<", "==", "!=", "delta>=", "delta<="
+)
+ALLOWED_SEVERITIES = ("info", "warning", "high")
+
+# Metrics that must not be referenced in custom rules
+FORBIDDEN_METRIC_PREFIXES = (
+    "walkability", "walk_score", "transit_score",
+)
+FORBIDDEN_METRIC_KEYWORDS = (
+    "live_retrieval", "scrape", "playwright", "selenium",
+)
+
+EXAMPLE_RULE_CONFIG: Dict = {
+    "mode": "merge",
+    "rules": [
+        {
+            "rule_id": "custom_aggregate_burden_high",
+            "rule_name": (
+                "Custom aggregate burden high threshold"
+            ),
+            "scope": "portfolio",
+            "metric_name": "aggregate_review_burden_score",
+            "threshold_value": 75,
+            "comparison": ">=",
+            "severity": "high",
+            "enabled": True,
+            "message_template": (
+                "Aggregate review burden is "
+                "{current_value}, threshold "
+                "{threshold_value}"
+            ),
+            "recommended_local_action": (
+                "Review top burden contributors in "
+                "the trend digest"
+            ),
+        },
+        {
+            "rule_id": "custom_property_health_drop",
+            "rule_name": (
+                "Custom property health score drop"
+            ),
+            "scope": "property",
+            "metric_name": "lifecycle_health_score_delta",
+            "threshold_value": -10,
+            "comparison": "delta<=",
+            "severity": "warning",
+            "enabled": True,
+            "message_template": (
+                "Health score delta is {current_value}, "
+                "threshold {threshold_value}"
+            ),
+            "recommended_local_action": (
+                "Review lifecycle health trend"
+            ),
+        },
+        {
+            "rule_id": "custom_disabled_example",
+            "rule_name": "Disabled example rule",
+            "scope": "portfolio",
+            "metric_name": "aggregate_review_burden_score",
+            "threshold_value": 90,
+            "comparison": ">=",
+            "severity": "info",
+            "enabled": False,
+            "message_template": (
+                "Burden is {current_value}"
+            ),
+            "recommended_local_action": (
+                "This rule is disabled by default"
+            ),
+        },
+    ],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +136,7 @@ class PortfolioTrendAlert(BaseModel):
 
 
 class PortfolioTrendAlertRule(BaseModel):
-    """A threshold rule for generating trend alerts."""
+    """A threshold rule for generating trend alerts (built-in)."""
 
     rule_id: str = ""
     alert_scope: str = ""  # portfolio / property
@@ -54,6 +145,38 @@ class PortfolioTrendAlertRule(BaseModel):
     threshold: float = 0.0
     severity: str = "info"
     description: str = ""
+
+
+class ConfigurablePortfolioTrendAlertRule(BaseModel):
+    """A configurable threshold rule from JSON config.
+
+    This extends the built-in rule model with fields from the
+    JSON config schema: enabled, comparison, message_template,
+    recommended_local_action, and rule_name.
+    """
+
+    rule_id: str = ""
+    rule_name: str = ""
+    scope: str = ""  # portfolio / property
+    metric_name: str = ""
+    threshold_value: float = 0.0
+    comparison: str = ">="
+    severity: str = "info"
+    enabled: bool = True
+    message_template: str = ""
+    recommended_local_action: str = ""
+
+
+class PortfolioTrendAlertRuleConfig(BaseModel):
+    """Container for a loaded rule config file."""
+
+    mode: str = "merge"
+    rules: List[ConfigurablePortfolioTrendAlertRule] = Field(
+        default_factory=list
+    )
+    source_path: str = ""
+    is_valid: bool = True
+    errors: List[str] = Field(default_factory=list)
 
 
 class PortfolioTrendAlertSummary(BaseModel):
@@ -272,20 +395,416 @@ def get_default_portfolio_trend_alert_rules() -> List[PortfolioTrendAlertRule]:
 
 
 # ---------------------------------------------------------------------------
+# Built-in rule IDs (for override detection)
+# ---------------------------------------------------------------------------
+
+_BUILTIN_RULE_IDS = {
+    r.rule_id for r in get_default_portfolio_trend_alert_rules()
+}
+
+
+# ---------------------------------------------------------------------------
+# Rule configuration loader functions (Milestone 44)
+# ---------------------------------------------------------------------------
+
+def load_portfolio_trend_alert_rule_config(
+    config_path: Optional[Union[Path, str]] = None,
+) -> PortfolioTrendAlertRuleConfig:
+    """Load a portfolio trend alert rule config from JSON.
+
+    If the config file does not exist, returns an empty config
+    with is_valid=True (missing config is not an error).
+
+    Args:
+        config_path: Path to JSON config. Defaults to
+            config/portfolio_trend_alert_rules.json.
+
+    Returns:
+        PortfolioTrendAlertRuleConfig with loaded rules or errors.
+    """
+    path = (
+        Path(config_path) if config_path
+        else DEFAULT_RULE_CONFIG_PATH
+    )
+    config = PortfolioTrendAlertRuleConfig(
+        source_path=str(path)
+    )
+
+    if not path.exists():
+        return config
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        config.is_valid = False
+        config.errors.append(f"Invalid JSON in {path}: {e}")
+        return config
+    except Exception as e:
+        config.is_valid = False
+        config.errors.append(f"Error reading {path}: {e}")
+        return config
+
+    if not isinstance(data, dict):
+        config.is_valid = False
+        config.errors.append(
+            f"Config must be a JSON object: {path}"
+        )
+        return config
+
+    # Parse mode
+    mode = data.get("mode", "merge")
+    if mode not in ALLOWED_MODES:
+        config.is_valid = False
+        config.errors.append(
+            f"Invalid mode '{mode}'. "
+            f"Allowed: {', '.join(ALLOWED_MODES)}"
+        )
+        return config
+    config.mode = mode
+
+    # Parse rules
+    raw_rules = data.get("rules", [])
+    if not isinstance(raw_rules, list):
+        config.is_valid = False
+        config.errors.append("'rules' must be a list.")
+        return config
+
+    seen_ids: set = set()
+    for idx, raw in enumerate(raw_rules):
+        rule, errors = _parse_configurable_rule(
+            raw, idx, seen_ids
+        )
+        if errors:
+            config.errors.extend(errors)
+            config.is_valid = False
+        elif rule is not None:
+            seen_ids.add(rule.rule_id)
+            config.rules.append(rule)
+
+    return config
+
+
+def _parse_configurable_rule(
+    raw: dict,
+    idx: int,
+    seen_ids: set,
+) -> Tuple[
+    Optional[ConfigurablePortfolioTrendAlertRule],
+    List[str],
+]:
+    """Parse and validate a single configurable rule dict.
+
+    Args:
+        raw: Raw rule dict from JSON.
+        idx: Index in the rules array for error messages.
+        seen_ids: Set of already-seen rule IDs.
+
+    Returns:
+        Tuple of (rule_or_None, error_list).
+    """
+    errors: List[str] = []
+    prefix = f"Rule index {idx}"
+
+    if not isinstance(raw, dict):
+        return None, [f"{prefix}: must be a JSON object."]
+
+    # Required fields
+    rule_id = raw.get("rule_id", "")
+    if not rule_id:
+        errors.append(f"{prefix}: 'rule_id' is required.")
+    elif rule_id in seen_ids:
+        errors.append(
+            f"{prefix}: duplicate rule_id '{rule_id}'."
+        )
+    elif rule_id in _BUILTIN_RULE_IDS:
+        errors.append(
+            f"{prefix}: rule_id '{rule_id}' conflicts with "
+            f"a built-in rule. User config must not silently "
+            f"override built-in rule IDs."
+        )
+
+    rule_name = raw.get("rule_name", "")
+    if not rule_name:
+        errors.append(f"{prefix}: 'rule_name' is required.")
+
+    scope = raw.get("scope", "")
+    if not scope:
+        errors.append(f"{prefix}: 'scope' is required.")
+    elif scope not in ALLOWED_SCOPES:
+        errors.append(
+            f"{prefix}: invalid scope '{scope}'. "
+            f"Allowed: {', '.join(ALLOWED_SCOPES)}"
+        )
+
+    metric_name = raw.get("metric_name", "")
+    if not metric_name:
+        errors.append(
+            f"{prefix}: 'metric_name' is required."
+        )
+    else:
+        # Check forbidden metrics
+        mn_lower = metric_name.lower()
+        for fp in FORBIDDEN_METRIC_PREFIXES:
+            if mn_lower.startswith(fp):
+                errors.append(
+                    f"{prefix}: metric_name '{metric_name}' "
+                    f"references forbidden walkability metric."
+                )
+                break
+        for kw in FORBIDDEN_METRIC_KEYWORDS:
+            if kw in mn_lower:
+                errors.append(
+                    f"{prefix}: metric_name '{metric_name}' "
+                    f"references forbidden live retrieval "
+                    f"metric."
+                )
+                break
+
+    comparison = raw.get("comparison", "")
+    if not comparison:
+        errors.append(
+            f"{prefix}: 'comparison' is required."
+        )
+    elif comparison not in ALLOWED_COMPARISONS:
+        errors.append(
+            f"{prefix}: invalid comparison '{comparison}'. "
+            f"Allowed: {', '.join(ALLOWED_COMPARISONS)}"
+        )
+
+    severity = raw.get("severity", "")
+    if not severity:
+        errors.append(
+            f"{prefix}: 'severity' is required."
+        )
+    elif severity not in ALLOWED_SEVERITIES:
+        errors.append(
+            f"{prefix}: invalid severity '{severity}'. "
+            f"Allowed: {', '.join(ALLOWED_SEVERITIES)}"
+        )
+
+    # threshold_value: numeric where applicable
+    threshold_value = raw.get("threshold_value")
+    if threshold_value is not None:
+        if not isinstance(threshold_value, (int, float)):
+            errors.append(
+                f"{prefix}: 'threshold_value' must be numeric."
+            )
+            threshold_value = 0.0
+    else:
+        threshold_value = 0.0
+
+    enabled = raw.get("enabled", True)
+    if not isinstance(enabled, bool):
+        errors.append(
+            f"{prefix}: 'enabled' must be true or false."
+        )
+        enabled = True
+
+    if errors:
+        return None, errors
+
+    rule = ConfigurablePortfolioTrendAlertRule(
+        rule_id=rule_id,
+        rule_name=rule_name,
+        scope=scope,
+        metric_name=metric_name,
+        threshold_value=float(threshold_value),
+        comparison=comparison,
+        severity=severity,
+        enabled=enabled,
+        message_template=raw.get("message_template", ""),
+        recommended_local_action=raw.get(
+            "recommended_local_action", ""
+        ),
+    )
+    return rule, []
+
+
+def validate_portfolio_trend_alert_rule_config(
+    config_path: Optional[Union[Path, str]] = None,
+) -> Tuple[bool, List[str], int, int]:
+    """Validate a portfolio trend alert rule config file.
+
+    Args:
+        config_path: Path to the config file.
+
+    Returns:
+        Tuple of (is_valid, errors, enabled_count,
+        disabled_count).
+    """
+    config = load_portfolio_trend_alert_rule_config(
+        config_path
+    )
+    enabled = sum(1 for r in config.rules if r.enabled)
+    disabled = sum(1 for r in config.rules if not r.enabled)
+    return config.is_valid, config.errors, enabled, disabled
+
+
+def merge_portfolio_trend_alert_rules(
+    config_path: Optional[Union[Path, str]] = None,
+) -> Tuple[
+    List[ConfigurablePortfolioTrendAlertRule], List[str]
+]:
+    """Merge built-in and user-defined alert rules.
+
+    In 'merge' mode, enabled custom rules are appended after
+    built-in rules converted to configurable format.
+    In 'replace' mode, only enabled custom rules are used.
+
+    Args:
+        config_path: Path to user config file.
+
+    Returns:
+        Tuple of (merged_rules, errors).
+    """
+    builtin_configurable = _builtin_to_configurable()
+    config = load_portfolio_trend_alert_rule_config(
+        config_path
+    )
+
+    if not config.is_valid:
+        return builtin_configurable, config.errors
+
+    # If no config file found, just return builtins
+    path = (
+        Path(config_path) if config_path
+        else DEFAULT_RULE_CONFIG_PATH
+    )
+    if not path.exists():
+        return builtin_configurable, []
+
+    enabled_custom = [r for r in config.rules if r.enabled]
+
+    if config.mode == "replace":
+        return enabled_custom, config.errors
+
+    # merge mode: builtins + enabled custom
+    return builtin_configurable + enabled_custom, config.errors
+
+
+def write_portfolio_trend_alert_rule_template(
+    output_path: Optional[Union[Path, str]] = None,
+    overwrite: bool = False,
+) -> Tuple[str, bool]:
+    """Write an example trend alert rule config file.
+
+    Args:
+        output_path: Output path. Defaults to
+            config/portfolio_trend_alert_rules.example.json.
+        overwrite: Whether to overwrite existing file.
+
+    Returns:
+        Tuple of (path_written, was_written).
+    """
+    path = (
+        Path(output_path) if output_path
+        else EXAMPLE_RULE_CONFIG_PATH
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if path.exists() and not overwrite:
+        return str(path), False
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(EXAMPLE_RULE_CONFIG, f, indent=2)
+        f.write("\n")
+
+    return str(path), True
+
+
+def get_active_portfolio_trend_alert_rules(
+    config_path: Optional[Union[Path, str]] = None,
+) -> Tuple[
+    List[ConfigurablePortfolioTrendAlertRule],
+    str,
+    int,
+    int,
+    List[str],
+]:
+    """Get active rules after merging built-in and custom.
+
+    Args:
+        config_path: Path to user config file.
+
+    Returns:
+        Tuple of (active_rules, mode, enabled_count,
+        disabled_count, errors).
+    """
+    config = load_portfolio_trend_alert_rule_config(
+        config_path
+    )
+    path = (
+        Path(config_path) if config_path
+        else DEFAULT_RULE_CONFIG_PATH
+    )
+    has_config = path.exists()
+
+    if not has_config or not config.is_valid:
+        builtin = _builtin_to_configurable()
+        return (
+            builtin,
+            "builtin",
+            len(builtin),
+            0,
+            config.errors,
+        )
+
+    merged, errors = merge_portfolio_trend_alert_rules(
+        config_path
+    )
+
+    all_custom = config.rules
+    enabled = sum(1 for r in all_custom if r.enabled)
+    disabled = sum(1 for r in all_custom if not r.enabled)
+
+    return merged, config.mode, enabled, disabled, errors
+
+
+def _builtin_to_configurable() -> (
+    List[ConfigurablePortfolioTrendAlertRule]
+):
+    """Convert built-in rules to configurable format.
+
+    Returns:
+        List of ConfigurablePortfolioTrendAlertRule.
+    """
+    builtin = get_default_portfolio_trend_alert_rules()
+    result: List[ConfigurablePortfolioTrendAlertRule] = []
+    for r in builtin:
+        result.append(ConfigurablePortfolioTrendAlertRule(
+            rule_id=r.rule_id,
+            rule_name=r.description,
+            scope=r.alert_scope,
+            metric_name=r.metric_name,
+            threshold_value=r.threshold,
+            comparison=">=",
+            severity=r.severity,
+            enabled=True,
+            message_template="",
+            recommended_local_action="",
+        ))
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Core functions
 # ---------------------------------------------------------------------------
 
 def evaluate_portfolio_trend_alerts(
     exports_dir: str = "data/exports",
+    rule_config: Optional[Union[Path, str]] = None,
 ) -> PortfolioTrendAlertDigest:
     """Evaluate all portfolio trend alert rules against trend data.
 
     Loads trend data from existing portfolio review pack CSV exports,
     evaluates aggregate and property-level alert rules, and returns
-    a complete digest.
+    a complete digest. When rule_config is provided, custom rules
+    are loaded and merged/replaced per the config mode.
 
     Args:
         exports_dir: Directory with review pack CSV exports.
+        rule_config: Optional path to a custom rule config JSON.
 
     Returns:
         PortfolioTrendAlertDigest with all triggered alerts.
@@ -319,17 +838,38 @@ def evaluate_portfolio_trend_alerts(
     portfolio_points = build_portfolio_trend_series(series)
     property_points = build_property_trend_series(series)
 
-    # Evaluate aggregate alerts
-    agg_alerts = evaluate_aggregate_burden_alerts(
-        portfolio_points, now
-    )
-    digest.alerts.extend(agg_alerts)
+    # Determine which rules to use
+    if rule_config is not None:
+        active_rules, _, _, _, config_errors = (
+            get_active_portfolio_trend_alert_rules(rule_config)
+        )
+        if config_errors:
+            for err in config_errors:
+                digest.alerts.append(PortfolioTrendAlert(
+                    alert_id="config_error",
+                    alert_scope="portfolio",
+                    severity="warning",
+                    alert_type="config_validation_error",
+                    message=err,
+                    generated_at=now,
+                ))
+        # Use configurable evaluation
+        custom_alerts = _evaluate_configurable_rules(
+            active_rules, portfolio_points,
+            property_points, now,
+        )
+        digest.alerts.extend(custom_alerts)
+    else:
+        # Default built-in evaluation (M43 behavior)
+        agg_alerts = evaluate_aggregate_burden_alerts(
+            portfolio_points, now
+        )
+        digest.alerts.extend(agg_alerts)
 
-    # Evaluate property alerts
-    prop_alerts = evaluate_property_trend_alerts(
-        property_points, now
-    )
-    digest.alerts.extend(prop_alerts)
+        prop_alerts = evaluate_property_trend_alerts(
+            property_points, now
+        )
+        digest.alerts.extend(prop_alerts)
 
     # Summarize
     digest.summary = summarize_portfolio_trend_alerts(
@@ -345,6 +885,337 @@ def evaluate_portfolio_trend_alerts(
         )
 
     return digest
+
+
+def _evaluate_configurable_rules(
+    rules: List[ConfigurablePortfolioTrendAlertRule],
+    portfolio_points: list,
+    property_points: list,
+    generated_at: str,
+) -> List[PortfolioTrendAlert]:
+    """Evaluate configurable rules against trend data.
+
+    This function applies custom/merged rules using the
+    comparison operators from the config schema.
+
+    Args:
+        rules: Active configurable rules to evaluate.
+        portfolio_points: Portfolio-level trend points.
+        property_points: Per-property trend points.
+        generated_at: Timestamp for alert generation.
+
+    Returns:
+        List of triggered PortfolioTrendAlert instances.
+    """
+    alerts: List[PortfolioTrendAlert] = []
+
+    if not portfolio_points:
+        return alerts
+
+    latest = portfolio_points[-1]
+    prev = (
+        portfolio_points[-2]
+        if len(portfolio_points) >= 2 else None
+    )
+    source = latest.pack_file
+
+    for rule in rules:
+        if not rule.enabled:
+            continue
+
+        if rule.scope == "portfolio":
+            new_alerts = _eval_portfolio_rule(
+                rule, latest, prev, source, generated_at
+            )
+            alerts.extend(new_alerts)
+        elif rule.scope == "property":
+            for pt in property_points:
+                new_alerts = _eval_property_rule(
+                    rule, pt, generated_at
+                )
+                alerts.extend(new_alerts)
+
+    return alerts
+
+
+def _eval_portfolio_rule(
+    rule: ConfigurablePortfolioTrendAlertRule,
+    latest: object,
+    prev: object,
+    source: str,
+    generated_at: str,
+) -> List[PortfolioTrendAlert]:
+    """Evaluate a single portfolio-scope configurable rule.
+
+    Args:
+        rule: The configurable rule.
+        latest: Latest portfolio trend point.
+        prev: Previous portfolio trend point (may be None).
+        source: Source pack file path.
+        generated_at: Timestamp.
+
+    Returns:
+        List of alerts (0 or 1).
+    """
+    current_val = _get_portfolio_metric(
+        latest, rule.metric_name
+    )
+    prev_val = (
+        _get_portfolio_metric(prev, rule.metric_name)
+        if prev else None
+    )
+
+    if current_val is None:
+        return []
+
+    triggered = _check_comparison(
+        rule.comparison, current_val, prev_val,
+        rule.threshold_value,
+    )
+    if not triggered:
+        return []
+
+    delta_str = ""
+    if prev_val is not None:
+        delta_str = str(
+            round(current_val - prev_val, 2)
+        )
+
+    msg = rule.message_template
+    if msg:
+        msg = msg.replace(
+            "{current_value}", str(current_val)
+        ).replace(
+            "{threshold_value}", str(rule.threshold_value)
+        ).replace(
+            "{previous_value}", str(prev_val or "")
+        ).replace(
+            "{delta_value}", delta_str
+        )
+    else:
+        msg = (
+            f"{rule.rule_name}: {rule.metric_name} is "
+            f"{current_val} (threshold: "
+            f"{rule.threshold_value})"
+        )
+
+    return [PortfolioTrendAlert(
+        alert_id=rule.rule_id,
+        alert_scope="portfolio",
+        severity=rule.severity,
+        alert_type=rule.rule_id,
+        message=msg,
+        metric_name=rule.metric_name,
+        previous_value=str(prev_val or ""),
+        current_value=str(current_val),
+        delta_value=delta_str,
+        source_pack_file=source,
+        generated_at=generated_at,
+        recommended_local_action=(
+            rule.recommended_local_action
+        ),
+    )]
+
+
+def _eval_property_rule(
+    rule: ConfigurablePortfolioTrendAlertRule,
+    pt: object,
+    generated_at: str,
+) -> List[PortfolioTrendAlert]:
+    """Evaluate a single property-scope configurable rule.
+
+    Args:
+        rule: The configurable rule.
+        pt: Property trend point.
+        generated_at: Timestamp.
+
+    Returns:
+        List of alerts (0 or 1).
+    """
+    current_val = _get_property_metric(
+        pt, rule.metric_name
+    )
+    if current_val is None:
+        return []
+
+    # For delta comparisons on property, use the delta
+    # fields directly. The comparison is against
+    # threshold_value.
+    triggered = False
+    if rule.comparison in ("delta>=", "delta<="):
+        triggered = _check_comparison(
+            rule.comparison, current_val, None,
+            rule.threshold_value,
+        )
+    else:
+        triggered = _check_comparison(
+            rule.comparison, current_val, None,
+            rule.threshold_value,
+        )
+
+    if not triggered:
+        return []
+
+    msg = rule.message_template
+    if msg:
+        msg = msg.replace(
+            "{current_value}", str(current_val)
+        ).replace(
+            "{threshold_value}", str(rule.threshold_value)
+        ).replace(
+            "{address}", getattr(pt, "address", "")
+        )
+    else:
+        msg = (
+            f"{getattr(pt, 'address', '')}: "
+            f"{rule.rule_name} - {rule.metric_name} is "
+            f"{current_val}"
+        )
+
+    return [PortfolioTrendAlert(
+        alert_id=(
+            f"prop_{getattr(pt, 'property_id', '')}"
+            f"_{rule.rule_id}"
+        ),
+        alert_scope="property",
+        property_id=str(getattr(pt, "property_id", "")),
+        candidate_id=str(
+            getattr(pt, "candidate_id", "")
+        ),
+        address=getattr(pt, "address", ""),
+        severity=rule.severity,
+        alert_type=rule.rule_id,
+        message=msg,
+        metric_name=rule.metric_name,
+        current_value=str(current_val),
+        recommended_local_action=(
+            rule.recommended_local_action
+        ),
+        generated_at=generated_at,
+    )]
+
+
+def _get_portfolio_metric(
+    point: object,
+    metric_name: str,
+) -> Optional[float]:
+    """Extract a numeric metric from a portfolio point.
+
+    Args:
+        point: Portfolio trend point.
+        metric_name: Metric attribute name.
+
+    Returns:
+        Numeric value or None.
+    """
+    val = getattr(point, metric_name, None)
+    if val is None:
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def _get_property_metric(
+    point: object,
+    metric_name: str,
+) -> Optional[float]:
+    """Extract a numeric metric from a property point.
+
+    Maps common metric names to property trend point
+    attributes including delta fields.
+
+    Args:
+        point: Property trend point.
+        metric_name: Metric name from rule config.
+
+    Returns:
+        Numeric value or None.
+    """
+    # Map metric names to property trend point attributes
+    attr_map = {
+        "lifecycle_health_score_delta": (
+            "lifecycle_health_score_delta_first_to_latest"
+        ),
+        "open_alert_delta": (
+            "open_alert_delta_first_to_latest"
+        ),
+        "cross_site_confidence_delta": (
+            "cross_site_confidence_delta_first_to_latest"
+        ),
+        "churn_index_delta": (
+            "churn_index_delta_first_to_latest"
+        ),
+        "effective_dom_v2_delta": (
+            "effective_dom_v2_delta_first_to_latest"
+        ),
+        "latest_lifecycle_health_score": (
+            "latest_lifecycle_health_score"
+        ),
+        "latest_open_alert_count": (
+            "latest_open_alert_count"
+        ),
+        "latest_cross_site_confidence": (
+            "latest_cross_site_confidence"
+        ),
+        "latest_recent_churn_index": (
+            "latest_recent_churn_index"
+        ),
+        "latest_effective_dom_v2": (
+            "latest_effective_dom_v2"
+        ),
+    }
+
+    attr = attr_map.get(metric_name, metric_name)
+    val = getattr(point, attr, None)
+    if val is None:
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def _check_comparison(
+    comparison: str,
+    current: float,
+    previous: Optional[float],
+    threshold: float,
+) -> bool:
+    """Check whether a comparison condition is met.
+
+    Args:
+        comparison: Comparison operator string.
+        current: Current metric value.
+        previous: Previous metric value (for delta).
+        threshold: Threshold value from rule.
+
+    Returns:
+        True if the condition is triggered.
+    """
+    if comparison == ">=":
+        return current >= threshold
+    elif comparison == ">":
+        return current > threshold
+    elif comparison == "<=":
+        return current <= threshold
+    elif comparison == "<":
+        return current < threshold
+    elif comparison == "==":
+        return current == threshold
+    elif comparison == "!=":
+        return current != threshold
+    elif comparison == "delta>=":
+        if previous is not None:
+            return (current - previous) >= threshold
+        # For property metrics, current IS the delta
+        return current >= threshold
+    elif comparison == "delta<=":
+        if previous is not None:
+            return (current - previous) <= threshold
+        return current <= threshold
+    return False
 
 
 def evaluate_aggregate_burden_alerts(
@@ -863,6 +1734,7 @@ def export_portfolio_trend_alert_digest(
     exports_dir: str = "data/exports",
     output_dir: str = "data/exports",
     fmt: str = "both",
+    rule_config: Optional[Union[Path, str]] = None,
 ) -> PortfolioTrendAlertRunResult:
     """Evaluate trend alerts and export digest.
 
@@ -870,13 +1742,16 @@ def export_portfolio_trend_alert_digest(
         exports_dir: Directory with review pack CSV exports.
         output_dir: Directory for output digest files.
         fmt: Export format: csv, md, or both.
+        rule_config: Optional path to custom rule config JSON.
 
     Returns:
         PortfolioTrendAlertRunResult with paths and summary.
     """
     result = PortfolioTrendAlertRunResult()
 
-    digest = evaluate_portfolio_trend_alerts(exports_dir)
+    digest = evaluate_portfolio_trend_alerts(
+        exports_dir, rule_config=rule_config,
+    )
     result.alert_count = len(digest.alerts)
     result.summary = digest.summary
 

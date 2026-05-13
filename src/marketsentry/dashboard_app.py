@@ -1717,6 +1717,52 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
 
     # --- Portfolio Trend Alerts subsection ---
     st.subheader("Portfolio Trend Alerts")
+
+    # Rule configuration visibility (M44)
+    try:
+        from marketsentry.portfolio_trend_alerts import (
+            get_active_portfolio_trend_alert_rules,
+            get_default_portfolio_trend_alert_rules
+            as _get_defaults,
+            DEFAULT_RULE_CONFIG_PATH as _RC_PATH,
+        )
+
+        _builtin_count = len(_get_defaults())
+        _rc_exists = _RC_PATH.exists()
+        _rules, _mode, _en, _dis, _errs = (
+            get_active_portfolio_trend_alert_rules()
+        )
+
+        rc1, rc2, rc3, rc4 = st.columns(4)
+        with rc1:
+            st.metric("Built-in Rules", _builtin_count)
+        with rc2:
+            st.metric(
+                "Custom Config",
+                "Detected" if _rc_exists else "None",
+            )
+        with rc3:
+            if _rc_exists:
+                st.metric(
+                    "Config Status",
+                    "Valid" if not _errs else "Invalid",
+                )
+            else:
+                st.metric("Config Status", "N/A")
+        with rc4:
+            st.metric("Active Rules", len(_rules))
+
+        if _rc_exists and (_en or _dis):
+            st.caption(
+                f"Custom rules: {_en} enabled, "
+                f"{_dis} disabled | Mode: {_mode}"
+            )
+        if _errs:
+            for _e in _errs[:3]:
+                st.warning(_e)
+    except Exception:
+        pass
+
     try:
         from marketsentry.portfolio_trend_alerts import (
             evaluate_portfolio_trend_alerts,

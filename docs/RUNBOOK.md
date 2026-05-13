@@ -2073,6 +2073,57 @@ Exports to `data/exports/portfolio_trend_alert_digest_YYYYMMDD_HHMMSS.md` and/or
 
 Portfolio trend alerts are local review prompts only. They do not mutate candidate decisions, watchlist state, alert status, or property data. No outbound notifications (email, SMS, webhook) are sent. Quiet Score gatekeeper remains unchanged.
 
+## Configurable Portfolio Trend Alert Rules (Milestone 44)
+
+### Writing a Rule Config Template
+
+```bash
+python -m marketsentry write-portfolio-trend-alert-rule-template
+python -m marketsentry write-portfolio-trend-alert-rule-template --output config/my_rules.json
+python -m marketsentry write-portfolio-trend-alert-rule-template --overwrite
+```
+
+Creates an example JSON config at `config/portfolio_trend_alert_rules.example.json`. Copy and customize this file to define your own threshold rules.
+
+### Validating a Rule Config
+
+```bash
+python -m marketsentry validate-portfolio-trend-alert-rules --rule-config config/portfolio_trend_alert_rules.json
+```
+
+Checks the config for valid JSON, required fields, allowed scope/comparison/severity values, duplicate rule IDs, and built-in override attempts.
+
+### Listing Active Rules
+
+```bash
+python -m marketsentry list-portfolio-trend-alert-rules
+python -m marketsentry list-portfolio-trend-alert-rules --rule-config config/portfolio_trend_alert_rules.json
+```
+
+Shows all active rules including built-in defaults and any custom rules from a config file, with mode, enabled/disabled counts.
+
+### Using Custom Rules for Alerts
+
+```bash
+python -m marketsentry portfolio-trend-alerts --rule-config config/portfolio_trend_alert_rules.json
+python -m marketsentry export-portfolio-trend-alert-digest --rule-config config/portfolio_trend_alert_rules.json --format both
+```
+
+### Config File Format
+
+The config file is JSON with two top-level fields:
+
+- **mode**: `merge` (custom rules added after built-ins) or `replace` (only custom rules used)
+- **rules**: array of rule objects
+
+Each rule requires: `rule_id`, `rule_name`, `scope`, `metric_name`, `comparison`, `severity`. Optional: `threshold_value`, `enabled`, `message_template`, `recommended_local_action`.
+
+See `docs/PORTFOLIO_TREND_ALERT_RULES.md` for full documentation.
+
+### Reminder: Configurable Rules Are Read-Only
+
+Custom rule configs are local review prompts only. They do not mutate candidate decisions, watchlist state, alert status, or property data. No outbound notifications are sent. Built-in rule IDs cannot be overridden. Walkability and live retrieval metrics are rejected.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

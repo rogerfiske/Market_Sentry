@@ -6,9 +6,24 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Portfolio Trend Threshold Alerts (MVP 43)
+## Current Milestone: Configurable Portfolio Trend Alert Rules (MVP 44)
 
-This milestone adds portfolio trend threshold alerts and a local notification-style digest.
+This milestone makes Milestone 43 threshold rules configurable without code changes.
+
+- JSON config file: `config/portfolio_trend_alert_rules.json` (optional)
+- Example template: `config/portfolio_trend_alert_rules.example.json`
+- Merge mode: custom rules appended after built-in defaults
+- Replace mode: only custom rules are used
+- Validation: rule_id uniqueness, scope/comparison/severity allowed values, forbidden walkability/live_retrieval metrics, built-in override prevention
+- Disabled rules: valid in config but not evaluated
+- Comparison operators: >=, >, <=, <, ==, !=, delta>=, delta<=
+- CLI: `marketsentry list-portfolio-trend-alert-rules`, `marketsentry write-portfolio-trend-alert-rule-template`, `marketsentry validate-portfolio-trend-alert-rules`
+- CLI updates: `portfolio-trend-alerts` and `export-portfolio-trend-alert-digest` now accept `--rule-config`
+- Dashboard: rule configuration visibility with built-in count, custom config status, active rule count
+- Configurable rules are entirely read-only: no mutations to candidate, watchlist, alert, or property state
+- No outbound notifications sent. No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 43: Portfolio Trend Threshold Alerts
 
 - Aggregate review burden threshold alerts (score >= 60 warning, >= 80 high)
 - Aggregate burden increase alerts (delta >= 15)
@@ -1734,7 +1749,8 @@ Market_Sentry/
     ├── test_milestone_40.py           # Portfolio review pack tests
     ├── test_milestone_41.py           # Portfolio review comparison tests
     ├── test_milestone_42.py           # Portfolio review trends tests
-    └── test_milestone_43.py           # Portfolio trend alerts tests
+    ├── test_milestone_43.py           # Portfolio trend alerts tests
+    └── test_milestone_44.py           # Configurable trend alert rules tests
 ```
 
 ## Running Tests
@@ -1780,11 +1796,11 @@ mypy src/
 
 ## Next Planned Milestone
 
-### MVP 44: (To Be Determined)
+### MVP 45: (To Be Determined)
 
-Milestones 1-43 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
+Milestones 1-44 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-**Note:** Milestone 43 (Portfolio Trend Threshold Alerts and Local Notification Digest) is now complete.
+**Note:** Milestone 44 (Configurable Portfolio Trend Alert Rules) is now complete.
 
 ## Repository
 
@@ -1834,6 +1850,7 @@ MIT
   - [Decision 040: Portfolio Review Comparison](docs/decisions/040-portfolio-review-comparison.md)
   - [Decision 041: Portfolio Review Trends](docs/decisions/041-portfolio-review-trends.md)
   - [Decision 042: Portfolio Trend Alerts](docs/decisions/042-portfolio-trend-alerts.md)
+  - [Decision 043: Configurable Portfolio Trend Alert Rules](docs/decisions/043-configurable-portfolio-trend-alert-rules.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

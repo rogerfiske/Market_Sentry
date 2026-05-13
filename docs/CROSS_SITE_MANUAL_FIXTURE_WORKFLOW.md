@@ -1165,3 +1165,29 @@ The scheduled script `run_portfolio_review_pack_report.bat` now runs pack export
 ### Reminder: Trend Alerts Are Read-Only
 
 The alert digest is a local analytical aid for offline review. It does not change candidate decisions, alert status, watchlist state, property data, or Quiet Score gatekeeper results. No outbound notifications are sent.
+
+## Configurable Portfolio Trend Alert Rules (Milestone 44)
+
+### Customizing Alert Thresholds
+
+You can customize trend alert thresholds without code changes using a JSON config file:
+
+```bash
+# Generate an example config
+marketsentry write-portfolio-trend-alert-rule-template
+
+# Copy and edit
+cp config/portfolio_trend_alert_rules.example.json config/portfolio_trend_alert_rules.json
+# Edit the file to adjust thresholds, add custom rules, or disable built-in rules
+
+# Validate your config
+marketsentry validate-portfolio-trend-alert-rules --rule-config config/portfolio_trend_alert_rules.json
+
+# Use custom rules for alerts
+marketsentry portfolio-trend-alerts --rule-config config/portfolio_trend_alert_rules.json
+marketsentry export-portfolio-trend-alert-digest --rule-config config/portfolio_trend_alert_rules.json --format both
+```
+
+The config supports `merge` mode (custom rules added after built-ins) and `replace` mode (only custom rules used). Disabled rules are valid in the config but are not evaluated. Built-in rule IDs cannot be overridden by custom configs.
+
+See `docs/PORTFOLIO_TREND_ALERT_RULES.md` for the full config schema and examples.

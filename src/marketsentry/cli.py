@@ -3967,6 +3967,14 @@ def portfolio_trend_alerts(
         "--limit",
         help="Maximum number of alerts to display",
     ),
+    rule_config: str = typer.Option(
+        "",
+        "--rule-config",
+        help=(
+            "Path to custom rule config JSON. "
+            "If empty, uses built-in rules only."
+        ),
+    ),
 ) -> None:
     """Show portfolio trend threshold alerts.
 
@@ -3980,7 +3988,10 @@ def portfolio_trend_alerts(
             evaluate_portfolio_trend_alerts,
         )
 
-        digest = evaluate_portfolio_trend_alerts(exports_dir)
+        rc = rule_config if rule_config else None
+        digest = evaluate_portfolio_trend_alerts(
+            exports_dir, rule_config=rc,
+        )
         s = digest.summary
 
         console.print(
@@ -4075,6 +4086,14 @@ def export_portfolio_trend_alert_digest(
         "--format",
         help="Export format: csv, md, or both",
     ),
+    rule_config: str = typer.Option(
+        "",
+        "--rule-config",
+        help=(
+            "Path to custom rule config JSON. "
+            "If empty, uses built-in rules only."
+        ),
+    ),
 ) -> None:
     """Export portfolio trend alert digest.
 
@@ -4088,10 +4107,12 @@ def export_portfolio_trend_alert_digest(
             export_portfolio_trend_alert_digest as _export,
         )
 
+        rc = rule_config if rule_config else None
         result = _export(
             exports_dir=exports_dir,
             output_dir=output_dir,
             fmt=fmt,
+            rule_config=rc,
         )
 
         if result.warnings:
@@ -4122,6 +4143,207 @@ def export_portfolio_trend_alert_digest(
         console.print(f"[bold red]Error:[/bold red] {e}")
         logger.error(
             f"Export portfolio trend alert digest error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def list_portfolio_trend_alert_rules(
+    rule_config: str = typer.Option(
+        "",
+        "--rule-config",
+        help=(
+            "Path to custom rule config JSON. "
+            "If empty, shows built-in rules only."
+        ),
+    ),
+) -> None:
+    """List active portfolio trend alert rules.
+
+    Shows all active rules including built-in defaults and
+    any custom rules from a config file.
+    This is a read-only operation. No mutations are performed.
+    No outbound notifications are sent.
+    """
+    try:
+        from marketsentry.portfolio_trend_alerts import (
+            get_active_portfolio_trend_alert_rules,
+        )
+
+        rc = rule_config if rule_config else None
+        rules, mode, enabled, disabled, errors = (
+            get_active_portfolio_trend_alert_rules(rc)
+        )
+
+        if errors:
+            for err in errors:
+                console.print(
+                    f"[yellow]Warning:[/yellow] {err}"
+                )
+
+        console.print(
+            f"\n[bold]Portfolio Trend Alert Rules[/bold]"
+        )
+        console.print(f"Mode: {mode}")
+        console.print(f"Active rules: {len(rules)}")
+        if rc:
+            console.print(
+                f"Custom enabled: {enabled}"
+            )
+            console.print(
+                f"Custom disabled: {disabled}"
+            )
+
+        if rules:
+            console.print(
+                f"\n[bold]Rule Table:[/bold]"
+            )
+            for r in rules:
+                status = (
+                    "enabled" if r.enabled
+                    else "disabled"
+                )
+                console.print(
+                    f"  [{r.severity.upper()}] "
+                    f"{r.rule_id} | {r.scope} | "
+                    f"{r.metric_name} "
+                    f"{r.comparison} "
+                    f"{r.threshold_value} | "
+                    f"{status}"
+                )
+
+        console.print(
+            "\nRead-only rule listing. "
+            "No mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"List portfolio trend alert rules error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def write_portfolio_trend_alert_rule_template(
+    output: str = typer.Option(
+        "config/portfolio_trend_alert_rules.example.json",
+        "--output",
+        help="Output path for the example config",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Overwrite existing file",
+    ),
+) -> None:
+    """Write an example portfolio trend alert rule config.
+
+    Creates an example JSON config file that users can copy
+    and customize for their own alert thresholds.
+    This is a file-write operation only. No mutations are
+    performed on candidates, watchlist, or alerts.
+    No outbound notifications are sent.
+    """
+    try:
+        from marketsentry.portfolio_trend_alerts import (
+            write_portfolio_trend_alert_rule_template
+            as _write,
+        )
+
+        path, written = _write(
+            output_path=output, overwrite=overwrite,
+        )
+
+        if written:
+            console.print(
+                f"Template written to: {path}"
+            )
+        else:
+            console.print(
+                f"File already exists: {path}"
+            )
+            console.print(
+                "Use --overwrite to replace."
+            )
+
+        console.print(
+            "\nNo mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Write portfolio trend alert rule template "
+            f"error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def validate_portfolio_trend_alert_rules(
+    rule_config: str = typer.Option(
+        ...,
+        "--rule-config",
+        help="Path to rule config JSON to validate",
+    ),
+) -> None:
+    """Validate a portfolio trend alert rule config file.
+
+    Checks the config file for valid JSON, valid rule
+    structure, allowed values, and duplicate rule IDs.
+    This is a read-only validation. No mutations are
+    performed. No outbound notifications are sent.
+    """
+    try:
+        from marketsentry.portfolio_trend_alerts import (
+            validate_portfolio_trend_alert_rule_config,
+        )
+
+        is_valid, errors, enabled, disabled = (
+            validate_portfolio_trend_alert_rule_config(
+                rule_config
+            )
+        )
+
+        console.print(
+            f"\n[bold]Rule Config Validation[/bold]"
+        )
+        console.print(f"Config: {rule_config}")
+
+        if is_valid:
+            console.print(
+                "[green]Status: VALID[/green]"
+            )
+        else:
+            console.print(
+                "[red]Status: INVALID[/red]"
+            )
+
+        console.print(f"Enabled rules: {enabled}")
+        console.print(f"Disabled rules: {disabled}")
+
+        if errors:
+            console.print(
+                f"\n[bold]Errors:[/bold]"
+            )
+            for err in errors:
+                console.print(f"  - {err}")
+
+        console.print(
+            "\nRead-only validation. "
+            "No mutations performed. "
+            "No outbound notifications sent."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Validate portfolio trend alert rules "
+            f"error: {e}"
         )
         raise typer.Exit(code=1)
 
