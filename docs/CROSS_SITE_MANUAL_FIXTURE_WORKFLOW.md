@@ -1090,3 +1090,26 @@ The Markdown report is designed to be printed or viewed offline for hands-on pro
 ### Reminder: Review Pack Is Read-Only
 
 The review pack is an analytical aid. It does not change candidate decisions, alert status, watchlist state, property data, or Quiet Score gatekeeper results. It does not make purchase recommendations or infer seller intent.
+
+## Portfolio Review Comparison (Milestone 41)
+
+### Comparing Review Packs Over Time
+
+After generating multiple review pack exports, compare them to track property-level changes:
+
+```bash
+marketsentry export-portfolio-review-comparison --format both
+```
+
+This compares the latest two review pack CSVs and produces a comparison report showing:
+
+- Properties added or removed from the pack
+- Priority and lifecycle health changes
+- Alert burden, Effective DOM, Churn Index, and cross-site confidence movement
+- Trend labels: improved, degraded, changed, unchanged, new, removed
+
+The scheduled script `run_portfolio_review_pack_report.bat` now runs both review pack export and comparison automatically.
+
+### Reminder: Comparison Is Read-Only
+
+The comparison report is an analytical aid. It does not change candidate decisions, alert status, watchlist state, property data, or Quiet Score gatekeeper results.

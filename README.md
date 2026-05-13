@@ -6,9 +6,23 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Portfolio Review Pack (MVP 40)
+## Current Milestone: Portfolio Review Pack Comparison (MVP 41)
 
-This milestone adds a local Portfolio Review Pack and print-ready Property Briefs.
+This milestone adds historical comparison reports for portfolio review packs.
+
+- Compare current review pack CSV to previous review pack CSV
+- Detect per-property changes: added, removed, priority change, lifecycle health change, alert burden change, Effective DOM movement, Churn Index movement, cross-site confidence change
+- Material change thresholds: score >= 5, DOM >= 14 days, churn >= 1.0, confidence >= 10
+- Trend labels: improved, degraded, changed, unchanged, new, removed
+- Summary metrics with aggregate counts for all change categories
+- Export comparison report to CSV and/or Markdown
+- CLI: `marketsentry compare-portfolio-review-packs`, `marketsentry export-portfolio-review-comparison`
+- Dashboard: Portfolio Review Comparison subsection with change metrics and property changes table
+- Scheduled script updated: `scripts/run_portfolio_review_pack_report.bat` now runs both review pack export and comparison
+- Comparison is entirely read-only: no mutations to candidate, watchlist, alert, or property state
+- No live retrieval. No Redfin overwrite. Quiet Score gatekeeper unchanged.
+
+### MVP 40: Portfolio Review Pack
 
 - Portfolio-level summary with watched property counts, Quiet gatekeeper pass/fail, gas/garage evidence, county reset, churn, DOM delta, cross-site, and alert/lifecycle metrics
 - Per-property briefs with Quiet/Vibrancy scores, Effective DOM v1/v2, Churn Index, cross-site confidence, alert burden, lifecycle health, and review priority
@@ -1685,7 +1699,8 @@ Market_Sentry/
     ├── test_milestone_37.py           # Lifecycle health trend snapshots tests
     ├── test_milestone_38.py           # Watchlist operations digest tests
     ├── test_milestone_39.py           # Operations digest history tests
-    └── test_milestone_40.py           # Portfolio review pack tests
+    ├── test_milestone_40.py           # Portfolio review pack tests
+    └── test_milestone_41.py           # Portfolio review comparison tests
 ```
 
 ## Running Tests
@@ -1782,6 +1797,7 @@ MIT
   - [Decision 037: Watchlist Operations Digest](docs/decisions/037-operations-digest.md)
   - [Decision 038: Operations Digest History](docs/decisions/038-operations-digest-history.md)
   - [Decision 039: Portfolio Review Pack](docs/decisions/039-portfolio-review-pack.md)
+  - [Decision 040: Portfolio Review Comparison](docs/decisions/040-portfolio-review-comparison.md)
 - The system is designed for disciplined market observation, not automatic purchasing decisions.
 - All scoring and filtering logic is deterministic and unit-tested.
 - The review workflow is human-in-the-loop: candidates must be reviewed before watchlist promotion.

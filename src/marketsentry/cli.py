@@ -3572,6 +3572,211 @@ def export_portfolio_review_pack(
 
 
 @app.command()
+def compare_portfolio_review_packs(
+    current: str = typer.Option(
+        "",
+        "--current",
+        help="Path to current review pack CSV (auto-detect if omitted)",
+    ),
+    previous: str = typer.Option(
+        "",
+        "--previous",
+        help="Path to previous review pack CSV (auto-detect if omitted)",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with review pack CSV exports",
+    ),
+    limit: int = typer.Option(
+        10,
+        "--limit",
+        help="Maximum number of changes to display",
+    ),
+) -> None:
+    """Compare two portfolio review pack CSV exports.
+
+    Shows property-level changes in priority, lifecycle health,
+    alerts, Effective DOM, Churn Index, and cross-site confidence.
+    This is a read-only comparison. No mutations are performed.
+    """
+    try:
+        from marketsentry.portfolio_review_comparison import (
+            compare_current_to_previous_portfolio_pack,
+        )
+
+        current_path = current if current else None
+        previous_path = previous if previous else None
+
+        changes, summary, curr_snap, prev_snap = (
+            compare_current_to_previous_portfolio_pack(
+                exports_dir=exports_dir,
+                current_path=current_path,
+                previous_path=previous_path,
+            )
+        )
+
+        console.print("[bold]Portfolio Review Pack Comparison[/bold]")
+        console.print(
+            f"  Current:  {curr_snap.file_path or 'None'}"
+            f" ({curr_snap.property_count} properties)"
+        )
+        console.print(
+            f"  Previous: {prev_snap.file_path or 'None'}"
+            f" ({prev_snap.property_count} properties)"
+        )
+        console.print()
+
+        # Summary metrics
+        console.print("[bold cyan]Summary Metrics[/bold cyan]")
+        console.print(f"  Added:    {summary.added_count}")
+        console.print(f"  Removed:  {summary.removed_count}")
+        console.print(
+            f"  Priority up: {summary.priority_up_count}"
+            f"  Priority down: {summary.priority_down_count}"
+        )
+        console.print(
+            f"  Health improved: "
+            f"{summary.lifecycle_health_improved_count}"
+            f"  Health degraded: "
+            f"{summary.lifecycle_health_degraded_count}"
+        )
+        console.print(
+            f"  Alert burden up: "
+            f"{summary.alert_burden_increased_count}"
+            f"  Alert burden down: "
+            f"{summary.alert_burden_decreased_count}"
+        )
+        console.print(f"  No change: {summary.no_change_count}")
+        console.print()
+
+        # Top changes
+        changed = [
+            c for c in changes if c.change_type != "unchanged"
+        ]
+        if changed:
+            console.print(
+                f"[bold cyan]Top Changes"
+                f" (showing {min(limit, len(changed))}"
+                f" of {len(changed)})[/bold cyan]"
+            )
+            for c in changed[:limit]:
+                label = f"[{c.change_type}]"
+                if c.trend_label in ("improved",):
+                    label = f"[green][{c.change_type}][/green]"
+                elif c.trend_label in ("degraded",):
+                    label = f"[red][{c.change_type}][/red]"
+                console.print(
+                    f"  {label} {c.address}"
+                    f" - {c.change_summary}"
+                )
+        else:
+            console.print("  No changes detected.")
+
+        console.print()
+        console.print(
+            "Read-only comparison. "
+            "No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Compare portfolio review packs error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_portfolio_review_comparison(
+    current: str = typer.Option(
+        "",
+        "--current",
+        help="Path to current review pack CSV (auto-detect if omitted)",
+    ),
+    previous: str = typer.Option(
+        "",
+        "--previous",
+        help="Path to previous review pack CSV (auto-detect if omitted)",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Directory with review pack CSV exports",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for comparison reports",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: md, csv, or both",
+    ),
+) -> None:
+    """Export portfolio review pack comparison as Markdown and/or CSV.
+
+    This is a read-only export. No mutations are performed.
+    """
+    try:
+        from marketsentry.portfolio_review_comparison import (
+            export_portfolio_review_comparison as _export,
+        )
+
+        current_path = current if current else None
+        previous_path = previous if previous else None
+
+        result = _export(
+            exports_dir=exports_dir,
+            output_dir=output_dir,
+            fmt=fmt,
+            current_path=current_path,
+            previous_path=previous_path,
+        )
+
+        console.print(
+            "[bold]Portfolio Review Pack Comparison Export[/bold]"
+        )
+        console.print(
+            f"  Current:  {result.current_file or 'None'}"
+        )
+        console.print(
+            f"  Previous: {result.previous_file or 'None'}"
+        )
+        for p in result.export_paths:
+            console.print(f"  Report: {p}")
+        console.print(f"  Rows: {result.row_count}")
+        if result.summary:
+            s = result.summary
+            changed_total = (
+                s.priority_up_count
+                + s.priority_down_count
+                + s.lifecycle_health_improved_count
+                + s.lifecycle_health_degraded_count
+            )
+            console.print(
+                f"  Added: {s.added_count}"
+                f"  Removed: {s.removed_count}"
+                f"  Changed: {changed_total}"
+            )
+        if result.warnings:
+            for w in result.warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+        console.print(
+            "\nRead-only comparison export. "
+            "No mutations performed."
+        )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export portfolio review comparison error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

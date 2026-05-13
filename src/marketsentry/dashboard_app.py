@@ -1517,6 +1517,93 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
             "Run: marketsentry export-portfolio-review-pack"
         )
 
+    # --- Portfolio Review Comparison subsection ---
+    st.subheader("Portfolio Review Comparison")
+    try:
+        from marketsentry.portfolio_review_comparison import (
+            compare_current_to_previous_portfolio_pack,
+        )
+
+        changes, summary, curr_snap, prev_snap = (
+            compare_current_to_previous_portfolio_pack(
+                exports_dir=exports_dir,
+            )
+        )
+
+        if curr_snap.file_path:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Current Properties",
+                          summary.total_properties_current)
+                st.caption(f"File: {curr_snap.file_path}")
+            with col2:
+                st.metric("Previous Properties",
+                          summary.total_properties_previous)
+                st.caption(
+                    f"File: {prev_snap.file_path or 'None'}"
+                )
+
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.metric("Added", summary.added_count)
+            with c2:
+                st.metric("Removed", summary.removed_count)
+            with c3:
+                st.metric("Priority Up", summary.priority_up_count)
+            with c4:
+                st.metric("No Change", summary.no_change_count)
+
+            # Property changes table
+            changed_items = [
+                c for c in changes if c.change_type != "unchanged"
+            ]
+            if changed_items:
+                st.caption("Property Changes")
+                change_data = []
+                for c in changed_items[:20]:
+                    change_data.append({
+                        "Property": c.address,
+                        "Type": c.change_type,
+                        "Trend": c.trend_label,
+                        "Priority": (
+                            f"{c.previous_priority_label}"
+                            f" -> {c.current_priority_label}"
+                            if c.current_priority_label
+                            and c.previous_priority_label
+                            else c.current_priority_label
+                            or c.previous_priority_label
+                        ),
+                        "Summary": c.change_summary[:60],
+                    })
+                st.dataframe(change_data, use_container_width=True)
+
+            # Latest comparison report link
+            from pathlib import Path as _PC
+            comp_p = _PC(exports_dir)
+            if comp_p.is_dir():
+                comp_files = sorted(
+                    [
+                        f for f in comp_p.iterdir()
+                        if f.name.startswith(
+                            "portfolio_review_comparison_"
+                        )
+                        and f.name.endswith(".md")
+                    ],
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                if comp_files:
+                    st.caption(
+                        f"Latest comparison: {comp_files[0]}"
+                    )
+        else:
+            st.info(
+                "No portfolio review pack CSV found. "
+                "Run: marketsentry export-portfolio-review-pack"
+            )
+    except Exception:
+        pass
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""

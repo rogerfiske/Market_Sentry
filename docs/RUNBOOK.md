@@ -1934,11 +1934,50 @@ Each property brief covers:
 scripts\run_portfolio_review_pack_report.bat
 ```
 
-Runs the portfolio review pack export. No alert mutation. No live retrieval.
+Runs the portfolio review pack export and comparison report. No alert mutation. No live retrieval.
 
 ### Reminder: Review Pack Is Read-Only
 
 The portfolio review pack is an analytical aid for offline property review. It does not mutate candidate decisions, watchlist state, alert status, or property data. It does not make purchase recommendations or infer seller intent. Quiet Score gatekeeper remains unchanged.
+
+## Portfolio Review Comparison (Milestone 41)
+
+### Comparing Review Packs
+
+```bash
+python -m marketsentry compare-portfolio-review-packs
+python -m marketsentry compare-portfolio-review-packs --limit 20
+python -m marketsentry compare-portfolio-review-packs --current path/to/current.csv --previous path/to/previous.csv
+```
+
+Automatically finds the latest and previous review pack CSVs in `data/exports/`. Shows summary metrics and top property changes.
+
+### Exporting Comparison Report
+
+```bash
+python -m marketsentry export-portfolio-review-comparison --format md
+python -m marketsentry export-portfolio-review-comparison --format csv
+python -m marketsentry export-portfolio-review-comparison --format both
+```
+
+Exports to `data/exports/portfolio_review_comparison_YYYYMMDD_HHMMSS.md` and/or `.csv`.
+
+### What Changes Are Detected
+
+- Property added or removed
+- Priority label/score changes (material: >= 5 points)
+- Lifecycle health label/score changes
+- Open alert count and high/critical alert changes
+- Effective DOM v2 changes (material: >= 14 days)
+- Churn Index changes (material: >= 1.0)
+- Cross-site confidence changes (material: >= 10 points)
+- Quiet gatekeeper result and score changes
+- Discrepancy severity changes
+- Recommended review action changes
+
+### Reminder: Comparison Is Read-Only
+
+Portfolio review comparison is an analytical aid. It does not mutate candidate decisions, watchlist state, alert status, or property data. Quiet Score gatekeeper remains unchanged.
 
 ## No Live Scraping Warning
 

@@ -14,4 +14,6 @@ echo [%date% %time%] Starting portfolio review pack report >> %LOGFILE%
 
 python -m marketsentry export-portfolio-review-pack --format both >> %LOGFILE% 2>&1
 
+python -m marketsentry export-portfolio-review-comparison --format both >> %LOGFILE% 2>&1
+
 echo [%date% %time%] Portfolio review pack report complete >> %LOGFILE%
