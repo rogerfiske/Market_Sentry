@@ -1869,7 +1869,7 @@ mypy src/
 
 - Guided operator workflow module reducing command-line and CSV-editing burden
 - Workflow status command showing candidate counts, missing data, and recommended actions
-- One-command operator refresh workflow (recalc, snapshot, all reports) with no live retrieval
+- One-command operator refresh workflow (recalc, Effective DOM v2, snapshot, all reports) with no live retrieval
 - Candidate decision helper (save/reject/maybe/hold_for_more_data) with automatic watchlist promotion
 - Candidate location scores helper (Quiet/Vibrancy with gatekeeper computation)
 - Candidate noise notes helper (local field knowledge with risk levels and sources)
@@ -1885,7 +1885,7 @@ mypy src/
 
 Milestones 1-51 are complete. The project is at release candidate v0.1.0-rc1.
 
-**Note:** Milestone 51 (Guided Operator Workflow) is now complete.
+**Note:** Milestone 51A (Operator Workflow Stabilization) is now complete. All operator workflow commands default to `db/marketsentry.db` and no longer require `--db db\marketsentry.db`.
 
 ## Repository
 

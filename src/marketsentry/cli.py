@@ -5346,7 +5346,7 @@ def export_portfolio_alert_email_digest(
 @app.command()
 def local_operations_bundle(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -5426,7 +5426,7 @@ def local_operations_bundle(
 @app.command()
 def export_local_operations_bundle(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -5504,7 +5504,7 @@ def export_local_operations_bundle(
 @app.command()
 def local_operations_smoke_test(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -5575,7 +5575,7 @@ def local_operations_smoke_test(
 @app.command()
 def release_candidate_summary(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -5646,7 +5646,7 @@ def release_candidate_summary(
 @app.command()
 def export_release_candidate_report(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -5722,7 +5722,7 @@ def export_release_candidate_report(
 @app.command()
 def release_candidate_checklist(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -5977,7 +5977,7 @@ def release_manual_github_commands(
 @app.command()
 def operator_workflow_status(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -6069,7 +6069,7 @@ def candidate_decision(
         help="Optional notes",
     ),
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -6140,7 +6140,7 @@ def candidate_location_scores(
         help="Optional notes",
     ),
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -6214,7 +6214,7 @@ def candidate_noise_notes(
         help="Free-text noise notes",
     ),
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -6263,7 +6263,7 @@ def candidate_noise_notes(
 @app.command()
 def run_operator_refresh_workflow(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),
@@ -6356,7 +6356,7 @@ def run_operator_refresh_workflow(
 @app.command()
 def export_operator_action_summary(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to the SQLite database",
     ),

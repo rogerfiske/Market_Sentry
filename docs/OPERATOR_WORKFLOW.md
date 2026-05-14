@@ -111,12 +111,13 @@ marketsentry run-operator-refresh-workflow
 This runs:
 
 1. Recalculate candidate scores
-2. Snapshot watchlist observations
-3. Export monitoring report
-4. Export candidate analysis report
-5. Export operations digest
-6. Export portfolio review pack
-7. Export local operations bundle
+2. Persist Effective DOM v2 if available
+3. Snapshot watchlist observations
+4. Export watchlist monitoring report
+5. Export candidate analysis report
+6. Export operations digest
+7. Export portfolio review pack
+8. Export local operations bundle
 
 The command:
 
@@ -126,6 +127,8 @@ The command:
 - Does NOT send notifications
 - Reports warnings instead of crashing when a non-critical step fails
 - Tolerates empty or missing optional tables
+
+All commands default to the project database at `db/marketsentry.db`. You do not need to add `--db db\marketsentry.db` unless you are intentionally using a custom database.
 
 ## Exporting an Action Summary
 
@@ -190,3 +193,9 @@ All data displayed comes from previously saved local files and database records.
 | Add noise notes | `marketsentry candidate-noise-notes --candidate-id <id> --noise-risk <level> --noise-sources "<sources>"` |
 | Refresh all reports | `marketsentry run-operator-refresh-workflow` |
 | Export summary | `marketsentry export-operator-action-summary --format both` |
+
+## Troubleshooting
+
+If status shows zero candidates unexpectedly, run `python -m marketsentry.cli status` and confirm database path.
+
+All operator commands default to `db/marketsentry.db`. If you see errors about missing tables, verify you are running from the project root directory and that the database file exists at `db/marketsentry.db`.

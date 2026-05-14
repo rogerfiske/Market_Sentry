@@ -132,7 +132,7 @@ def build_operator_workflow_status(
         Operator workflow status summary.
     """
     if db_path is None:
-        db_path = "data/market_sentry.db"
+        db_path = "db/marketsentry.db"
     if exports_dir is None:
         exports_dir = "data/exports"
 
@@ -347,13 +347,14 @@ def run_operator_refresh_workflow(
     """Run the operator refresh workflow.
 
     Runs local-only operations in order:
-    1. Recalc candidates
-    2. Snapshot watchlist
-    3. Export monitoring report
-    4. Export candidate analysis
-    5. Export operations digest
-    6. Export portfolio review pack
-    7. Export local operations bundle
+    1. Recalculate candidates
+    2. Persist Effective DOM v2 if available
+    3. Snapshot watchlist
+    4. Export watchlist monitoring report
+    5. Export candidate analysis report
+    6. Export operations digest
+    7. Export portfolio review pack
+    8. Export local operations bundle
 
     Does not run live retrieval, import decisions, mutate
     decisions, mutate alerts, or send notifications.
@@ -366,7 +367,7 @@ def run_operator_refresh_workflow(
         Workflow run result with steps and outputs.
     """
     if db_path is None:
-        db_path = "data/market_sentry.db"
+        db_path = "db/marketsentry.db"
     if exports_dir is None:
         exports_dir = "data/exports"
 
@@ -397,13 +398,13 @@ def run_operator_refresh_workflow(
         ]
         return result
 
-    # Step 1: Recalc candidates
+    # Step 1: Recalculate candidates
     try:
         from marketsentry.candidate_recalc import (
-            recalc_all_candidates,
+            recalculate_candidates,
         )
 
-        recalc_all_candidates(database_path=db_path)
+        recalculate_candidates(database_path=db_path)
         steps.append(
             OperatorWorkflowStep(
                 step_id="recalc",
@@ -429,13 +430,53 @@ def run_operator_refresh_workflow(
             )
         )
 
-    # Step 2: Snapshot watchlist
+    # Step 2: Persist Effective DOM v2 if available
     try:
-        from marketsentry.monitoring import (
-            snapshot_watchlist_observations,
+        from marketsentry.effective_dom_v2_persistence import (
+            persist_effective_dom_v2,
         )
 
-        snapshot_watchlist_observations(
+        persist_effective_dom_v2(database_path=db_path)
+        steps.append(
+            OperatorWorkflowStep(
+                step_id="effective_dom_v2",
+                description=(
+                    "Persist Effective DOM v2"
+                ),
+                status="pass",
+                detail="Effective DOM v2 persisted",
+            )
+        )
+    except Exception as e:
+        steps.append(
+            OperatorWorkflowStep(
+                step_id="effective_dom_v2",
+                description=(
+                    "Persist Effective DOM v2"
+                ),
+                status="warning",
+                detail=(
+                    f"Effective DOM v2 skipped: {e}"
+                ),
+            )
+        )
+        warnings.append(
+            OperatorWorkflowWarning(
+                warning_id="effective_dom_v2_skip",
+                message=(
+                    f"Effective DOM v2 skipped: {e}"
+                ),
+                severity="warning",
+            )
+        )
+
+    # Step 3: Snapshot watchlist
+    try:
+        from marketsentry.monitoring import (
+            create_snapshots_for_all_watched,
+        )
+
+        create_snapshots_for_all_watched(
             database_path=db_path
         )
         steps.append(
@@ -465,34 +506,35 @@ def run_operator_refresh_workflow(
             )
         )
 
-    # Step 3: Export monitoring report
+    # Step 4: Export watchlist monitoring report
     try:
-        from marketsentry.monitoring import (
-            export_monitoring_report,
+        from marketsentry.monitoring_report import (
+            export_watchlist_monitoring_report,
         )
 
-        paths = export_monitoring_report(
+        row_count = export_watchlist_monitoring_report(
             database_path=db_path,
-            output_dir=exports_dir,
         )
-        if paths:
-            output_paths.extend(
-                paths if isinstance(paths, list)
-                else [str(paths)]
-            )
         steps.append(
             OperatorWorkflowStep(
                 step_id="monitoring_report",
-                description="Export monitoring report",
+                description=(
+                    "Export monitoring report"
+                ),
                 status="pass",
-                detail="Monitoring report exported",
+                detail=(
+                    f"Monitoring report exported "
+                    f"({row_count} rows)"
+                ),
             )
         )
     except Exception as e:
         steps.append(
             OperatorWorkflowStep(
                 step_id="monitoring_report",
-                description="Export monitoring report",
+                description=(
+                    "Export monitoring report"
+                ),
                 status="warning",
                 detail=f"Monitoring report skipped: {e}",
             )
@@ -507,7 +549,7 @@ def run_operator_refresh_workflow(
             )
         )
 
-    # Step 4: Export candidate analysis
+    # Step 5: Export candidate analysis report
     try:
         from marketsentry.candidate_report import (
             export_candidate_analysis_report,
@@ -515,7 +557,6 @@ def run_operator_refresh_workflow(
 
         report_path = export_candidate_analysis_report(
             database_path=db_path,
-            output_dir=exports_dir,
         )
         if report_path:
             output_paths.append(str(report_path))
@@ -548,21 +589,19 @@ def run_operator_refresh_workflow(
             )
         )
 
-    # Step 5: Export operations digest
+    # Step 6: Export operations digest
     try:
         from marketsentry.operations_digest import (
             export_operations_digest,
         )
 
-        digest_paths = export_operations_digest(
-            database_path=db_path,
-            output_dir=exports_dir,
+        digest_result = export_operations_digest(
+            db_path=db_path,
+            exports_dir=exports_dir,
         )
-        if digest_paths:
+        if hasattr(digest_result, 'export_paths'):
             output_paths.extend(
-                digest_paths
-                if isinstance(digest_paths, list)
-                else [str(digest_paths)]
+                digest_result.export_paths
             )
         steps.append(
             OperatorWorkflowStep(
@@ -593,21 +632,19 @@ def run_operator_refresh_workflow(
             )
         )
 
-    # Step 6: Export portfolio review pack
+    # Step 7: Export portfolio review pack
     try:
         from marketsentry.portfolio_review_pack import (
             export_portfolio_review_pack,
         )
 
-        pack_paths = export_portfolio_review_pack(
-            database_path=db_path,
+        pack_result = export_portfolio_review_pack(
+            db_path=db_path,
             output_dir=exports_dir,
         )
-        if pack_paths:
+        if hasattr(pack_result, 'export_paths'):
             output_paths.extend(
-                pack_paths
-                if isinstance(pack_paths, list)
-                else [str(pack_paths)]
+                pack_result.export_paths
             )
         steps.append(
             OperatorWorkflowStep(
@@ -642,7 +679,7 @@ def run_operator_refresh_workflow(
             )
         )
 
-    # Step 7: Export local operations bundle
+    # Step 8: Export local operations bundle
     try:
         from marketsentry.local_operations_bundle import (
             build_local_operations_bundle,
@@ -728,7 +765,7 @@ def apply_candidate_decision(
         Action result with success status and detail.
     """
     if db_path is None:
-        db_path = "data/market_sentry.db"
+        db_path = "db/marketsentry.db"
 
     result = OperatorCandidateActionResult(
         candidate_id=candidate_id,
@@ -862,7 +899,7 @@ def apply_candidate_location_scores(
         Action result with success status and detail.
     """
     if db_path is None:
-        db_path = "data/market_sentry.db"
+        db_path = "db/marketsentry.db"
 
     result = OperatorCandidateActionResult(
         candidate_id=candidate_id,
@@ -995,7 +1032,7 @@ def apply_candidate_noise_notes(
         Action result with success status and detail.
     """
     if db_path is None:
-        db_path = "data/market_sentry.db"
+        db_path = "db/marketsentry.db"
 
     result = OperatorCandidateActionResult(
         candidate_id=candidate_id,
@@ -1085,7 +1122,7 @@ def build_missing_data_actions(
         List of recommended actions.
     """
     if db_path is None:
-        db_path = "data/market_sentry.db"
+        db_path = "db/marketsentry.db"
 
     actions: List[OperatorWorkflowAction] = []
 
@@ -1186,7 +1223,7 @@ def export_operator_action_summary(
         List of exported file paths.
     """
     if db_path is None:
-        db_path = "data/market_sentry.db"
+        db_path = "db/marketsentry.db"
     if exports_dir is None:
         exports_dir = "data/exports"
 

@@ -2447,7 +2447,11 @@ marketsentry candidate-noise-notes --candidate-id 5 --noise-risk moderate --nois
 marketsentry run-operator-refresh-workflow
 ```
 
-Runs all local reports in order: recalc, snapshot, monitoring, candidate analysis, operations digest, portfolio review pack, local operations bundle. No live retrieval.
+Runs all local reports in order: recalc, Effective DOM v2 persistence, snapshot, monitoring report, candidate analysis, operations digest, portfolio review pack, local operations bundle. No live retrieval.
+
+All operator commands default to `db/marketsentry.db`. You do not need to add `--db db\marketsentry.db` unless you are intentionally using a custom database.
+
+**Troubleshooting:** If status shows zero candidates unexpectedly, run `python -m marketsentry.cli status` and confirm database path.
 
 ### Export Operator Action Summary
 

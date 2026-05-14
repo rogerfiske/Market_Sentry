@@ -1364,3 +1364,327 @@ class TestCurrentProjectSafety:
         assert Path(
             "docs/decisions/050-guided-operator-workflow.md"
         ).exists()
+
+
+# -------------------------------------------------------------------
+# M51A regression tests - database path defaults
+# -------------------------------------------------------------------
+
+
+class TestM51ADefaultDatabasePath:
+    """M51A: CLI commands default to canonical db path."""
+
+    def test_cli_help_shows_canonical_default(self):
+        """CLI help shows db/marketsentry.db default."""
+        from marketsentry.cli import app
+
+        result = runner.invoke(
+            app,
+            ["operator-workflow-status", "--help"],
+        )
+        assert result.exit_code == 0
+        # Must NOT show the wrong default
+        assert "data/market_sentry.db" not in result.output
+        # Should show canonical default
+        assert "marketsentry.db" in result.output
+
+    def test_candidate_location_scores_help_default(self):
+        """candidate-location-scores help uses canonical."""
+        from marketsentry.cli import app
+
+        result = runner.invoke(
+            app,
+            ["candidate-location-scores", "--help"],
+        )
+        assert result.exit_code == 0
+        assert "data/market_sentry.db" not in result.output
+
+    def test_candidate_noise_notes_help_default(self):
+        """candidate-noise-notes help uses canonical."""
+        from marketsentry.cli import app
+
+        result = runner.invoke(
+            app,
+            ["candidate-noise-notes", "--help"],
+        )
+        assert result.exit_code == 0
+        assert "data/market_sentry.db" not in result.output
+
+    def test_candidate_decision_help_default(self):
+        """candidate-decision help uses canonical."""
+        from marketsentry.cli import app
+
+        result = runner.invoke(
+            app,
+            ["candidate-decision", "--help"],
+        )
+        assert result.exit_code == 0
+        assert "data/market_sentry.db" not in result.output
+
+    def test_run_refresh_help_default(self):
+        """run-operator-refresh-workflow help canonical."""
+        from marketsentry.cli import app
+
+        result = runner.invoke(
+            app,
+            [
+                "run-operator-refresh-workflow",
+                "--help",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "data/market_sentry.db" not in result.output
+
+    def test_export_action_summary_help_default(self):
+        """export-operator-action-summary help canonical."""
+        from marketsentry.cli import app
+
+        result = runner.invoke(
+            app,
+            [
+                "export-operator-action-summary",
+                "--help",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "data/market_sentry.db" not in result.output
+
+    def test_module_defaults_canonical(self):
+        """Module function defaults use canonical path."""
+        import inspect
+        from marketsentry.operator_workflow import (
+            build_operator_workflow_status,
+            run_operator_refresh_workflow,
+            apply_candidate_decision,
+            apply_candidate_location_scores,
+            apply_candidate_noise_notes,
+            build_missing_data_actions,
+            export_operator_action_summary,
+        )
+
+        for fn in [
+            build_operator_workflow_status,
+            run_operator_refresh_workflow,
+            apply_candidate_decision,
+            apply_candidate_location_scores,
+            apply_candidate_noise_notes,
+            build_missing_data_actions,
+            export_operator_action_summary,
+        ]:
+            src = inspect.getsource(fn)
+            # Module uses None default with fallback;
+            # the fallback must not be the wrong path
+            assert "data/market_sentry.db" not in src
+
+
+# -------------------------------------------------------------------
+# M51A regression tests - refresh workflow imports
+# -------------------------------------------------------------------
+
+
+class TestM51ARefreshWorkflowImports:
+    """M51A: Refresh workflow uses correct function names."""
+
+    def test_no_recalc_all_candidates(self):
+        """No import of nonexistent recalc_all_candidates."""
+        source = Path(
+            "src/marketsentry/operator_workflow.py"
+        ).read_text(encoding="utf-8")
+        assert "recalc_all_candidates" not in source
+
+    def test_no_snapshot_watchlist_observations(self):
+        """No import of nonexistent snapshot_watchlist."""
+        source = Path(
+            "src/marketsentry/operator_workflow.py"
+        ).read_text(encoding="utf-8")
+        assert "snapshot_watchlist_observations" not in source
+
+    def test_no_export_monitoring_report_wrong_module(self):
+        """No import of export_monitoring_report from
+        monitoring module."""
+        source = Path(
+            "src/marketsentry/operator_workflow.py"
+        ).read_text(encoding="utf-8")
+        # Should use export_watchlist_monitoring_report
+        # from monitoring_report, not export_monitoring_report
+        # from monitoring
+        assert "export_monitoring_report" not in source
+        assert "export_watchlist_monitoring_report" in source
+
+    def test_uses_recalculate_candidates(self):
+        """Uses correct recalculate_candidates function."""
+        source = Path(
+            "src/marketsentry/operator_workflow.py"
+        ).read_text(encoding="utf-8")
+        assert "recalculate_candidates" in source
+
+    def test_uses_create_snapshots_for_all_watched(self):
+        """Uses correct create_snapshots function."""
+        source = Path(
+            "src/marketsentry/operator_workflow.py"
+        ).read_text(encoding="utf-8")
+        assert "create_snapshots_for_all_watched" in source
+
+    def test_uses_monitoring_report_module(self):
+        """Uses monitoring_report module for report export."""
+        source = Path(
+            "src/marketsentry/operator_workflow.py"
+        ).read_text(encoding="utf-8")
+        assert "from marketsentry.monitoring_report" in source
+
+    def test_operations_digest_correct_kwarg(self):
+        """export_operations_digest uses db_path kwarg."""
+        source = Path(
+            "src/marketsentry/operator_workflow.py"
+        ).read_text(encoding="utf-8")
+        # Find the digest call in refresh workflow
+        # Should use db_path=, not database_path=
+        in_digest = False
+        for line in source.splitlines():
+            if "export_operations_digest" in line:
+                in_digest = True
+            if in_digest and "database_path=" in line:
+                assert False, (
+                    "export_operations_digest should use "
+                    "db_path=, not database_path="
+                )
+            if in_digest and ")" in line and "(" not in line:
+                in_digest = False
+
+    def test_portfolio_review_pack_correct_kwarg(self):
+        """export_portfolio_review_pack uses db_path."""
+        source = Path(
+            "src/marketsentry/operator_workflow.py"
+        ).read_text(encoding="utf-8")
+        # Find the pack call in refresh workflow
+        in_pack = False
+        for line in source.splitlines():
+            if "export_portfolio_review_pack" in line:
+                in_pack = True
+            if in_pack and "database_path=" in line:
+                assert False, (
+                    "export_portfolio_review_pack should "
+                    "use db_path=, not database_path="
+                )
+            if in_pack and ")" in line and "(" not in line:
+                in_pack = False
+
+    def test_candidate_analysis_no_output_dir(self):
+        """export_candidate_analysis_report no output_dir."""
+        source = Path(
+            "src/marketsentry/operator_workflow.py"
+        ).read_text(encoding="utf-8")
+        # Find the candidate analysis call
+        in_analysis = False
+        for line in source.splitlines():
+            if "export_candidate_analysis_report" in line:
+                in_analysis = True
+            if in_analysis and "output_dir=" in line:
+                assert False, (
+                    "export_candidate_analysis_report "
+                    "should not use output_dir="
+                )
+            if in_analysis and ")" in line and "(" not in line:
+                in_analysis = False
+
+    def test_has_effective_dom_v2_step(self):
+        """Refresh has Effective DOM v2 persistence step."""
+        source = Path(
+            "src/marketsentry/operator_workflow.py"
+        ).read_text(encoding="utf-8")
+        assert "persist_effective_dom_v2" in source
+        assert "effective_dom_v2_persistence" in source
+
+
+class TestM51ARefreshWorkflowExecution:
+    """M51A: Refresh workflow runs correctly."""
+
+    def test_refresh_uses_provided_db(self, tmp_path):
+        """Refresh uses provided temp DB, not another."""
+        db = str(tmp_path / "test.db")
+        exports = str(tmp_path / "exports")
+        Path(exports).mkdir(exist_ok=True)
+        _create_test_db(db)
+        _insert_candidate(db, 1)
+        result = run_operator_refresh_workflow(
+            db_path=db, exports_dir=exports
+        )
+        # Should have run steps against our DB
+        assert isinstance(
+            result, OperatorWorkflowRunResult
+        )
+        assert len(result.steps) >= 1
+
+    def test_refresh_produces_steps(self, tmp_path):
+        """Refresh produces expected step count."""
+        db = str(tmp_path / "test.db")
+        exports = str(tmp_path / "exports")
+        Path(exports).mkdir(exist_ok=True)
+        _create_test_db(db)
+        _insert_candidate(db, 1)
+        result = run_operator_refresh_workflow(
+            db_path=db, exports_dir=exports
+        )
+        # Should have 8 steps (recalc, dom v2,
+        # snapshot, monitoring, candidate, digest,
+        # portfolio, bundle)
+        assert len(result.steps) >= 7
+
+    def test_refresh_empty_db_graceful(self, tmp_path):
+        """Refresh handles empty DB gracefully."""
+        db = str(tmp_path / "test.db")
+        exports = str(tmp_path / "exports")
+        Path(exports).mkdir(exist_ok=True)
+        _create_test_db(db)
+        result = run_operator_refresh_workflow(
+            db_path=db, exports_dir=exports
+        )
+        assert isinstance(
+            result, OperatorWorkflowRunResult
+        )
+        # Should not crash
+
+    def test_refresh_no_import_warnings(self, tmp_path):
+        """Refresh no import-error warnings for core
+        functions."""
+        db = str(tmp_path / "test.db")
+        exports = str(tmp_path / "exports")
+        Path(exports).mkdir(exist_ok=True)
+        _create_test_db(db)
+        _insert_candidate(db, 1)
+        result = run_operator_refresh_workflow(
+            db_path=db, exports_dir=exports
+        )
+        for w in result.warnings:
+            # Should not have import errors
+            assert "cannot import name" not in \
+                w.message.lower()
+            # Should not have unexpected keyword arg
+            assert "unexpected keyword" not in \
+                w.message.lower()
+
+    def test_refresh_state_not_mutated(self, tmp_path):
+        """Refresh does not mutate candidate decisions."""
+        db = str(tmp_path / "test.db")
+        exports = str(tmp_path / "exports")
+        Path(exports).mkdir(exist_ok=True)
+        _create_test_db(db)
+        _insert_candidate(
+            db, 1, user_decision="maybe",
+            review_status="reviewed",
+        )
+        run_operator_refresh_workflow(
+            db_path=db, exports_dir=exports
+        )
+        # Decision should remain unchanged
+        conn = sqlite3.connect(db)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT user_decision FROM "
+            "candidate_review_queue "
+            "WHERE candidate_id = 1"
+        )
+        row = cur.fetchone()
+        conn.close()
+        assert row["user_decision"] == "maybe"
