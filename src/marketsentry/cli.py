@@ -5975,6 +5975,436 @@ def release_manual_github_commands(
 
 
 @app.command()
+def operator_workflow_status(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Path to exports directory",
+    ),
+) -> None:
+    """Show operator workflow status.
+
+    Displays candidate counts, missing data, watched
+    properties, latest reports, and recommended actions.
+    Read-only; no mutations.
+    """
+    try:
+        from marketsentry.operator_workflow import (
+            build_operator_workflow_status,
+        )
+
+        status = build_operator_workflow_status(
+            db_path=db, exports_dir=exports_dir
+        )
+
+        console.print(
+            "\n[bold]Operator Workflow Status[/bold]"
+        )
+        console.print(
+            f"Candidates: {status.total_candidates} "
+            f"(pending={status.pending_candidates}, "
+            f"maybe={status.maybe_candidates}, "
+            f"saved={status.saved_candidates}, "
+            f"rejected={status.rejected_candidates}, "
+            f"hold={status.hold_candidates})"
+        )
+        console.print(
+            f"Watched properties: "
+            f"{status.active_watched}"
+        )
+        console.print(
+            f"Missing data: "
+            f"Quiet/Vibrancy="
+            f"{status.missing_quiet_vibrancy}, "
+            f"price={status.missing_price}, "
+            f"enrichment={status.missing_enrichment}"
+        )
+        console.print(
+            f"Needing review: {status.needing_review}"
+        )
+
+        if status.recommended_actions:
+            console.print(
+                "\n[bold]Recommended Actions:[/bold]"
+            )
+            for a in status.recommended_actions:
+                console.print(
+                    f"  [{a.priority}] {a.description}"
+                )
+                console.print(f"    $ {a.command}")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Operator workflow status error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def candidate_decision(
+    candidate_id: int = typer.Option(
+        ...,
+        "--candidate-id",
+        help="Candidate ID to update",
+    ),
+    decision: str = typer.Option(
+        ...,
+        "--decision",
+        help=(
+            "Decision: save, reject, maybe, "
+            "hold_for_more_data"
+        ),
+    ),
+    notes: str = typer.Option(
+        "",
+        "--notes",
+        help="Optional notes",
+    ),
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Apply a candidate review decision.
+
+    Save promotes to watchlist. Reject/maybe/hold update
+    the decision. Explicit operator action only.
+    """
+    try:
+        from marketsentry.operator_workflow import (
+            apply_candidate_decision,
+        )
+
+        result = apply_candidate_decision(
+            candidate_id=candidate_id,
+            decision=decision,
+            notes=notes if notes else None,
+            db_path=db,
+        )
+
+        if result.success:
+            console.print(
+                f"\n[green]Success:[/green] "
+                f"{result.detail}"
+            )
+            if result.promoted_property_id:
+                console.print(
+                    f"Promoted to watched property "
+                    f"{result.promoted_property_id}"
+                )
+        else:
+            console.print(
+                f"\n[red]Failed:[/red] {result.detail}"
+            )
+            raise typer.Exit(code=1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Candidate decision error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def candidate_location_scores(
+    candidate_id: int = typer.Option(
+        ...,
+        "--candidate-id",
+        help="Candidate ID to update",
+    ),
+    quiet_score: float = typer.Option(
+        ...,
+        "--quiet-score",
+        help="Quiet score (0-10 scale)",
+    ),
+    vibrancy_score: float = typer.Option(
+        ...,
+        "--vibrancy-score",
+        help="Vibrancy score (0-10 scale)",
+    ),
+    notes: str = typer.Option(
+        "",
+        "--notes",
+        help="Optional notes",
+    ),
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Update candidate Quiet and Vibrancy scores.
+
+    Computes gatekeeper result. Quiet >= 7.0 passes.
+    Explicit operator action only.
+    """
+    try:
+        from marketsentry.operator_workflow import (
+            apply_candidate_location_scores,
+        )
+
+        result = apply_candidate_location_scores(
+            candidate_id=candidate_id,
+            quiet_score=quiet_score,
+            vibrancy_score=vibrancy_score,
+            notes=notes if notes else None,
+            db_path=db,
+        )
+
+        if result.success:
+            console.print(
+                f"\n[green]Success:[/green] "
+                f"{result.detail}"
+            )
+        else:
+            console.print(
+                f"\n[red]Failed:[/red] {result.detail}"
+            )
+            raise typer.Exit(code=1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Candidate location scores error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def candidate_noise_notes(
+    candidate_id: int = typer.Option(
+        ...,
+        "--candidate-id",
+        help="Candidate ID to update",
+    ),
+    noise_risk: str = typer.Option(
+        "unknown",
+        "--noise-risk",
+        help=(
+            "Noise risk level: low, moderate, high, "
+            "severe, unknown"
+        ),
+    ),
+    noise_sources: str = typer.Option(
+        "",
+        "--noise-sources",
+        help=(
+            "Comma-separated noise sources: "
+            "traffic, airport, nighttime_racing, "
+            "arterial_road, topography, unknown"
+        ),
+    ),
+    notes: str = typer.Option(
+        "",
+        "--notes",
+        help="Free-text noise notes",
+    ),
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Add noise observation notes to a candidate.
+
+    Records local field knowledge. Does not add
+    walkability fields. Explicit operator action only.
+    """
+    try:
+        from marketsentry.operator_workflow import (
+            apply_candidate_noise_notes,
+        )
+
+        result = apply_candidate_noise_notes(
+            candidate_id=candidate_id,
+            noise_risk=noise_risk,
+            noise_sources=(
+                noise_sources if noise_sources else None
+            ),
+            notes=notes if notes else None,
+            db_path=db,
+        )
+
+        if result.success:
+            console.print(
+                f"\n[green]Success:[/green] "
+                f"{result.detail}"
+            )
+        else:
+            console.print(
+                f"\n[red]Failed:[/red] {result.detail}"
+            )
+            raise typer.Exit(code=1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Candidate noise notes error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def run_operator_refresh_workflow(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Path to exports directory",
+    ),
+) -> None:
+    """Run operator refresh workflow.
+
+    Runs local-only operations: recalc, snapshot,
+    monitoring report, candidate analysis, operations
+    digest, portfolio review pack, operations bundle.
+    No live retrieval. No mutations. No notifications.
+    """
+    try:
+        from marketsentry.operator_workflow import (
+            run_operator_refresh_workflow as _run,
+        )
+
+        if not Path(db).is_file():
+            console.print(
+                f"[bold red]Error:[/bold red] "
+                f"Database not found: {db}"
+            )
+            raise typer.Exit(code=1)
+
+        console.print(
+            "\n[bold]Running Operator Refresh "
+            "Workflow...[/bold]"
+        )
+
+        result = _run(
+            db_path=db, exports_dir=exports_dir
+        )
+
+        for step in result.steps:
+            if step.status == "pass":
+                icon = "[green]PASS[/green]"
+            elif step.status == "warning":
+                icon = "[yellow]WARN[/yellow]"
+            else:
+                icon = "[red]FAIL[/red]"
+            console.print(
+                f"  {icon}  {step.description}: "
+                f"{step.detail}"
+            )
+
+        if result.warnings:
+            console.print(
+                f"\nWarnings: {len(result.warnings)}"
+            )
+            for w in result.warnings:
+                console.print(f"  - {w.message}")
+
+        if result.output_paths:
+            console.print(
+                f"\nReports generated: "
+                f"{len(result.output_paths)}"
+            )
+            for p in result.output_paths:
+                console.print(f"  {p}")
+
+        s = result.status
+        console.print(
+            f"\nCandidates: {s.total_candidates} "
+            f"(saved={s.saved_candidates}, "
+            f"pending={s.pending_candidates})"
+        )
+        console.print(
+            f"Watched: {s.active_watched}"
+        )
+        console.print(
+            "\n[bold yellow]No live retrieval. "
+            "No mutations. No notifications."
+            "[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Operator refresh workflow error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_operator_action_summary(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Path to exports directory",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export operator action summary.
+
+    Exports candidate status, missing data, and
+    recommended actions. Read-only report.
+    """
+    try:
+        from marketsentry.operator_workflow import (
+            export_operator_action_summary as _export,
+        )
+
+        paths = _export(
+            db_path=db,
+            exports_dir=exports_dir,
+            fmt=fmt,
+        )
+
+        console.print(
+            "\n[bold]Operator Action Summary Export"
+            "[/bold]"
+        )
+        for p in paths:
+            console.print(f"  Exported: {p}")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export operator action summary error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

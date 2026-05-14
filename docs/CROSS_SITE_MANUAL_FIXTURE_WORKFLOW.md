@@ -1266,3 +1266,26 @@ marketsentry local-operations-smoke-test
 ```
 
 The bundle checks command inventory, report freshness, script safety, config validation, and runs a lightweight smoke test. It is read-only and does not mutate any state.
+
+### Operator Workflow (Milestone 51)
+
+After reviewing candidates from the cross-site fixture workflow, operators can use the guided operator workflow commands to update decisions, scores, and noise notes without editing CSV files:
+
+```bash
+# Check workflow status
+marketsentry operator-workflow-status
+
+# Apply a decision (save promotes to watchlist)
+marketsentry candidate-decision --candidate-id <id> --decision save
+
+# Enter Quiet/Vibrancy scores
+marketsentry candidate-location-scores --candidate-id <id> --quiet-score <q> --vibrancy-score <v>
+
+# Record noise observations
+marketsentry candidate-noise-notes --candidate-id <id> --noise-risk moderate --noise-sources "traffic"
+
+# Refresh all local reports
+marketsentry run-operator-refresh-workflow
+```
+
+See `docs/OPERATOR_WORKFLOW.md` for the full operator guide.

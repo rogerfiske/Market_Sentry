@@ -8,6 +8,7 @@ Launch with:
     streamlit run src/marketsentry/dashboard_app.py
 """
 
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -2573,6 +2574,314 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
             "Read-only release finalization status. "
             "No mutations. No GitHub release/tag created. "
             "No outbound notifications."
+        )
+    except Exception:
+        pass
+
+    # --- Operator Workflow subsection (M51) ---
+    try:
+        from marketsentry.operator_workflow import (
+            apply_candidate_decision,
+            apply_candidate_location_scores,
+            apply_candidate_noise_notes,
+            build_missing_data_actions,
+            build_operator_workflow_status,
+            run_operator_refresh_workflow,
+        )
+
+        st.subheader("Operator Workflow")
+
+        ow_status = build_operator_workflow_status(
+            db_path=db_path, exports_dir=exports_dir
+        )
+
+        # Status metrics row 1
+        ow1, ow2, ow3, ow4 = st.columns(4)
+        ow1.metric("Total Candidates", ow_status.total_candidates)
+        ow2.metric("Pending", ow_status.pending_candidates)
+        ow3.metric("Maybe", ow_status.maybe_candidates)
+        ow4.metric("Saved", ow_status.saved_candidates)
+
+        # Status metrics row 2
+        ow5, ow6, ow7, ow8 = st.columns(4)
+        ow5.metric("Rejected", ow_status.rejected_candidates)
+        ow6.metric("Hold", ow_status.hold_candidates)
+        ow7.metric("Watched", ow_status.active_watched)
+        ow8.metric(
+            "Missing Scores", ow_status.missing_quiet_vibrancy
+        )
+
+        # Candidates needing action
+        ow_missing = build_missing_data_actions(db_path=db_path)
+        if ow_missing:
+            with st.expander(
+                f"Candidates Needing Action ({len(ow_missing)})"
+            ):
+                ow_action_rows = []
+                for act in ow_missing:
+                    ow_action_rows.append(
+                        {
+                            "Priority": act.priority,
+                            "Description": act.description,
+                            "Command": act.command,
+                        }
+                    )
+                st.table(ow_action_rows)
+
+        # Missing Quiet/Vibrancy table
+        if ow_status.missing_quiet_vibrancy > 0:
+            with st.expander(
+                f"Missing Quiet/Vibrancy "
+                f"({ow_status.missing_quiet_vibrancy})"
+            ):
+                try:
+                    _conn = sqlite3.connect(db_path)
+                    _conn.row_factory = sqlite3.Row
+                    _cur = _conn.cursor()
+                    _cur.execute(
+                        "SELECT candidate_id, address, "
+                        "quiet_score, vibrancy_score "
+                        "FROM candidate_review_queue "
+                        "WHERE quiet_score IS NULL "
+                        "OR vibrancy_score IS NULL "
+                        "ORDER BY candidate_id"
+                    )
+                    _mq_rows = [dict(r) for r in _cur.fetchall()]
+                    _conn.close()
+                    if _mq_rows:
+                        st.table(_mq_rows)
+                except Exception:
+                    st.info("Could not load missing scores.")
+
+        # Pending/hold/maybe candidates
+        _phm_count = (
+            ow_status.pending_candidates
+            + ow_status.hold_candidates
+            + ow_status.maybe_candidates
+        )
+        if _phm_count > 0:
+            with st.expander(
+                f"Pending / Hold / Maybe ({_phm_count})"
+            ):
+                try:
+                    _conn2 = sqlite3.connect(db_path)
+                    _conn2.row_factory = sqlite3.Row
+                    _cur2 = _conn2.cursor()
+                    _cur2.execute(
+                        "SELECT candidate_id, address, "
+                        "user_decision, review_status, "
+                        "quiet_score, vibrancy_score "
+                        "FROM candidate_review_queue "
+                        "WHERE review_status = 'pending' "
+                        "OR user_decision IN "
+                        "('maybe', 'hold_for_more_data') "
+                        "ORDER BY candidate_id"
+                    )
+                    _phm_rows = [
+                        dict(r) for r in _cur2.fetchall()
+                    ]
+                    _conn2.close()
+                    if _phm_rows:
+                        st.table(_phm_rows)
+                except Exception:
+                    st.info(
+                        "Could not load pending candidates."
+                    )
+
+        # Latest reports
+        if ow_status.latest_reports:
+            with st.expander(
+                f"Latest Reports "
+                f"({len(ow_status.latest_reports)})"
+            ):
+                for rpath in ow_status.latest_reports:
+                    st.text(rpath)
+
+        # Recommended actions
+        if ow_status.recommended_actions:
+            with st.expander("Recommended Actions"):
+                for ra in ow_status.recommended_actions:
+                    st.text(
+                        f"[{ra.priority}] {ra.description}"
+                    )
+                    st.code(ra.command, language="bash")
+
+        # --- Action forms ---
+
+        st.markdown("---")
+        st.markdown("**Candidate Actions**")
+
+        # Form 1: Update candidate decision
+        with st.form("operator_decision_form"):
+            st.markdown("**Update Candidate Decision**")
+            _dec_id = st.number_input(
+                "Candidate ID",
+                min_value=1,
+                step=1,
+                key="dec_cand_id",
+            )
+            _dec_choice = st.selectbox(
+                "Decision",
+                ["save", "reject", "maybe",
+                 "hold_for_more_data"],
+                key="dec_choice",
+            )
+            _dec_notes = st.text_area(
+                "Notes (optional)",
+                key="dec_notes",
+            )
+            _dec_submit = st.form_submit_button(
+                "Apply Decision"
+            )
+            if _dec_submit:
+                _dec_res = apply_candidate_decision(
+                    candidate_id=int(_dec_id),
+                    decision=_dec_choice,
+                    notes=_dec_notes or None,
+                    db_path=db_path,
+                )
+                if _dec_res.success:
+                    st.success(_dec_res.detail)
+                else:
+                    st.error(_dec_res.detail)
+
+        # Form 2: Update Quiet/Vibrancy
+        with st.form("operator_scores_form"):
+            st.markdown("**Update Quiet / Vibrancy**")
+            _sc_id = st.number_input(
+                "Candidate ID",
+                min_value=1,
+                step=1,
+                key="sc_cand_id",
+            )
+            _sc_quiet = st.number_input(
+                "Quiet Score (0-10)",
+                min_value=0.0,
+                max_value=10.0,
+                step=0.1,
+                key="sc_quiet",
+            )
+            _sc_vib = st.number_input(
+                "Vibrancy Score (0-10)",
+                min_value=0.0,
+                max_value=10.0,
+                step=0.1,
+                key="sc_vib",
+            )
+            _sc_notes = st.text_area(
+                "Notes (optional)",
+                key="sc_notes",
+            )
+            _sc_submit = st.form_submit_button(
+                "Apply Scores"
+            )
+            if _sc_submit:
+                _sc_res = apply_candidate_location_scores(
+                    candidate_id=int(_sc_id),
+                    quiet_score=float(_sc_quiet),
+                    vibrancy_score=float(_sc_vib),
+                    notes=_sc_notes or None,
+                    db_path=db_path,
+                )
+                if _sc_res.success:
+                    st.success(_sc_res.detail)
+                else:
+                    st.error(_sc_res.detail)
+
+        # Form 3: Add noise notes
+        with st.form("operator_noise_form"):
+            st.markdown("**Add Noise Notes**")
+            _nn_id = st.number_input(
+                "Candidate ID",
+                min_value=1,
+                step=1,
+                key="nn_cand_id",
+            )
+            _nn_risk = st.selectbox(
+                "Noise Risk",
+                ["low", "moderate", "high",
+                 "severe", "unknown"],
+                key="nn_risk",
+            )
+            _nn_sources = st.multiselect(
+                "Noise Sources",
+                [
+                    "traffic",
+                    "airport",
+                    "nighttime_racing",
+                    "arterial_road",
+                    "topography",
+                    "unknown",
+                ],
+                key="nn_sources",
+            )
+            _nn_notes = st.text_area(
+                "Notes (optional)",
+                key="nn_notes",
+            )
+            _nn_submit = st.form_submit_button(
+                "Add Noise Notes"
+            )
+            if _nn_submit:
+                _nn_src_str = (
+                    ",".join(_nn_sources)
+                    if _nn_sources
+                    else None
+                )
+                _nn_res = apply_candidate_noise_notes(
+                    candidate_id=int(_nn_id),
+                    noise_risk=_nn_risk,
+                    noise_sources=_nn_src_str,
+                    notes=_nn_notes or None,
+                    db_path=db_path,
+                )
+                if _nn_res.success:
+                    st.success(_nn_res.detail)
+                else:
+                    st.error(_nn_res.detail)
+
+        # Form 4: Run operator refresh workflow
+        with st.form("operator_refresh_form"):
+            st.markdown("**Run Operator Refresh Workflow**")
+            st.caption(
+                "Runs all local reports in sequence. "
+                "No live retrieval, no mutations, "
+                "no notifications."
+            )
+            _rf_submit = st.form_submit_button(
+                "Run Refresh Workflow"
+            )
+            if _rf_submit:
+                _rf_res = run_operator_refresh_workflow(
+                    db_path=db_path,
+                    exports_dir=exports_dir,
+                )
+                _pass = sum(
+                    1 for s in _rf_res.steps
+                    if s.status == "pass"
+                )
+                _warn = sum(
+                    1 for s in _rf_res.steps
+                    if s.status == "warning"
+                )
+                st.success(
+                    f"Workflow complete: {_pass} passed, "
+                    f"{_warn} warnings"
+                )
+                if _rf_res.output_paths:
+                    with st.expander("Generated Reports"):
+                        for op in _rf_res.output_paths:
+                            st.text(op)
+                if _rf_res.warnings:
+                    with st.expander("Warnings"):
+                        for w in _rf_res.warnings:
+                            st.warning(w.message)
+
+        st.caption(
+            "Operator actions update only explicitly "
+            "selected candidate fields. No live retrieval. "
+            "No outbound notifications. No walkability. "
+            "Quiet Score gatekeeper unchanged."
         )
     except Exception:
         pass

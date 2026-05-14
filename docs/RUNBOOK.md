@@ -2409,6 +2409,58 @@ The finalization module generates documentation and reports. It does not create 
 
 See `docs/RELEASE_FINALIZATION_GUIDE.md` for the step-by-step release workflow.
 
+## Operator Workflow (Milestone 51)
+
+### Check Workflow Status
+
+```bash
+marketsentry operator-workflow-status
+```
+
+Shows candidate counts by decision, missing data, watched properties, latest reports, and recommended actions.
+
+### Apply Candidate Decision
+
+```bash
+# Save (promotes to watchlist)
+marketsentry candidate-decision --candidate-id 4 --decision save --notes "Good profile"
+
+# Maybe / reject / hold
+marketsentry candidate-decision --candidate-id 5 --decision maybe --notes "Need more data"
+```
+
+### Enter Location Scores
+
+```bash
+marketsentry candidate-location-scores --candidate-id 4 --quiet-score 9.9 --vibrancy-score 1.3
+```
+
+### Add Noise Notes
+
+```bash
+marketsentry candidate-noise-notes --candidate-id 5 --noise-risk moderate --noise-sources "traffic,airport" --notes "Local knowledge concern"
+```
+
+### Run Operator Refresh Workflow
+
+```bash
+marketsentry run-operator-refresh-workflow
+```
+
+Runs all local reports in order: recalc, snapshot, monitoring, candidate analysis, operations digest, portfolio review pack, local operations bundle. No live retrieval.
+
+### Export Operator Action Summary
+
+```bash
+marketsentry export-operator-action-summary --format both
+```
+
+### Dashboard Operator Workflow Section
+
+The Streamlit dashboard includes an Operator Workflow section with status metrics, action tables, and forms for updating decisions, scores, and noise notes without using the command line.
+
+See `docs/OPERATOR_WORKFLOW.md` for the full non-programmer operator guide.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

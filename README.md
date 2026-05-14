@@ -1865,11 +1865,27 @@ mypy src/
 - No scheduled script added for finalization
 - Read-only documentation/reporting milestone; no mutations, no outbound notifications
 
+### MVP 51: Guided Operator Workflow and Dashboard Candidate Action Buttons
+
+- Guided operator workflow module reducing command-line and CSV-editing burden
+- Workflow status command showing candidate counts, missing data, and recommended actions
+- One-command operator refresh workflow (recalc, snapshot, all reports) with no live retrieval
+- Candidate decision helper (save/reject/maybe/hold_for_more_data) with automatic watchlist promotion
+- Candidate location scores helper (Quiet/Vibrancy with gatekeeper computation)
+- Candidate noise notes helper (local field knowledge with risk levels and sources)
+- Operator action summary export (Markdown and CSV)
+- Dashboard Operator Workflow section with status metrics, action tables, and 4 action forms
+- Dashboard candidate decision form, Quiet/Vibrancy form, noise notes form, refresh workflow button
+- Non-programmer operator documentation (docs/OPERATOR_WORKFLOW.md)
+- 7 new CLI commands: operator-workflow-status, candidate-decision, candidate-location-scores, candidate-noise-notes, run-operator-refresh-workflow, export-operator-action-summary
+- Candidate mutations occur only through explicit operator actions
+- No live retrieval, no browser automation, no outbound notifications
+
 ## Milestone Status
 
-Milestones 1-50 are complete. The project is at release candidate v0.1.0-rc1.
+Milestones 1-51 are complete. The project is at release candidate v0.1.0-rc1.
 
-**Note:** Milestone 50 (Release Candidate Finalization) is now complete.
+**Note:** Milestone 51 (Guided Operator Workflow) is now complete.
 
 ## Repository
 
