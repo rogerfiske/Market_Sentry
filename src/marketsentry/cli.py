@@ -5790,6 +5790,191 @@ def release_candidate_checklist(
 
 
 @app.command()
+def release_finalization_summary(
+    version: str = typer.Option(
+        "0.1.0-rc1",
+        "--version",
+        help="Release version string",
+    ),
+) -> None:
+    """Show release finalization summary.
+
+    Displays version metadata, readiness counts, artifact
+    count, and manual command count. Read-only; no mutations,
+    no GitHub release/tag created, no outbound notifications.
+    """
+    try:
+        from marketsentry.release_finalization import (
+            build_release_finalization_report,
+        )
+
+        result = build_release_finalization_report(
+            version=version
+        )
+        m = result.report.version_metadata
+
+        console.print(
+            "\n[bold]Release Finalization Summary[/bold]"
+        )
+        console.print(
+            f"Version: {m.version}  "
+            f"Commit: {m.commit}  "
+            f"Branch: {m.branch}"
+        )
+        console.print(
+            f"Readiness: {result.readiness_pass} pass, "
+            f"{result.readiness_warn} warn, "
+            f"{result.readiness_fail} fail"
+        )
+        console.print(
+            f"Artifacts: {result.artifact_present}/"
+            f"{result.artifact_count} present"
+        )
+        console.print(
+            f"Manual commands: {result.command_count} "
+            f"(none executed)"
+        )
+        console.print(
+            "\n[bold yellow]No GitHub release/tag created."
+            "[/bold yellow] "
+            "No mutations performed. "
+            "No outbound notifications."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Release finalization summary error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_release_finalization_report(
+    version: str = typer.Option(
+        "0.1.0-rc1",
+        "--version",
+        help="Release version string",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for finalization reports",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export release finalization report.
+
+    Exports Markdown and/or CSV finalization reports. Also
+    generates docs/RELEASE_NOTES_FINAL.md. Read-only; no
+    GitHub release/tag created, no outbound notifications.
+    """
+    try:
+        from marketsentry.release_finalization import (
+            build_release_finalization_report,
+            export_release_finalization_report as _export,
+        )
+
+        result = build_release_finalization_report(
+            version=version
+        )
+        exported = _export(
+            result, output_dir=output_dir, fmt=fmt
+        )
+
+        console.print(
+            "\n[bold]Release Finalization Report Export"
+            "[/bold]"
+        )
+        for p in exported.report.output_paths:
+            console.print(f"  Exported: {p}")
+
+        console.print(
+            f"Readiness: {exported.readiness_pass} pass, "
+            f"{exported.readiness_warn} warn, "
+            f"{exported.readiness_fail} fail"
+        )
+        console.print(
+            "\n[bold yellow]No GitHub release/tag created."
+            "[/bold yellow] "
+            "Local file export only. "
+            "No outbound notifications."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export release finalization error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def release_manual_github_commands(
+    version: str = typer.Option(
+        "0.1.0-rc1",
+        "--version",
+        help="Release version string",
+    ),
+) -> None:
+    """Show manual GitHub release commands.
+
+    Displays exact commands for creating a GitHub release.
+    These commands are NOT executed automatically. Read-only;
+    no mutations, no outbound notifications.
+    """
+    try:
+        from marketsentry.release_finalization import (
+            build_manual_github_release_commands,
+        )
+
+        commands = build_manual_github_release_commands(
+            version=version
+        )
+
+        console.print(
+            "\n[bold]Manual GitHub Release Commands"
+            "[/bold]"
+        )
+        console.print(
+            "\n[bold red]IMPORTANT:[/bold red] "
+            "These commands were NOT executed. "
+            "Run them manually when ready.\n"
+        )
+
+        for cmd in commands:
+            console.print(
+                f"  Step {cmd.step}: {cmd.description}"
+            )
+            console.print(f"    $ {cmd.command}")
+            console.print()
+
+        console.print(
+            "[bold yellow]No commands were executed."
+            "[/bold yellow] "
+            "No GitHub release/tag created. "
+            "No outbound notifications."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Release manual commands error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

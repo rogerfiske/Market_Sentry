@@ -1062,14 +1062,14 @@ def run_local_safety_audit(
             exclude_files=[
                 "local_operations_bundle.py",
                 "release_candidate.py",
+                "release_finalization.py",
             ],
         )
     )
 
     # Check 2: outbound notification in source modules
-    # Exclude local_operations_bundle.py and release_candidate.py
-    # because they contain these patterns as audit search strings,
-    # not imports.
+    # Exclude audit/validation modules that contain these
+    # patterns as search strings, not actual imports.
     checks.append(
         _check_source_for_patterns(
             project_root,
@@ -1085,6 +1085,7 @@ def run_local_safety_audit(
             exclude_files=[
                 "local_operations_bundle.py",
                 "release_candidate.py",
+                "release_finalization.py",
             ],
         )
     )
@@ -1106,6 +1107,7 @@ def run_local_safety_audit(
             exclude_files=[
                 "local_operations_bundle.py",
                 "release_candidate.py",
+                "release_finalization.py",
                 "portfolio_alert_focus.py",
                 "portfolio_trend_alerts.py",
             ],
@@ -1157,6 +1159,7 @@ def run_local_safety_audit(
                 "quiet_vibrancy.py",
                 "local_operations_bundle.py",
                 "release_candidate.py",
+                "release_finalization.py",
             ],
         )
     )
@@ -1175,6 +1178,7 @@ def run_local_safety_audit(
             exclude_files=[
                 "local_operations_bundle.py",
                 "release_candidate.py",
+                "release_finalization.py",
             ],
         )
     )

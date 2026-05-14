@@ -2364,6 +2364,51 @@ The release candidate module is a documentation/reporting tool. It does not crea
 
 See `docs/RELEASE_CANDIDATE_CHECKLIST.md` and `docs/RELEASE_NOTES_DRAFT.md` for generated documentation.
 
+## Release Finalization (Milestone 50)
+
+The release finalization module produces the definitive release candidate package with version metadata, artifact inventory, readiness checks, manual GitHub release commands, and final release notes.
+
+### View Release Finalization Summary
+
+```bash
+# Show finalization summary
+marketsentry release-finalization-summary
+
+# With custom version
+marketsentry release-finalization-summary --version 0.1.0-rc1
+```
+
+### Export Release Finalization Report
+
+```bash
+# Export Markdown and CSV finalization reports
+marketsentry export-release-finalization-report --format both
+
+# Export to custom directory
+marketsentry export-release-finalization-report --output-dir reports/finalization --format both
+```
+
+### View Manual GitHub Release Commands
+
+```bash
+# Show exact manual commands (not executed)
+marketsentry release-manual-github-commands
+```
+
+### Finalization Contents
+
+- **Version Metadata**: Version, commit, branch, Python target, RC status
+- **Artifact Inventory**: 14 release-relevant files/directories with existence checks
+- **Readiness Checks**: 13 checks for documentation, scripts, safety, versioning, and git
+- **Manual Commands**: 5 exact commands for tag/release creation (not executed)
+- **Final Release Notes**: docs/RELEASE_NOTES_FINAL.md with full capabilities and safety guarantees
+
+### Reminder: Finalization Is Read-Only
+
+The finalization module generates documentation and reports. It does not create GitHub releases or tags automatically. It does not mutate candidate, watchlist, or alert state. It does not send outbound notifications.
+
+See `docs/RELEASE_FINALIZATION_GUIDE.md` for the step-by-step release workflow.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

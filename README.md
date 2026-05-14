@@ -1850,13 +1850,26 @@ mypy src/
 - No GitHub release or tag created automatically
 - Read-only documentation/reporting milestone; no mutations, no outbound notifications
 
-## Next Planned Milestone
+### MVP 50: Release Candidate Finalization and GitHub Release Prep
 
-### MVP 50: (To Be Determined)
+- Final release version metadata (0.1.0-rc1) with `__version__` in `__init__.py`
+- Release artifact inventory (14 files/directories with existence checks)
+- 13 release readiness checks (docs, scripts, safety, versioning, git)
+- Manual GitHub release commands generated (tag, push, gh release) but not executed
+- Final release notes (docs/RELEASE_NOTES_FINAL.md) with capabilities and safety guarantees
+- Release finalization guide (docs/RELEASE_FINALIZATION_GUIDE.md)
+- Markdown and CSV finalization report export
+- 3 new CLI commands: release-finalization-summary, export-release-finalization-report, release-manual-github-commands
+- Dashboard Release Finalization subsection with readiness/artifact metrics and command preview
+- No GitHub release or tag created automatically
+- No scheduled script added for finalization
+- Read-only documentation/reporting milestone; no mutations, no outbound notifications
 
-Milestones 1-49 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
+## Milestone Status
 
-**Note:** Milestone 49 (Release Candidate Hardening) is now complete.
+Milestones 1-50 are complete. The project is at release candidate v0.1.0-rc1.
+
+**Note:** Milestone 50 (Release Candidate Finalization) is now complete.
 
 ## Repository
 

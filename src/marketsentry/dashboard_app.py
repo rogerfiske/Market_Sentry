@@ -2472,6 +2472,111 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
     except Exception:
         pass
 
+    # --- Release Finalization subsection (M50) ---
+    try:
+        from marketsentry.release_finalization import (
+            build_release_finalization_report,
+        )
+
+        st.subheader("Release Finalization")
+
+        rf = build_release_finalization_report()
+        vm = rf.report.version_metadata
+
+        st.text(
+            f"Version: {vm.version}  "
+            f"Commit: {vm.commit}  "
+            f"Branch: {vm.branch}"
+        )
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Readiness Pass", rf.readiness_pass)
+        col2.metric("Readiness Warn", rf.readiness_warn)
+        col3.metric("Readiness Fail", rf.readiness_fail)
+
+        col4, col5, col6 = st.columns(3)
+        col4.metric(
+            "Artifacts Present",
+            f"{rf.artifact_present}/{rf.artifact_count}",
+        )
+        col5.metric(
+            "Manual Commands", rf.command_count
+        )
+        col6.metric("RC Status", vm.release_candidate_status)
+
+        # Readiness table
+        if rf.report.readiness_checks:
+            with st.expander("Readiness Checks"):
+                rr_rows = [
+                    {
+                        "Check": r.check_id,
+                        "Status": r.status,
+                        "Detail": r.detail,
+                    }
+                    for r in rf.report.readiness_checks
+                ]
+                st.table(rr_rows)
+
+        # Artifact table
+        if rf.report.artifacts:
+            with st.expander("Artifact Inventory"):
+                ar_rows = [
+                    {
+                        "Path": a.path,
+                        "Exists": "Yes" if a.exists else "No",
+                        "Type": a.artifact_type,
+                    }
+                    for a in rf.report.artifacts
+                ]
+                st.table(ar_rows)
+
+        # Manual commands preview
+        if rf.report.manual_commands:
+            with st.expander("Manual GitHub Commands"):
+                for cmd in rf.report.manual_commands:
+                    st.code(
+                        f"# Step {cmd.step}: "
+                        f"{cmd.description}\n"
+                        f"{cmd.command}",
+                        language="bash",
+                    )
+                st.warning(
+                    "These commands were NOT executed."
+                )
+
+        # Latest finalization report link
+        from pathlib import Path as _P
+
+        rf_files = sorted(
+            _P(exports_dir).glob(
+                "release_finalization_*.*"
+            ),
+            key=lambda p: p.stat().st_mtime
+            if p.exists()
+            else 0,
+            reverse=True,
+        )
+        if rf_files:
+            st.info(
+                f"Latest finalization report: "
+                f"{rf_files[0]}"
+            )
+
+        # Final release notes path
+        final_notes = _P("docs/RELEASE_NOTES_FINAL.md")
+        if final_notes.exists():
+            st.info(
+                f"Final release notes: {final_notes}"
+            )
+
+        st.caption(
+            "Read-only release finalization status. "
+            "No mutations. No GitHub release/tag created. "
+            "No outbound notifications."
+        )
+    except Exception:
+        pass
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""
