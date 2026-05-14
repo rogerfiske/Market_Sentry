@@ -110,6 +110,10 @@ The Markdown report includes all inventory sections, safety audit results, smoke
 
 The CSV report includes rows with section, item_name, status, category, detail, file_path, and recommended_local_action columns.
 
+## Integration with Release Candidate
+
+The local operations bundle feeds the release candidate report (Milestone 49). The release candidate validation runs the operations bundle build, smoke test, and safety audit as part of its automated checks. See `docs/RELEASE_CANDIDATE_CHECKLIST.md` for the full release candidate status.
+
 ## Safety Limitations
 
 - The operations bundle is read-only and does not mutate candidate, watchlist, or alert state

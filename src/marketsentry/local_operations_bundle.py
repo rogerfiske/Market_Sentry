@@ -1059,13 +1059,17 @@ def run_local_safety_audit(
             ],
             "Browser automation import detected",
             "Remove browser automation imports",
-            exclude_files=["local_operations_bundle.py"],
+            exclude_files=[
+                "local_operations_bundle.py",
+                "release_candidate.py",
+            ],
         )
     )
 
     # Check 2: outbound notification in source modules
-    # Exclude local_operations_bundle.py because it contains
-    # these patterns as audit search strings, not imports.
+    # Exclude local_operations_bundle.py and release_candidate.py
+    # because they contain these patterns as audit search strings,
+    # not imports.
     checks.append(
         _check_source_for_patterns(
             project_root,
@@ -1078,7 +1082,10 @@ def run_local_safety_audit(
             ],
             "Outbound notification import detected",
             "Remove outbound notification imports",
-            exclude_files=["local_operations_bundle.py"],
+            exclude_files=[
+                "local_operations_bundle.py",
+                "release_candidate.py",
+            ],
         )
     )
 
@@ -1098,6 +1105,7 @@ def run_local_safety_audit(
             "Remove walkability fields",
             exclude_files=[
                 "local_operations_bundle.py",
+                "release_candidate.py",
                 "portfolio_alert_focus.py",
                 "portfolio_trend_alerts.py",
             ],
@@ -1148,6 +1156,7 @@ def run_local_safety_audit(
                 "scoring.py",
                 "quiet_vibrancy.py",
                 "local_operations_bundle.py",
+                "release_candidate.py",
             ],
         )
     )
@@ -1163,7 +1172,10 @@ def run_local_safety_audit(
             ],
             "Redfin source-of-truth overwrite pattern detected",
             "Verify Redfin SOT fields are not overwritten",
-            exclude_files=["local_operations_bundle.py"],
+            exclude_files=[
+                "local_operations_bundle.py",
+                "release_candidate.py",
+            ],
         )
     )
 

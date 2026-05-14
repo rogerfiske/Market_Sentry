@@ -1836,13 +1836,27 @@ mypy src/
 - Dedicated scheduled script: run_local_operations_bundle_report.bat
 - Read-only audit module; no mutations, no outbound notifications
 
+### MVP 49: Release Candidate Documentation, Validation Checklist, and GitHub Release Prep
+
+- Release candidate metadata with git info, test count, and safety status fields
+- Operator acceptance checklist with documentation, command, script, safety, and quality checks
+- Safe workflow inventory (17 workflows) with access type classification
+- Manual approval / caution workflow inventory (10 workflows) for operations requiring operator care
+- Release candidate validation with 7 automated checks (files, ops bundle, smoke test, safety audit, configs, release docs, module safety)
+- Markdown and CSV release candidate report export
+- Auto-generated docs/RELEASE_CANDIDATE_CHECKLIST.md and docs/RELEASE_NOTES_DRAFT.md
+- 3 new CLI commands: release-candidate-summary, export-release-candidate-report, release-candidate-checklist
+- Dashboard Release Candidate subsection with checklist/validation metrics
+- No GitHub release or tag created automatically
+- Read-only documentation/reporting milestone; no mutations, no outbound notifications
+
 ## Next Planned Milestone
 
-### MVP 49: (To Be Determined)
+### MVP 50: (To Be Determined)
 
-Milestones 1-48 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
+Milestones 1-49 are complete. Future milestones may include live cross-site retrieval integration, enhanced analytical workflows, or additional data source adapters.
 
-**Note:** Milestone 48 (Local Operations Bundle and Release Candidate Hardening) is now complete.
+**Note:** Milestone 49 (Release Candidate Hardening) is now complete.
 
 ## Repository
 

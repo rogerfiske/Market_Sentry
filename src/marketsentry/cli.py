@@ -5573,6 +5573,223 @@ def local_operations_smoke_test(
 
 
 @app.command()
+def release_candidate_summary(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Path to exports directory",
+    ),
+) -> None:
+    """Show release candidate summary.
+
+    Displays metadata, checklist counts, workflow counts, and
+    validation status. Read-only; no mutations, no outbound
+    notifications, no GitHub release created.
+    """
+    try:
+        from marketsentry.release_candidate import (
+            build_release_candidate_report,
+        )
+
+        result = build_release_candidate_report(
+            db_path=db, exports_dir=exports_dir
+        )
+        m = result.report.metadata
+
+        console.print(
+            "\n[bold]Release Candidate Summary[/bold]"
+        )
+        console.print(
+            f"Project: {m.project_name}  "
+            f"Commit: {m.current_git_commit}  "
+            f"Branch: {m.current_branch}"
+        )
+        console.print(
+            f"Checklist: {result.checklist_pass} pass, "
+            f"{result.checklist_warn} warn, "
+            f"{result.checklist_fail} fail, "
+            f"{result.checklist_not_checked} not checked"
+        )
+        console.print(
+            f"Safe workflows: "
+            f"{result.safe_workflow_count}  "
+            f"Caution workflows: "
+            f"{result.manual_workflow_count}"
+        )
+        console.print(
+            f"Validation: {result.validation_pass} pass, "
+            f"{result.validation_warn} warn, "
+            f"{result.validation_fail} fail"
+        )
+        console.print(
+            "\n[bold yellow]No mutations performed."
+            "[/bold yellow] "
+            "No GitHub release created. "
+            "No outbound notifications."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Release candidate summary error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_release_candidate_report(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Path to exports directory",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for release candidate reports",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export release candidate report to CSV and/or Markdown.
+
+    Also generates docs/RELEASE_CANDIDATE_CHECKLIST.md and
+    docs/RELEASE_NOTES_DRAFT.md. Read-only; no mutations, no
+    GitHub release created, no outbound notifications.
+    """
+    try:
+        from marketsentry.release_candidate import (
+            build_release_candidate_report,
+            export_release_candidate_report as _export,
+        )
+
+        result = build_release_candidate_report(
+            db_path=db, exports_dir=exports_dir
+        )
+        exported = _export(
+            result, output_dir=output_dir, fmt=fmt
+        )
+
+        console.print(
+            "\n[bold]Release Candidate Report Export"
+            "[/bold]"
+        )
+        for p in exported.report.output_paths:
+            console.print(f"  Exported: {p}")
+
+        console.print(
+            f"Checklist items: "
+            f"{len(exported.report.checklist)}"
+        )
+        console.print(
+            f"Validation: {exported.validation_pass} pass, "
+            f"{exported.validation_warn} warn, "
+            f"{exported.validation_fail} fail"
+        )
+        console.print(
+            "\n[bold yellow]No mutations performed."
+            "[/bold yellow] "
+            "No GitHub release created. "
+            "Local file export only. "
+            "No outbound notifications."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export release candidate report error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def release_candidate_checklist(
+    db: str = typer.Option(
+        "data/market_sentry.db",
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Path to exports directory",
+    ),
+) -> None:
+    """Show release candidate checklist.
+
+    Displays the operator acceptance checklist with status,
+    detail, and recommended local actions. Read-only; no
+    mutations, no outbound notifications.
+    """
+    try:
+        from marketsentry.release_candidate import (
+            build_release_candidate_report,
+        )
+
+        result = build_release_candidate_report(
+            db_path=db, exports_dir=exports_dir
+        )
+
+        console.print(
+            "\n[bold]Release Candidate Checklist[/bold]"
+        )
+        for c in result.report.checklist:
+            if c.status == "pass":
+                icon = "[green]PASS[/green]"
+            elif c.status == "warning":
+                icon = "[yellow]WARN[/yellow]"
+            elif c.status == "fail":
+                icon = "[red]FAIL[/red]"
+            else:
+                icon = "[dim]N/C [/dim]"
+            console.print(
+                f"  {icon}  {c.item_id}: {c.description}"
+            )
+            if c.recommended_local_action:
+                console.print(
+                    f"         -> {c.recommended_local_action}"
+                )
+
+        console.print(
+            f"\nResults: {result.checklist_pass} pass, "
+            f"{result.checklist_warn} warn, "
+            f"{result.checklist_fail} fail, "
+            f"{result.checklist_not_checked} not checked"
+        )
+        console.print(
+            "\n[bold yellow]No mutations performed."
+            "[/bold yellow] "
+            "No outbound notifications."
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Release candidate checklist error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def write_alert_expiration_profile_template(
     output: str = typer.Option(
         "config/alert_expiration_profiles.example.json",

@@ -2309,6 +2309,61 @@ The operations bundle is a local audit/reporting tool. It does not mutate candid
 
 See `docs/LOCAL_OPERATIONS_BUNDLE.md` for full documentation.
 
+## Release Candidate (Milestone 49)
+
+The release candidate module provides documentation, validation, and GitHub release preparation for the project. It aggregates metadata, operator acceptance checklist, workflow inventories, and validation results into a single report.
+
+### View Release Candidate Summary
+
+```bash
+# Show release candidate summary in terminal
+marketsentry release-candidate-summary
+
+# With custom database path
+marketsentry release-candidate-summary --db data/market_sentry.db
+```
+
+### Export Release Candidate Report
+
+```bash
+# Export Markdown and CSV release candidate reports
+marketsentry export-release-candidate-report --format both
+
+# Export to custom directory
+marketsentry export-release-candidate-report --output-dir reports/rc --format both
+```
+
+### View Operator Acceptance Checklist
+
+```bash
+# Show checklist with pass/warn/fail status
+marketsentry release-candidate-checklist
+```
+
+### Report Contents
+
+The release candidate report includes:
+
+- **Metadata**: Project name, git commit, branch, Python version, test count, safety status fields
+- **Operator Acceptance Checklist**: Documentation presence, command availability, script safety, safety status, quality checks
+- **Safe Workflow Inventory**: 17 workflows classified by access type (read-only, append-only, mutating)
+- **Manual Approval Workflows**: 10 workflows requiring intentional operator care
+- **Validation Results**: 7 automated checks for file existence, ops bundle, smoke test, safety audit, configs, release docs, module safety
+- **GitHub Release Preparation Checklist**: Manual checklist for creating a GitHub release
+
+### Generated Documentation
+
+The export command also generates:
+
+- `docs/RELEASE_CANDIDATE_CHECKLIST.md` - Operator acceptance checklist with recommended actions
+- `docs/RELEASE_NOTES_DRAFT.md` - Draft release notes for GitHub release
+
+### Reminder: Release Candidate Is Read-Only
+
+The release candidate module is a documentation/reporting tool. It does not create GitHub releases or tags automatically. It does not mutate candidate, watchlist, or alert state. It does not send outbound notifications or perform live retrieval.
+
+See `docs/RELEASE_CANDIDATE_CHECKLIST.md` and `docs/RELEASE_NOTES_DRAFT.md` for generated documentation.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

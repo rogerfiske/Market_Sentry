@@ -2389,6 +2389,89 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
     except Exception:
         pass
 
+    # --- Release Candidate subsection (M49) ---
+    try:
+        from marketsentry.release_candidate import (
+            build_release_candidate_report,
+        )
+
+        st.subheader("Release Candidate")
+
+        rc = build_release_candidate_report(
+            db_path=db_path,
+            exports_dir=exports_dir,
+        )
+        m = rc.report.metadata
+
+        st.text(
+            f"Commit: {m.current_git_commit}  "
+            f"Branch: {m.current_branch}"
+        )
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Checklist Pass", rc.checklist_pass)
+        col2.metric("Checklist Warn", rc.checklist_warn)
+        col3.metric("Checklist Fail", rc.checklist_fail)
+
+        col4, col5, col6 = st.columns(3)
+        col4.metric("Validation Pass", rc.validation_pass)
+        col5.metric("Safe Workflows", rc.safe_workflow_count)
+        col6.metric(
+            "Caution Workflows", rc.manual_workflow_count
+        )
+
+        # Checklist table
+        if rc.report.checklist:
+            with st.expander("Operator Checklist"):
+                cl_rows = [
+                    {
+                        "ID": c.item_id,
+                        "Status": c.status,
+                        "Description": c.description,
+                        "Detail": c.detail,
+                    }
+                    for c in rc.report.checklist
+                ]
+                st.table(cl_rows)
+
+        # Validation table
+        if rc.report.validation_results:
+            with st.expander("Validation Results"):
+                vr_rows = [
+                    {
+                        "Check": v.check_id,
+                        "Status": v.status,
+                        "Detail": v.detail,
+                    }
+                    for v in rc.report.validation_results
+                ]
+                st.table(vr_rows)
+
+        # Latest RC report link
+        from pathlib import Path as _P
+
+        rc_files = sorted(
+            _P(exports_dir).glob(
+                "release_candidate_report_*.*"
+            ),
+            key=lambda p: p.stat().st_mtime
+            if p.exists()
+            else 0,
+            reverse=True,
+        )
+        if rc_files:
+            st.info(
+                f"Latest RC report: {rc_files[0]}"
+            )
+
+        st.caption(
+            "Read-only release candidate status. "
+            "No mutations. No GitHub release created. "
+            "No outbound notifications."
+        )
+    except Exception:
+        pass
+
 
 def _render_reports(exports_dir: str) -> None:
     """Render the report manifest section."""
