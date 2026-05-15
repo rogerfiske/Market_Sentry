@@ -8803,5 +8803,591 @@ def process_cross_site_source_fixtures(
         raise typer.Exit(code=1)
 
 
+# -------------------------------------------------------------------
+# Milestone 52 - Redfin Screening Queue Commands
+# -------------------------------------------------------------------
+
+
+@app.command()
+def import_redfin_screening_urls(
+    file: str = typer.Option(
+        ...,
+        "--file",
+        help="Path to CSV file with redfin_url column",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Import Redfin URLs from CSV into the screening queue.
+
+    CSV must have a redfin_url column. Optional: address,
+    city, price, beds, baths, sqft, notes. Local-only.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            import_redfin_screening_urls as _import,
+        )
+
+        result = _import(
+            csv_file_path=file, db_path=db
+        )
+
+        console.print(
+            "\n[bold]Redfin Screening URL Import[/bold]"
+        )
+        console.print(f"  Source: {result.source_file}")
+        console.print(
+            f"  Rows read: {result.total_rows_read}"
+        )
+        console.print(
+            f"  Inserted: {result.items_inserted}"
+        )
+        console.print(
+            f"  Skipped (duplicate): "
+            f"{result.items_skipped}"
+        )
+        console.print(
+            f"  Rejected (invalid): "
+            f"{result.items_rejected}"
+        )
+
+        if result.warnings:
+            console.print(
+                f"\n[yellow]Warnings "
+                f"({len(result.warnings)}):[/yellow]"
+            )
+            for w in result.warnings[:10]:
+                console.print(f"    {w}")
+
+        if result.errors:
+            console.print(
+                f"\n[red]Errors "
+                f"({len(result.errors)}):[/red]"
+            )
+            for e_msg in result.errors:
+                console.print(f"    {e_msg}")
+            raise typer.Exit(code=1)
+
+        console.print(
+            "\n[bold yellow]Local-only. "
+            "No live retrieval.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Import screening URLs error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def import_redfin_screening_fixture(
+    file: str = typer.Option(
+        ...,
+        "--file",
+        help="Path to saved Redfin search HTML fixture",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Import Redfin URLs from a saved search HTML fixture.
+
+    Parses saved Redfin search HTML to extract property
+    URLs. Local-only fixture parsing, not live retrieval.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            import_redfin_screening_fixture as _import,
+        )
+
+        result = _import(
+            fixture_path=file, db_path=db
+        )
+
+        console.print(
+            "\n[bold]Redfin Screening Fixture "
+            "Import[/bold]"
+        )
+        console.print(f"  Source: {result.source_file}")
+        console.print(
+            f"  URLs found: {result.total_rows_read}"
+        )
+        console.print(
+            f"  Inserted: {result.items_inserted}"
+        )
+        console.print(
+            f"  Skipped (duplicate): "
+            f"{result.items_skipped}"
+        )
+
+        if result.warnings:
+            console.print(
+                f"\n[yellow]Warnings "
+                f"({len(result.warnings)}):[/yellow]"
+            )
+            for w in result.warnings[:10]:
+                console.print(f"    {w}")
+
+        if result.errors:
+            console.print(
+                f"\n[red]Errors "
+                f"({len(result.errors)}):[/red]"
+            )
+            for e_msg in result.errors:
+                console.print(f"    {e_msg}")
+            raise typer.Exit(code=1)
+
+        console.print(
+            "\n[bold yellow]Local-only fixture "
+            "parsing. No live retrieval.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Import screening fixture error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def redfin_screening_status(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Show Redfin screening queue status summary.
+
+    Displays counts by status. Local-only, read-only.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            summarize_redfin_screening_queue,
+        )
+
+        summary = summarize_redfin_screening_queue(
+            db_path=db
+        )
+
+        console.print(
+            "\n[bold]Redfin Screening Queue Status"
+            "[/bold]"
+        )
+        console.print(f"  Total:              {summary.total}")
+        console.print(f"  New:                {summary.new}")
+        console.print(f"  Opened:             {summary.opened}")
+        console.print(
+            f"  Saved for analysis: "
+            f"{summary.saved_for_analysis}"
+        )
+        console.print(f"  Rejected:           {summary.rejected}")
+        console.print(f"  Hold:               {summary.hold}")
+        console.print(f"  Duplicate:          {summary.duplicate}")
+        console.print(f"  Error:              {summary.error}")
+
+        console.print(
+            "\n[bold yellow]Local-only. "
+            "No live retrieval.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Screening status error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def list_redfin_screening_items(
+    status: Optional[str] = typer.Option(
+        None,
+        "--status",
+        help="Filter by status (new, opened, etc.)",
+    ),
+    limit: int = typer.Option(
+        100,
+        "--limit",
+        help="Maximum items to show",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """List items in the Redfin screening queue.
+
+    Shows screening items with Redfin URLs. Local-only.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            list_redfin_screening_items as _list,
+        )
+
+        items = _list(
+            db_path=db,
+            status_filter=status,
+            limit=limit,
+        )
+
+        console.print(
+            f"\n[bold]Redfin Screening Items "
+            f"({len(items)})[/bold]"
+        )
+
+        if not items:
+            console.print("  No screening items found.")
+        else:
+            table = Table(show_header=True)
+            table.add_column("ID", style="cyan")
+            table.add_column("Address")
+            table.add_column("City")
+            table.add_column("Price", justify="right")
+            table.add_column("Beds")
+            table.add_column("Status")
+            table.add_column("Decision")
+            table.add_column("Candidate")
+            table.add_column("Redfin URL")
+
+            for item in items:
+                price_str = (
+                    f"${item.price:,.0f}"
+                    if item.price else ""
+                )
+                cid = (
+                    str(item.candidate_id)
+                    if item.candidate_id else ""
+                )
+                url_short = (
+                    item.redfin_url[:60] + "..."
+                    if item.redfin_url
+                    and len(item.redfin_url) > 60
+                    else item.redfin_url or ""
+                )
+                table.add_row(
+                    str(item.screening_id),
+                    item.address or "",
+                    item.city or "",
+                    price_str,
+                    str(item.beds) if item.beds else "",
+                    item.status,
+                    item.user_screening_decision,
+                    cid,
+                    url_short,
+                )
+
+            console.print(table)
+
+        console.print(
+            "\n[bold yellow]Local-only. "
+            "No live retrieval.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"List screening items error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def save_screening_item_for_analysis(
+    screening_id: int = typer.Option(
+        ...,
+        "--screening-id",
+        help="Screening item ID to save",
+    ),
+    notes: Optional[str] = typer.Option(
+        None,
+        "--notes",
+        help="Optional notes",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Save a screening item for full candidate analysis.
+
+    Creates or links a candidate in candidate_review_queue.
+    Does not duplicate. Explicit operator action only.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            save_screening_item_for_analysis as _save,
+        )
+
+        result = _save(
+            screening_id=screening_id,
+            notes=notes,
+            db_path=db,
+        )
+
+        if result.success:
+            console.print(
+                f"\n[bold green]SUCCESS:[/bold green] "
+                f"{result.detail}"
+            )
+            if result.candidate_id:
+                console.print(
+                    f"  Candidate ID: "
+                    f"{result.candidate_id}"
+                )
+        else:
+            console.print(
+                f"\n[bold red]FAILED:[/bold red] "
+                f"{result.detail}"
+            )
+            raise typer.Exit(code=1)
+
+        console.print(
+            "\n[bold yellow]Local-only. "
+            "No live retrieval.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Save for analysis error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def reject_screening_item(
+    screening_id: int = typer.Option(
+        ...,
+        "--screening-id",
+        help="Screening item ID to reject",
+    ),
+    notes: Optional[str] = typer.Option(
+        None,
+        "--notes",
+        help="Optional rejection notes",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Reject a screening item.
+
+    Marks the screening item as rejected. Local-only.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            reject_screening_item as _reject,
+        )
+
+        result = _reject(
+            screening_id=screening_id,
+            notes=notes,
+            db_path=db,
+        )
+
+        if result.success:
+            console.print(
+                f"\n[bold green]SUCCESS:[/bold green] "
+                f"{result.detail}"
+            )
+        else:
+            console.print(
+                f"\n[bold red]FAILED:[/bold red] "
+                f"{result.detail}"
+            )
+            raise typer.Exit(code=1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Reject screening item error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def hold_screening_item(
+    screening_id: int = typer.Option(
+        ...,
+        "--screening-id",
+        help="Screening item ID to hold",
+    ),
+    notes: Optional[str] = typer.Option(
+        None,
+        "--notes",
+        help="Optional hold notes",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Hold a screening item for later review.
+
+    Marks the screening item as hold. Local-only.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            hold_screening_item as _hold,
+        )
+
+        result = _hold(
+            screening_id=screening_id,
+            notes=notes,
+            db_path=db,
+        )
+
+        if result.success:
+            console.print(
+                f"\n[bold green]SUCCESS:[/bold green] "
+                f"{result.detail}"
+            )
+        else:
+            console.print(
+                f"\n[bold red]FAILED:[/bold red] "
+                f"{result.detail}"
+            )
+            raise typer.Exit(code=1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Hold screening item error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def mark_screening_item_opened(
+    screening_id: int = typer.Option(
+        ...,
+        "--screening-id",
+        help="Screening item ID to mark opened",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Mark a screening item as opened (link clicked).
+
+    Updates status from new to opened. Local-only.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            mark_screening_item_opened as _open,
+        )
+
+        result = _open(
+            screening_id=screening_id,
+            db_path=db,
+        )
+
+        if result.success:
+            console.print(
+                f"\n[bold green]SUCCESS:[/bold green] "
+                f"{result.detail}"
+            )
+        else:
+            console.print(
+                f"\n[bold red]FAILED:[/bold red] "
+                f"{result.detail}"
+            )
+            raise typer.Exit(code=1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Mark opened error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_redfin_screening_queue(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Path to exports directory",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export the Redfin screening queue report.
+
+    Exports to CSV and/or Markdown. Local-only.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            export_redfin_screening_queue as _export,
+        )
+
+        paths = _export(
+            db_path=db,
+            exports_dir=exports_dir,
+            fmt=fmt,
+        )
+
+        console.print(
+            "\n[bold]Redfin Screening Queue Export"
+            "[/bold]"
+        )
+        for p in paths:
+            console.print(f"  Exported: {p}")
+
+        console.print(
+            "\n[bold yellow]Local-only. "
+            "No live retrieval.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(
+            f"Export screening queue error: {e}"
+        )
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

@@ -1289,3 +1289,23 @@ marketsentry run-operator-refresh-workflow
 ```
 
 See `docs/OPERATOR_WORKFLOW.md` for the full operator guide.
+
+### Redfin Screening Queue (Milestone 52)
+
+Before promoting Redfin properties to full candidate analysis, operators can triage them through the screening queue:
+
+```bash
+# Import URLs from CSV
+marketsentry import-redfin-screening-urls --file data/imports/redfin_screening_urls.csv
+
+# Import from saved search HTML fixture
+marketsentry import-redfin-screening-fixture --file data/raw/redfin/search/search_results.html
+
+# Review in dashboard or CLI
+marketsentry list-redfin-screening-items
+
+# Save promising properties for analysis
+marketsentry save-screening-item-for-analysis --screening-id <id>
+```
+
+See `docs/REDFIN_SCREENING_QUEUE.md` for the full screening queue guide.

@@ -1881,11 +1881,27 @@ mypy src/
 - Candidate mutations occur only through explicit operator actions
 - No live retrieval, no browser automation, no outbound notifications
 
+### MVP 52: Initial Redfin Screening Queue with Clickable Links and Save for Analysis
+
+- Pre-candidate screening queue for initial property triage before full candidate analysis
+- CSV import of Redfin URLs with optional summary fields (address, city, price, beds, baths, sqft, notes)
+- Saved Redfin search HTML fixture import with local-only parsing
+- Clickable Redfin URL links in dashboard table and Markdown export
+- Save for Analysis action creates/links candidate in candidate_review_queue without duplication
+- Reject, Hold, Mark Opened screening actions
+- Screening queue status summary and item listing
+- Export screening queue to CSV and Markdown with timestamps
+- Dashboard Initial Redfin Screening section with metrics, table, action forms, import instructions, export button
+- 9 new CLI commands: import-redfin-screening-urls, import-redfin-screening-fixture, redfin-screening-status, list-redfin-screening-items, save-screening-item-for-analysis, reject-screening-item, hold-screening-item, mark-screening-item-opened, export-redfin-screening-queue
+- Operator documentation (docs/REDFIN_SCREENING_QUEUE.md)
+- Screening items become candidates only through explicit Save for Analysis action
+- No live retrieval, no browser automation, no outbound notifications
+
 ## Milestone Status
 
-Milestones 1-51 are complete. The project is at release candidate v0.1.0-rc1.
+Milestones 1-52 are complete. The project is at release candidate v0.1.0-rc1.
 
-**Note:** Milestone 51A (Operator Workflow Stabilization) is now complete. All operator workflow commands default to `db/marketsentry.db` and no longer require `--db db\marketsentry.db`.
+**Note:** Milestone 51A (Operator Workflow Stabilization) is complete. All operator workflow commands default to `db/marketsentry.db`.
 
 ## Repository
 

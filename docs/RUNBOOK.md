@@ -2465,6 +2465,65 @@ The Streamlit dashboard includes an Operator Workflow section with status metric
 
 See `docs/OPERATOR_WORKFLOW.md` for the full non-programmer operator guide.
 
+## Redfin Screening Queue (Milestone 52)
+
+### Import Screening URLs from CSV
+
+```bash
+marketsentry import-redfin-screening-urls --file data/imports/redfin_screening_urls.csv
+```
+
+CSV must have a `redfin_url` column. Optional: `address`, `city`, `price`, `beds`, `baths`, `sqft`, `notes`.
+
+### Import from Saved Search Fixture
+
+```bash
+marketsentry import-redfin-screening-fixture --file data/raw/redfin/search/murrieta_search.html
+```
+
+Local-only HTML parsing. No live retrieval.
+
+### Check Screening Queue Status
+
+```bash
+marketsentry redfin-screening-status
+```
+
+### List Screening Items
+
+```bash
+marketsentry list-redfin-screening-items
+marketsentry list-redfin-screening-items --status new
+```
+
+### Save for Analysis
+
+```bash
+marketsentry save-screening-item-for-analysis --screening-id 3 --notes "Good location"
+```
+
+Creates or links a candidate in the candidate review queue.
+
+### Reject / Hold / Mark Opened
+
+```bash
+marketsentry reject-screening-item --screening-id 5 --notes "Price too high"
+marketsentry hold-screening-item --screening-id 7 --notes "Wait for price drop"
+marketsentry mark-screening-item-opened --screening-id 3
+```
+
+### Export Screening Queue
+
+```bash
+marketsentry export-redfin-screening-queue
+```
+
+### Dashboard Screening Section
+
+The Streamlit dashboard includes an Initial Redfin Screening section with metrics, table, action forms, import instructions, and export button.
+
+See `docs/REDFIN_SCREENING_QUEUE.md` for the full screening queue guide.
+
 ## No Live Scraping Warning
 
 Market_Sentry does not perform any active live web scraping, browser automation, or network retrieval by default. Live HTTP retrieval for Redfin is available but disabled by default and requires explicit opt-in. All property data must be manually saved as HTML fixtures or entered as CSV imports unless live retrieval is explicitly enabled.

@@ -3318,5 +3318,247 @@ def _render_cross_site_fixture_processing(
     st.dataframe(df, use_container_width=True)
 
 
+    # -------------------------------------------------------------------
+    # Milestone 52 - Initial Redfin Screening
+    # -------------------------------------------------------------------
+
+    st.subheader("Initial Redfin Screening")
+    st.caption(
+        "Pre-candidate screening queue with clickable Redfin links. "
+        "Local-only, no live retrieval."
+    )
+
+    try:
+        from marketsentry.redfin_screening_queue import (
+            export_redfin_screening_queue,
+            hold_screening_item,
+            list_redfin_screening_items,
+            mark_screening_item_opened,
+            reject_screening_item,
+            save_screening_item_for_analysis,
+            summarize_redfin_screening_queue,
+        )
+
+        # Summary metrics
+        scr_summary = summarize_redfin_screening_queue(
+            db_path=db_path
+        )
+
+        sc1, sc2, sc3, sc4 = st.columns(4)
+        with sc1:
+            st.metric(
+                "Total Screening", scr_summary.total
+            )
+        with sc2:
+            st.metric("New", scr_summary.new)
+        with sc3:
+            st.metric("Opened", scr_summary.opened)
+        with sc4:
+            st.metric(
+                "Saved for Analysis",
+                scr_summary.saved_for_analysis,
+            )
+
+        sc5, sc6, sc7, sc8 = st.columns(4)
+        with sc5:
+            st.metric("Rejected", scr_summary.rejected)
+        with sc6:
+            st.metric("Hold", scr_summary.hold)
+        with sc7:
+            st.metric("Duplicate", scr_summary.duplicate)
+        with sc8:
+            st.metric("Error", scr_summary.error)
+
+        # Screening queue table
+        scr_items = list_redfin_screening_items(
+            db_path=db_path, limit=200
+        )
+
+        if scr_items:
+            import pandas as pd
+
+            scr_data = []
+            for si in scr_items:
+                scr_data.append({
+                    "ID": si.screening_id,
+                    "Address": si.address or "",
+                    "City": si.city or "",
+                    "Price": (
+                        f"${si.price:,.0f}"
+                        if si.price else ""
+                    ),
+                    "Beds": si.beds or "",
+                    "Baths": si.baths or "",
+                    "SqFt": si.sqft or "",
+                    "Status": si.status,
+                    "Decision": si.user_screening_decision,
+                    "Candidate": si.candidate_id or "",
+                    "Redfin URL": si.redfin_url,
+                    "Notes": si.user_notes or "",
+                })
+            scr_df = pd.DataFrame(scr_data)
+            st.dataframe(
+                scr_df, use_container_width=True
+            )
+        else:
+            st.info("No screening items yet.")
+
+        # Action forms
+        st.markdown("---")
+        st.markdown("**Screening Actions**")
+
+        # Save for Analysis
+        with st.form("screening_save_form"):
+            st.markdown("**Save for Analysis**")
+            _save_id = st.number_input(
+                "Screening ID",
+                min_value=1,
+                step=1,
+                key="scr_save_id",
+            )
+            _save_notes = st.text_area(
+                "Notes (optional)",
+                key="scr_save_notes",
+            )
+            _save_submit = st.form_submit_button(
+                "Save for Analysis"
+            )
+            if _save_submit:
+                _save_res = save_screening_item_for_analysis(
+                    screening_id=int(_save_id),
+                    notes=_save_notes or None,
+                    db_path=db_path,
+                )
+                if _save_res.success:
+                    st.success(_save_res.detail)
+                else:
+                    st.error(_save_res.detail)
+
+        # Mark Opened
+        with st.form("screening_open_form"):
+            st.markdown("**Mark Opened**")
+            _open_id = st.number_input(
+                "Screening ID",
+                min_value=1,
+                step=1,
+                key="scr_open_id",
+            )
+            _open_submit = st.form_submit_button(
+                "Mark Opened"
+            )
+            if _open_submit:
+                _open_res = mark_screening_item_opened(
+                    screening_id=int(_open_id),
+                    db_path=db_path,
+                )
+                if _open_res.success:
+                    st.success(_open_res.detail)
+                else:
+                    st.error(_open_res.detail)
+
+        # Reject
+        with st.form("screening_reject_form"):
+            st.markdown("**Reject Screening Item**")
+            _rej_id = st.number_input(
+                "Screening ID",
+                min_value=1,
+                step=1,
+                key="scr_rej_id",
+            )
+            _rej_notes = st.text_area(
+                "Notes (optional)",
+                key="scr_rej_notes",
+            )
+            _rej_submit = st.form_submit_button(
+                "Reject"
+            )
+            if _rej_submit:
+                _rej_res = reject_screening_item(
+                    screening_id=int(_rej_id),
+                    notes=_rej_notes or None,
+                    db_path=db_path,
+                )
+                if _rej_res.success:
+                    st.success(_rej_res.detail)
+                else:
+                    st.error(_rej_res.detail)
+
+        # Hold
+        with st.form("screening_hold_form"):
+            st.markdown("**Hold Screening Item**")
+            _hold_id = st.number_input(
+                "Screening ID",
+                min_value=1,
+                step=1,
+                key="scr_hold_id",
+            )
+            _hold_notes = st.text_area(
+                "Notes (optional)",
+                key="scr_hold_notes",
+            )
+            _hold_submit = st.form_submit_button(
+                "Hold"
+            )
+            if _hold_submit:
+                _hold_res = hold_screening_item(
+                    screening_id=int(_hold_id),
+                    notes=_hold_notes or None,
+                    db_path=db_path,
+                )
+                if _hold_res.success:
+                    st.success(_hold_res.detail)
+                else:
+                    st.error(_hold_res.detail)
+
+        # Import helper section
+        st.markdown("---")
+        st.markdown("**Import Instructions**")
+
+        with st.expander("CSV Import Format"):
+            st.markdown(
+                "CSV file must have a `redfin_url` column. "
+                "Optional columns: `address`, `city`, `price`, "
+                "`beds`, `baths`, `sqft`, `notes`."
+            )
+            st.code(
+                "marketsentry import-redfin-screening-urls "
+                "--file data/imports/redfin_screening_urls.csv",
+                language="bash",
+            )
+
+        with st.expander(
+            "Saved Search Fixture Import"
+        ):
+            st.markdown(
+                "Place saved Redfin search HTML files in "
+                "`data/raw/redfin/search/`."
+            )
+            st.code(
+                "marketsentry import-redfin-screening-fixture "
+                "--file data/raw/redfin/search/<file>.html",
+                language="bash",
+            )
+
+        # Export link
+        with st.form("screening_export_form"):
+            st.markdown("**Export Screening Queue**")
+            _exp_submit = st.form_submit_button(
+                "Export Now"
+            )
+            if _exp_submit:
+                _exp_paths = export_redfin_screening_queue(
+                    db_path=db_path,
+                    exports_dir=exports_dir,
+                )
+                if _exp_paths:
+                    for _ep in _exp_paths:
+                        st.success(f"Exported: {_ep}")
+                else:
+                    st.info("Nothing to export.")
+
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     main()

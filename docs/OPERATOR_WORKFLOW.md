@@ -178,7 +178,32 @@ The operator workflow is entirely local. It:
 - Does not send emails, SMS, or webhook notifications
 - Does not bypass any access controls
 
-All data displayed comes from previously saved local files and database records. To add new properties, you still import Redfin URLs from CSV and parse saved HTML detail pages using the existing import and enrichment commands.
+All data displayed comes from previously saved local files and database records. To add new properties, you can use the Redfin Screening Queue (see below) or import Redfin URLs from CSV and parse saved HTML detail pages using the existing import and enrichment commands.
+
+## Redfin Screening Queue
+
+Before adding properties as full candidates, you can triage them through the screening queue. See `docs/REDFIN_SCREENING_QUEUE.md` for the full guide.
+
+The screening queue workflow:
+
+1. Import Redfin URLs via CSV or saved search fixture HTML.
+2. Review properties in the dashboard or CLI with clickable Redfin links.
+3. Save promising properties for analysis (creates candidates).
+4. Reject or hold properties that do not meet criteria.
+
+Quick screening commands:
+
+| Task | Command |
+|------|---------|
+| Import screening URLs | `marketsentry import-redfin-screening-urls --file <csv>` |
+| Import search fixture | `marketsentry import-redfin-screening-fixture --file <html>` |
+| Screening status | `marketsentry redfin-screening-status` |
+| List screening items | `marketsentry list-redfin-screening-items` |
+| Save for analysis | `marketsentry save-screening-item-for-analysis --screening-id <id>` |
+| Reject | `marketsentry reject-screening-item --screening-id <id>` |
+| Hold | `marketsentry hold-screening-item --screening-id <id>` |
+| Mark opened | `marketsentry mark-screening-item-opened --screening-id <id>` |
+| Export queue | `marketsentry export-redfin-screening-queue` |
 
 ## Quick Reference
 
