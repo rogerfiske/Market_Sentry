@@ -9763,6 +9763,456 @@ def screening_next_steps(
         raise typer.Exit(code=1)
 
 
+def _print_score_status(status: Any) -> None:
+    """Print one candidate score-entry status."""
+    console.print(
+        f"\n[bold]Candidate {status.candidate_id}[/bold] "
+        f"{status.address or ''}"
+    )
+    if status.city or status.zip:
+        console.print(
+            f"  Location:   {status.city or ''} "
+            f"{status.zip or ''}".rstrip()
+        )
+    if status.redfin_url:
+        console.print(f"  Redfin:     {status.redfin_url}")
+
+    quiet = (
+        status.quiet_score
+        if status.quiet_score is not None
+        else "not entered"
+    )
+    vibrancy = (
+        status.vibrancy_score
+        if status.vibrancy_score is not None
+        else "not entered"
+    )
+    console.print(f"  Quiet:      {quiet}")
+    console.print(f"  Vibrancy:   {vibrancy}")
+    console.print(
+        f"  Gatekeeper: "
+        f"{status.quiet_gatekeeper_result or 'not evaluated'}"
+    )
+    console.print(
+        f"  Noise risk: {status.noise_risk or 'not recorded'}"
+    )
+    if status.noise_sources:
+        console.print(
+            f"  Sources:    {', '.join(status.noise_sources)}"
+        )
+    console.print(
+        f"  Watchlisted: "
+        f"{'yes' if status.is_watchlisted else 'no'}"
+    )
+    if status.missing_fields:
+        console.print(
+            f"  Missing:    {', '.join(status.missing_fields)}"
+        )
+
+
+@app.command()
+def candidate_score_status(
+    candidate_id: int = typer.Option(
+        ...,
+        "--candidate-id",
+        help="Candidate ID to inspect",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Show manual score entry status for one candidate.
+
+    Read-only. Shows current Quiet/Vibrancy, the gatekeeper result
+    and why, recorded noise knowledge, and the next step. Scores are
+    entered manually; nothing here reads Redfin.
+    """
+    try:
+        from marketsentry.manual_score_entry import (
+            build_candidate_score_entry_status,
+            build_gatekeeper_explanation,
+        )
+
+        status = build_candidate_score_entry_status(
+            candidate_id, db_path=db
+        )
+        if status is None:
+            console.print(
+                f"[bold red]Error:[/bold red] Candidate "
+                f"{candidate_id} not found."
+            )
+            raise typer.Exit(code=1)
+
+        _print_score_status(status)
+
+        explanation = build_gatekeeper_explanation(
+            status.quiet_score, status.vibrancy_score
+        )
+        console.print("\n[bold]Gatekeeper[/bold]")
+        if explanation.passes:
+            console.print(f"  {explanation.explanation}")
+        else:
+            console.print(
+                f"  [yellow]{explanation.explanation}[/yellow]"
+            )
+        if explanation.vibrancy_note:
+            console.print(f"  {explanation.vibrancy_note}")
+
+        console.print("\n[bold]Next Step[/bold]")
+        console.print(f"  {status.recommended_next_step}")
+        if status.needs_quiet_vibrancy:
+            console.print(
+                "    $ marketsentry candidate-location-scores "
+                f"--candidate-id {status.candidate_id} "
+                "--quiet-score <value> --vibrancy-score <value>"
+            )
+
+        console.print(
+            "\n[bold yellow]Read-only. Manual entry only. "
+            "No live retrieval.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Candidate score status error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def list_candidates_needing_scores(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    include_noise: bool = typer.Option(
+        False,
+        "--include-noise/--scores-only",
+        help="Also list candidates missing noise observations",
+    ),
+) -> None:
+    """List candidates still needing manual Quiet/Vibrancy entry.
+
+    Read-only. Scores are read visually from the Redfin page by the
+    operator and typed in; nothing here reads Redfin.
+    """
+    try:
+        from marketsentry.manual_score_entry import (
+            list_candidates_failing_gatekeeper,
+            list_candidates_needing_scores as _needing,
+            summarize_manual_score_entry_queue,
+        )
+
+        statuses = _needing(
+            db_path=db,
+            include_missing_noise_notes=include_noise,
+        )
+        summary = summarize_manual_score_entry_queue(db_path=db)
+
+        console.print(
+            "\n[bold]Candidates Needing Manual Score Entry[/bold]"
+        )
+        console.print(
+            f"  Total candidates:        "
+            f"{summary['total_candidates']}"
+        )
+        console.print(
+            f"  Missing Quiet/Vibrancy:  "
+            f"{summary['needing_quiet_vibrancy']}"
+        )
+        console.print(
+            f"  Missing noise notes:     "
+            f"{summary['needing_noise_notes']}"
+        )
+        console.print(
+            f"  Failing Quiet gatekeeper:"
+            f" {summary['failing_gatekeeper']}"
+        )
+
+        if statuses:
+            table = Table(show_header=True)
+            table.add_column("ID")
+            table.add_column("Address")
+            table.add_column("Quiet")
+            table.add_column("Vibrancy")
+            table.add_column("Missing")
+            table.add_column("Redfin URL")
+            for status in statuses:
+                table.add_row(
+                    str(status.candidate_id),
+                    status.address or "",
+                    (
+                        str(status.quiet_score)
+                        if status.quiet_score is not None
+                        else ""
+                    ),
+                    (
+                        str(status.vibrancy_score)
+                        if status.vibrancy_score is not None
+                        else ""
+                    ),
+                    ", ".join(status.missing_fields),
+                    status.redfin_url or "",
+                )
+            console.print(table)
+
+            console.print("\n[bold]Next[/bold]")
+            console.print(
+                "  Open the Redfin page, visually read Quiet and "
+                "Vibrancy, then run:"
+            )
+            for status in statuses:
+                if not status.needs_quiet_vibrancy:
+                    continue
+                console.print(
+                    "    $ marketsentry candidate-location-scores "
+                    f"--candidate-id {status.candidate_id} "
+                    "--quiet-score <value> --vibrancy-score <value>"
+                )
+        else:
+            console.print(
+                "\n  No candidates need manual score entry."
+            )
+
+        failing = list_candidates_failing_gatekeeper(db_path=db)
+        if failing:
+            console.print(
+                "\n[bold]Failing the Quiet gatekeeper[/bold]"
+            )
+            for status in failing:
+                console.print(
+                    f"  [yellow]Candidate "
+                    f"{status.candidate_id} - "
+                    f"{status.address or ''} "
+                    f"(Quiet {status.quiet_score})[/yellow]"
+                )
+            console.print(
+                "  Add local noise notes, or hold/reject as a "
+                "noise-risk control."
+            )
+
+        console.print(
+            "\n[bold yellow]Read-only. Manual entry only. "
+            "No live retrieval.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"List candidates needing scores error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def candidate_score_and_noise_notes(
+    candidate_id: int = typer.Option(
+        ...,
+        "--candidate-id",
+        help="Candidate ID to update",
+    ),
+    quiet_score: Optional[float] = typer.Option(
+        None,
+        "--quiet-score",
+        help="Quiet score read from the Redfin page (0-10)",
+    ),
+    vibrancy_score: Optional[float] = typer.Option(
+        None,
+        "--vibrancy-score",
+        help="Vibrancy score read from the Redfin page (0-10)",
+    ),
+    noise_risk: Optional[str] = typer.Option(
+        None,
+        "--noise-risk",
+        help="Noise risk: low, moderate, high, severe, unknown",
+    ),
+    noise_sources: Optional[str] = typer.Option(
+        None,
+        "--noise-sources",
+        help='Comma-separated sources, e.g. "traffic,airport"',
+    ),
+    notes: Optional[str] = typer.Option(
+        None,
+        "--notes",
+        help="Free-text local knowledge",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Exports directory used when refreshing",
+    ),
+    refresh: bool = typer.Option(
+        False,
+        "--refresh/--no-refresh",
+        help="Run the local refresh workflow afterwards",
+    ),
+) -> None:
+    """Enter Quiet/Vibrancy scores and noise notes in one action.
+
+    Validates every value before writing, so a typo cannot leave a
+    partial update. Scores are entered manually by the operator after
+    visually reading the Redfin page. Local-only; nothing is fetched.
+    """
+    try:
+        from marketsentry.manual_score_entry import (
+            apply_scores_and_noise_notes,
+        )
+
+        result = apply_scores_and_noise_notes(
+            candidate_id=candidate_id,
+            quiet_score=quiet_score,
+            vibrancy_score=vibrancy_score,
+            noise_risk=noise_risk,
+            noise_sources=noise_sources,
+            notes=notes,
+            db_path=db,
+            refresh=refresh,
+            exports_dir=exports_dir,
+        )
+
+        if result.errors:
+            console.print(
+                "\n[bold red]No changes applied.[/bold red]"
+            )
+            for error in result.errors:
+                console.print(f"  {error}")
+            raise typer.Exit(code=1)
+
+        console.print(
+            f"\n[bold green]SUCCESS:[/bold green] {result.detail}"
+        )
+        console.print(
+            f"  Scores applied:      "
+            f"{'yes' if result.scores_applied else 'no'}"
+        )
+        console.print(
+            f"  Noise notes applied: "
+            f"{'yes' if result.noise_notes_applied else 'no'}"
+        )
+
+        if result.gatekeeper:
+            console.print("\n[bold]Gatekeeper[/bold]")
+            if result.gatekeeper.passes:
+                console.print(
+                    f"  {result.gatekeeper.explanation}"
+                )
+            else:
+                console.print(
+                    f"  [yellow]"
+                    f"{result.gatekeeper.explanation}[/yellow]"
+                )
+            if result.gatekeeper.vibrancy_note:
+                console.print(
+                    f"  {result.gatekeeper.vibrancy_note}"
+                )
+
+        if result.refresh_requested:
+            if result.refresh_ran:
+                console.print(
+                    "\n[bold]Refresh workflow[/bold] completed."
+                )
+                for path in result.refresh_output_paths:
+                    console.print(f"  Report: {path}")
+            else:
+                console.print(
+                    f"\n[yellow]Refresh workflow failed:[/yellow] "
+                    f"{result.refresh_error}"
+                )
+                console.print(
+                    "  The updates above were still applied."
+                )
+
+        console.print(
+            "\n[bold yellow]Manual entry only. No live retrieval. "
+            "No outbound notifications.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Combined score/noise entry error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_manual_score_entry_queue(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for the queue report",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+    include_complete: bool = typer.Option(
+        False,
+        "--include-complete/--outstanding-only",
+        help="Include candidates that need nothing",
+    ),
+) -> None:
+    """Export the manual score entry queue to local files.
+
+    Read-only report. No mutations, no live retrieval, no outbound
+    notifications.
+    """
+    try:
+        from marketsentry.manual_score_entry import (
+            export_manual_score_entry_queue as _export,
+            summarize_manual_score_entry_queue,
+        )
+
+        paths = _export(
+            db_path=db,
+            exports_dir=output_dir,
+            fmt=fmt,
+            include_complete=include_complete,
+        )
+        summary = summarize_manual_score_entry_queue(db_path=db)
+
+        console.print(
+            "\n[bold]Manual Score Entry Queue Export[/bold]"
+        )
+        for path in paths:
+            console.print(f"  Exported: {path}")
+        console.print(
+            f"  Missing Quiet/Vibrancy:   "
+            f"{summary['needing_quiet_vibrancy']}"
+        )
+        console.print(
+            f"  Failing Quiet gatekeeper: "
+            f"{summary['failing_gatekeeper']}"
+        )
+
+        console.print(
+            "\n[bold yellow]Read-only export. No mutations. "
+            "No live retrieval.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export manual score queue error: {e}")
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def cleanup_demo_data(
     db: str = typer.Option(

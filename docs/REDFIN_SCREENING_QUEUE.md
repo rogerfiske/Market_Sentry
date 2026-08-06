@@ -81,6 +81,14 @@ This:
 
 After saving for analysis, you can proceed with the normal candidate workflow: enrich from saved detail HTML, enter Quiet/Vibrancy scores, make a decision, and optionally promote to the watchlist.
 
+To see which newly created candidates still need Quiet/Vibrancy scores:
+
+```bash
+marketsentry list-candidates-needing-scores
+```
+
+Scores are read visually from the Redfin page by you and typed in. See `docs/MANUAL_SCORE_ENTRY.md` for the full guide.
+
 ## Rejecting and Holding
 
 ### Reject

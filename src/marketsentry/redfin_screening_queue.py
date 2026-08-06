@@ -1332,6 +1332,47 @@ def _collect_operator_counts(db_path: str) -> Dict[str, int]:
     return counts
 
 
+def _name_candidates(
+    db_path: str,
+    which: str,
+    limit: int = 5,
+) -> str:
+    """Name the specific candidates behind a next-step count.
+
+    A bare count tells the operator work exists but not which
+    property to open. Returns a short suffix such as
+    " Candidate 7 - 31801 Valone Ct; Candidate 8 - ...".
+    """
+    try:
+        from marketsentry.manual_score_entry import (
+            list_candidates_failing_gatekeeper,
+            list_candidates_needing_scores,
+        )
+
+        if which == "failing_gatekeeper":
+            statuses = list_candidates_failing_gatekeeper(
+                db_path=db_path
+            )
+        else:
+            statuses = list_candidates_needing_scores(
+                db_path=db_path
+            )
+    except Exception:  # pragma: no cover - defensive
+        return ""
+
+    if not statuses:
+        return ""
+
+    named = [
+        f"Candidate {s.candidate_id} - {s.address or 'unknown'}"
+        for s in statuses[:limit]
+    ]
+    suffix = "; ".join(named)
+    if len(statuses) > limit:
+        suffix += f"; and {len(statuses) - limit} more"
+    return f" {suffix}."
+
+
 def build_screening_next_steps(
     db_path: Optional[str] = None,
 ) -> List[RedfinScreeningNextStep]:
@@ -1414,14 +1455,16 @@ def build_screening_next_steps(
                 step_id="capture_quiet_vibrancy",
                 category="candidate",
                 message=(
-                    "Candidates missing Quiet/Vibrancy: capture "
-                    "the Redfin visual scores and enter them."
+                    "Candidates missing Quiet/Vibrancy: open the "
+                    "Redfin page, visually read Quiet and Vibrancy, "
+                    "then enter them."
+                    + _name_candidates(
+                        path, "missing_quiet_vibrancy"
+                    )
                 ),
                 count=counts["candidates_missing_quiet_vibrancy"],
                 command=(
-                    "marketsentry candidate-location-scores "
-                    "--candidate-id <id> --quiet-score <q> "
-                    "--vibrancy-score <v>"
+                    "marketsentry list-candidates-needing-scores"
                 ),
                 severity="action",
             )
@@ -1436,6 +1479,9 @@ def build_screening_next_steps(
                     "Candidates failing the Quiet gatekeeper: add "
                     "local noise notes, or hold/reject as a "
                     "noise-risk control."
+                    + _name_candidates(
+                        path, "failing_gatekeeper"
+                    )
                 ),
                 count=counts["candidates_failing_gatekeeper"],
                 command=(

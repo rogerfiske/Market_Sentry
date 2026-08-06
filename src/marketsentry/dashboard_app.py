@@ -3315,6 +3315,394 @@ def _render_cross_site_fixture_processing(
 
 
     # -------------------------------------------------------------------
+    # Milestone 54 - Manual Quiet/Vibrancy Entry
+    # -------------------------------------------------------------------
+
+    st.subheader("Manual Quiet/Vibrancy Entry")
+    st.caption(
+        "Enter the Quiet and Vibrancy scores you read on the Redfin "
+        "page. Nothing here reads Redfin: the values come from you. "
+        "Local-only, no live retrieval, no browser automation."
+    )
+
+    try:
+        from marketsentry.manual_score_entry import (
+            NOISE_RISK_LEVELS,
+            apply_scores_and_noise_notes,
+            build_candidate_score_entry_status,
+            build_gatekeeper_explanation,
+            export_manual_score_entry_queue,
+            list_candidate_score_entry_statuses,
+            list_candidates_needing_scores,
+            summarize_manual_score_entry_queue,
+        )
+
+        # Read-only summary. Rendering this section never mutates.
+        _mse_summary = summarize_manual_score_entry_queue(
+            db_path=db_path
+        )
+
+        _mc1, _mc2, _mc3, _mc4 = st.columns(4)
+        with _mc1:
+            st.metric(
+                "Candidates", _mse_summary["total_candidates"]
+            )
+        with _mc2:
+            st.metric(
+                "Missing Quiet/Vibrancy",
+                _mse_summary["needing_quiet_vibrancy"],
+            )
+        with _mc3:
+            st.metric(
+                "Missing Noise Notes",
+                _mse_summary["needing_noise_notes"],
+            )
+        with _mc4:
+            st.metric(
+                "Failing Gatekeeper",
+                _mse_summary["failing_gatekeeper"],
+            )
+
+        st.info(
+            "Quiet Score is the gatekeeper at "
+            f"{config.quiet_score_minimum}. A low Vibrancy score "
+            "does not override a Quiet score below the threshold."
+        )
+
+        # Candidates needing scores
+        _needing = list_candidates_needing_scores(
+            db_path=db_path, include_missing_noise_notes=True
+        )
+        if _needing:
+            import pandas as pd
+
+            _need_rows = []
+            for _st in _needing:
+                _need_rows.append({
+                    "ID": _st.candidate_id,
+                    "Address": _st.address or "",
+                    "City": _st.city or "",
+                    "Quiet": (
+                        _st.quiet_score
+                        if _st.quiet_score is not None
+                        else ""
+                    ),
+                    "Vibrancy": (
+                        _st.vibrancy_score
+                        if _st.vibrancy_score is not None
+                        else ""
+                    ),
+                    "Gatekeeper": (
+                        _st.quiet_gatekeeper_result or ""
+                    ),
+                    "Missing": ", ".join(_st.missing_fields),
+                    "Next Step": _st.recommended_next_step,
+                    "Redfin URL": _st.redfin_url or "",
+                })
+            st.dataframe(
+                pd.DataFrame(_need_rows),
+                use_container_width=True,
+            )
+        else:
+            st.success(
+                "No candidates need manual score entry."
+            )
+
+        # Candidate lookup. Selecting a candidate only reads.
+        _all_statuses = list_candidate_score_entry_statuses(
+            db_path=db_path
+        )
+        _candidate_ids = [
+            s.candidate_id for s in _all_statuses
+        ]
+
+        if _candidate_ids:
+            _selected_id = st.selectbox(
+                "Select candidate",
+                _candidate_ids,
+                key="mse_candidate_select",
+            )
+            _selected = build_candidate_score_entry_status(
+                int(_selected_id), db_path=db_path
+            )
+            if _selected:
+                st.markdown(
+                    f"**{_selected.address or ''}** "
+                    f"{_selected.city or ''} "
+                    f"{_selected.zip or ''}"
+                )
+                if _selected.redfin_url:
+                    st.markdown(
+                        f"[Open Redfin page]"
+                        f"({_selected.redfin_url})"
+                    )
+                    st.caption(
+                        "Opens in your browser. Read the Quiet and "
+                        "Vibrancy values, then type them below."
+                    )
+
+                _cur1, _cur2, _cur3 = st.columns(3)
+                with _cur1:
+                    st.metric(
+                        "Current Quiet",
+                        (
+                            _selected.quiet_score
+                            if _selected.quiet_score is not None
+                            else "-"
+                        ),
+                    )
+                with _cur2:
+                    st.metric(
+                        "Current Vibrancy",
+                        (
+                            _selected.vibrancy_score
+                            if _selected.vibrancy_score
+                            is not None
+                            else "-"
+                        ),
+                    )
+                with _cur3:
+                    st.metric(
+                        "Gatekeeper",
+                        _selected.quiet_gatekeeper_result
+                        or "not evaluated",
+                    )
+
+                if _selected.noise_risk:
+                    st.caption(
+                        f"Recorded noise risk: "
+                        f"{_selected.noise_risk}"
+                        + (
+                            f" (sources: "
+                            f"{', '.join(_selected.noise_sources)})"
+                            if _selected.noise_sources
+                            else ""
+                        )
+                    )
+                st.caption(
+                    f"Next step: "
+                    f"{_selected.recommended_next_step}"
+                )
+
+            # Live gatekeeper preview. Pure calculation, no write.
+            st.markdown("**Gatekeeper preview**")
+            _pv1, _pv2 = st.columns(2)
+            with _pv1:
+                _preview_quiet = st.number_input(
+                    "Quiet Score (0-10)",
+                    min_value=0.0,
+                    max_value=10.0,
+                    step=0.1,
+                    key="mse_preview_quiet",
+                )
+            with _pv2:
+                _preview_vibrancy = st.number_input(
+                    "Vibrancy Score (0-10)",
+                    min_value=0.0,
+                    max_value=10.0,
+                    step=0.1,
+                    key="mse_preview_vibrancy",
+                )
+
+            _preview = build_gatekeeper_explanation(
+                float(_preview_quiet), float(_preview_vibrancy)
+            )
+            if _preview.passes:
+                st.success(_preview.explanation)
+            else:
+                st.warning(_preview.explanation)
+            if _preview.vibrancy_note:
+                st.caption(_preview.vibrancy_note)
+
+            # Combined entry form. Mutates only on submit.
+            with st.form("manual_score_entry_form"):
+                st.markdown(
+                    "**Save Scores and Noise Notes**"
+                )
+                _mse_id = st.number_input(
+                    "Candidate ID",
+                    min_value=1,
+                    step=1,
+                    value=int(_selected_id),
+                    key="mse_entry_id",
+                )
+                _mse_apply_scores = st.checkbox(
+                    "Save Quiet/Vibrancy scores",
+                    value=True,
+                    key="mse_apply_scores",
+                )
+                _mse_quiet = st.number_input(
+                    "Quiet Score (0-10)",
+                    min_value=0.0,
+                    max_value=10.0,
+                    step=0.1,
+                    key="mse_quiet",
+                )
+                _mse_vibrancy = st.number_input(
+                    "Vibrancy Score (0-10)",
+                    min_value=0.0,
+                    max_value=10.0,
+                    step=0.1,
+                    key="mse_vibrancy",
+                )
+                _mse_apply_noise = st.checkbox(
+                    "Save noise observation",
+                    value=False,
+                    key="mse_apply_noise",
+                )
+                _mse_risk = st.selectbox(
+                    "Noise Risk",
+                    NOISE_RISK_LEVELS,
+                    key="mse_risk",
+                )
+                _mse_sources = st.multiselect(
+                    "Noise Sources",
+                    [
+                        "traffic",
+                        "airport",
+                        "road",
+                        "arterial_road",
+                        "freeway",
+                        "nighttime_racing",
+                        "school",
+                        "commercial",
+                        "topography",
+                        "unknown",
+                        "other",
+                    ],
+                    key="mse_sources",
+                )
+                _mse_notes = st.text_area(
+                    "Notes (local knowledge)",
+                    key="mse_notes",
+                )
+                _mse_refresh = st.checkbox(
+                    "Run local refresh after saving",
+                    value=False,
+                    key="mse_refresh",
+                )
+                _mse_submit = st.form_submit_button(
+                    "Save Scores + Noise Notes"
+                )
+
+                if _mse_submit:
+                    if (
+                        not _mse_apply_scores
+                        and not _mse_apply_noise
+                    ):
+                        st.error(
+                            "Select scores, noise notes, or both."
+                        )
+                    else:
+                        _mse_result = (
+                            apply_scores_and_noise_notes(
+                                candidate_id=int(_mse_id),
+                                quiet_score=(
+                                    float(_mse_quiet)
+                                    if _mse_apply_scores
+                                    else None
+                                ),
+                                vibrancy_score=(
+                                    float(_mse_vibrancy)
+                                    if _mse_apply_scores
+                                    else None
+                                ),
+                                noise_risk=(
+                                    _mse_risk
+                                    if _mse_apply_noise
+                                    else None
+                                ),
+                                noise_sources=(
+                                    ",".join(_mse_sources)
+                                    if _mse_apply_noise
+                                    and _mse_sources
+                                    else None
+                                ),
+                                notes=(
+                                    _mse_notes or None
+                                    if _mse_apply_noise
+                                    else None
+                                ),
+                                db_path=db_path,
+                                refresh=_mse_refresh,
+                            )
+                        )
+
+                        if _mse_result.errors:
+                            st.error(
+                                "No changes applied."
+                            )
+                            for _err in _mse_result.errors:
+                                st.error(_err)
+                        else:
+                            st.success(_mse_result.detail)
+                            if _mse_result.gatekeeper:
+                                if (
+                                    _mse_result.gatekeeper.passes
+                                ):
+                                    st.success(
+                                        _mse_result.gatekeeper
+                                        .explanation
+                                    )
+                                else:
+                                    st.warning(
+                                        _mse_result.gatekeeper
+                                        .explanation
+                                    )
+                                if (
+                                    _mse_result.gatekeeper
+                                    .vibrancy_note
+                                ):
+                                    st.caption(
+                                        _mse_result.gatekeeper
+                                        .vibrancy_note
+                                    )
+                            if _mse_result.refresh_requested:
+                                if _mse_result.refresh_ran:
+                                    st.success(
+                                        "Local refresh completed."
+                                    )
+                                    for _p in (
+                                        _mse_result
+                                        .refresh_output_paths
+                                    ):
+                                        st.caption(_p)
+                                else:
+                                    st.warning(
+                                        "Refresh failed: "
+                                        f"{_mse_result.refresh_error}"
+                                        ". Updates were still saved."
+                                    )
+        else:
+            st.info(
+                "No candidates yet. Save a screening item for "
+                "analysis first."
+            )
+
+        with st.form("manual_score_export_form"):
+            st.markdown("**Export Manual Score Entry Queue**")
+            _mse_export_fmt = st.selectbox(
+                "Format",
+                ["both", "csv", "md"],
+                key="mse_export_fmt",
+            )
+            _mse_export_submit = st.form_submit_button(
+                "Export Queue"
+            )
+            if _mse_export_submit:
+                _mse_paths = export_manual_score_entry_queue(
+                    db_path=db_path,
+                    fmt=_mse_export_fmt,
+                )
+                for _p in _mse_paths:
+                    st.success(f"Exported: {_p}")
+
+    except Exception as _mse_error:
+        st.info(
+            f"Manual score entry unavailable: {_mse_error}"
+        )
+
+    # -------------------------------------------------------------------
     # Milestone 52 - Initial Redfin Screening
     # -------------------------------------------------------------------
 

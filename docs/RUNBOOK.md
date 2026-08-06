@@ -2524,6 +2524,83 @@ The Streamlit dashboard includes an Initial Redfin Screening section with metric
 
 See `docs/REDFIN_SCREENING_QUEUE.md` for the full screening queue guide.
 
+## Manual Quiet/Vibrancy Entry (Milestone 54)
+
+Quiet and Vibrancy come from you, not from the software. You open the Redfin page in your browser, read the two lifestyle score cards, and type the numbers in. Nothing in this workflow reads Redfin.
+
+### Where to find the scores
+
+Open the property's Redfin page and scroll to the neighborhood/lifestyle section. The **Quiet** card carries a mute/speaker icon and the **Vibrancy** card a waveform icon. Each shows a 0-10 value.
+
+### Seeing what needs scores
+
+```powershell
+python -m marketsentry.cli list-candidates-needing-scores
+python -m marketsentry.cli list-candidates-needing-scores --include-noise
+python -m marketsentry.cli candidate-score-status --candidate-id 5
+```
+
+### Entering scores
+
+```powershell
+# Original commands, unchanged
+python -m marketsentry.cli candidate-location-scores --candidate-id 7 --quiet-score 9.9 --vibrancy-score 1.3
+python -m marketsentry.cli candidate-noise-notes --candidate-id 7 --noise-risk high --noise-sources "traffic,airport"
+
+# Combined, validated in one step
+python -m marketsentry.cli candidate-score-and-noise-notes --candidate-id 7 --quiet-score 9.9 --vibrancy-score 1.3 --noise-risk low --noise-sources "traffic" --notes "Quiet cul-de-sac"
+```
+
+### Validation
+
+| Input | Result |
+|-------|--------|
+| `0`, `7.0`, `9.9`, `10` | Accepted |
+| `-1`, `10.5`, `100` | Rejected: outside the 0-10 range |
+| `abc`, blank | Rejected: not a number |
+| Quiet without Vibrancy | Rejected: enter both together |
+| `--noise-risk extreme` | Rejected: not a valid level |
+
+The combined command validates before writing anything, so an invalid entry leaves the candidate completely untouched.
+
+### Why Quiet is the gatekeeper
+
+```text
+Quiet >= 7.0  -> pass
+Quiet <  7.0  -> fail_noise_risk
+```
+
+A low Vibrancy score does not rescue a Quiet failure. For 32152 Camino Nunez, Quiet 6.9 with Vibrancy 1.1 still fails, and the system says exactly that:
+
+```text
+Quiet 6.9 is below the 7.0 gatekeeper threshold, so this candidate is marked
+fail_noise_risk even though Vibrancy is 1.1.
+Vibrancy 1.1 is low, but low Vibrancy does not override a Quiet failure.
+```
+
+### Noise-risk control cases
+
+A gatekeeper failure is worth keeping as a tracked control case. Record what you know, then hold or reject:
+
+```powershell
+python -m marketsentry.cli candidate-noise-notes --candidate-id 5 --noise-risk high --noise-sources "traffic,airport,nighttime_racing" --notes "Track as noise-risk control."
+python -m marketsentry.cli candidate-decision --candidate-id 5 --decision maybe --notes "Noise-risk control"
+```
+
+### Exporting the queue
+
+```powershell
+python -m marketsentry.cli export-manual-score-entry-queue
+```
+
+Writes `data/exports/manual_score_entry_queue_<timestamp>.{csv,md}` with current scores, gatekeeper result, noise risk and sources, missing fields, next step, and clickable Redfin links.
+
+### Dashboard
+
+The **Manual Quiet/Vibrancy Entry** section shows outstanding counts, a table of candidates needing attention, a candidate selector with a clickable Redfin link, a live gatekeeper preview that updates as you type, a combined save form, an optional refresh checkbox, and an export button. Rendering the section never writes; only submitting a form does.
+
+See `docs/MANUAL_SCORE_ENTRY.md` for the full guide.
+
 ## Screening Queue Batch Actions (Milestone 53)
 
 When you have reviewed several Redfin links in one sitting, record all the decisions together instead of one command per property.

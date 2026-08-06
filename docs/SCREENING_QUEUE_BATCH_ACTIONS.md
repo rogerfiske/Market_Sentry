@@ -104,6 +104,23 @@ Watchlist ready              -> run the operator refresh workflow
 
 The same panel appears in the dashboard under `Initial Redfin Screening`, along with warnings about missing enrichment, missing scores, leftover demo records, and stray database files.
 
+Next-step messages name the specific candidates behind each count, so you know
+which property to open rather than only how many are outstanding.
+
+## After Saving: Entering Scores
+
+Batch Save for Analysis creates candidates but does not score them. Quiet and
+Vibrancy are read visually from the Redfin page by you and typed in:
+
+```powershell
+python -m marketsentry.cli list-candidates-needing-scores
+python -m marketsentry.cli candidate-score-and-noise-notes --candidate-id 7 --quiet-score 9.9 --vibrancy-score 1.3
+```
+
+See `docs/MANUAL_SCORE_ENTRY.md` for the full guide, including where the scores
+appear on the Redfin page and why a low Vibrancy score never rescues a Quiet
+score below 7.0.
+
 ## Refreshing Reports After Saving
 
 Both the single and batch Save for Analysis commands accept an optional refresh:

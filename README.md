@@ -6,7 +6,27 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Screening Queue Batch Actions (MVP 53)
+## Current Milestone: Manual Quiet/Vibrancy and Noise Risk Entry v2 (MVP 54)
+
+A safer, clearer workflow for the most manual step: typing in the Quiet and
+Vibrancy scores you read on the Redfin page, and recording local noise knowledge.
+
+- Score validation: 0.0-10.0 inclusive; rejects out-of-range, non-numeric, boolean, NaN, and infinite input with operator-facing messages
+- Gatekeeper explanations that state why, including that a low Vibrancy score never rescues a Quiet score below 7.0
+- Per-candidate score-entry status with the recommended next step
+- New commands: `candidate-score-status`, `list-candidates-needing-scores`, `candidate-score-and-noise-notes`, `export-manual-score-entry-queue`
+- The combined command validates everything **before** writing, so a typo leaves the candidate untouched
+- Dashboard **Manual Quiet/Vibrancy Entry** section with a live gatekeeper preview that updates as you type
+- Next steps now name the specific candidates behind each count
+- Existing `candidate-location-scores` and `candidate-noise-notes` unchanged and fully supported
+- No schema changes. Noise risk and sources are parsed from the existing notes field.
+- Score entry is manual and local-only: nothing reads Redfin
+- No live retrieval, browser automation, outbound notifications, or credential storage
+- Quiet Score gatekeeper unchanged at 7.0. Walkability remains excluded.
+
+See [docs/MANUAL_SCORE_ENTRY.md](docs/MANUAL_SCORE_ENTRY.md).
+
+### MVP 53: Screening Queue Batch Actions
 
 Batch actions and next-step guidance for the Redfin screening queue, so a whole
 review pass can be recorded in one command instead of one command per property.
@@ -1738,6 +1758,7 @@ Market_Sentry/
 │   ├── HowLoud openapi.json                   # HowLoud noise API spec (untracked)
 │   ├── LIVE_RETRIEVAL_STRATEGY.md
 │   ├── LOCAL_OPERATIONS_BUNDLE.md
+│   ├── MANUAL_SCORE_ENTRY.md
 │   ├── OPERATOR_WORKFLOW.md
 │   ├── PORTFOLIO_ALERT_EMAIL_DIGEST.md
 │   ├── PORTFOLIO_ALERT_FOCUS_PREFERENCES.md
@@ -1807,7 +1828,8 @@ Market_Sentry/
 │   │   ├── 049-release-finalization.md
 │   │   ├── 050-guided-operator-workflow.md
 │   │   ├── 051-redfin-screening-queue.md
-│   │   └── 052-screening-queue-batch-actions.md
+│   │   ├── 052-screening-queue-batch-actions.md
+│   │   └── 053-manual-score-entry-v2.md
 │   ├── examples/                              # Example artifacts (empty)
 │   └── prompts/                               # Milestone build prompts (53)
 │       ├── Market_Sentry_Claude_Prompt_001_Project_Scaffold.md
@@ -1864,7 +1886,8 @@ Market_Sentry/
 │       ├── Market_Sentry_Claude_Prompt_051A_Operator_Workflow_Stabilization.md
 │       ├── Market_Sentry_Claude_Prompt_052_Redfin_Screening_Queue.md
 │       ├── Market_Sentry_Claude_Prompt_052A_Global_DB_Default_Stabilization.md
-│       └── Market_Sentry_Claude_Prompt_053_Screening_Queue_Batch_Actions.md
+│       ├── Market_Sentry_Claude_Prompt_053_Screening_Queue_Batch_Actions.md
+│       └── Market_Sentry_Claude_Prompt_054_Manual_Score_Entry_v2.md
 ├── logs/                                      # Application logs
 │   ├── .gitkeep
 │   ├── marketsentry.log
@@ -1904,6 +1927,7 @@ Market_Sentry/
 │       ├── normalization.py                   # Address/data normalization
 │       ├── sample_data.py                     # Sample data generation
 │       ├── demo_data_cleanup.py               # Demo/sample cleanup and stray detection
+│       ├── manual_score_entry.py              # Manual Quiet/Vibrancy entry and validation
 │       ├── gas_detection.py                   # Gas service detection
 │       ├── quiet_vibrancy.py                  # Location scoring
 │       ├── scoring.py                         # Property scoring engine
@@ -2103,7 +2127,8 @@ Market_Sentry/
 │   ├── test_milestone_51.py                   # Guided operator workflow tests
 │   ├── test_milestone_52.py                   # Redfin screening queue tests
 │   ├── test_milestone_52a.py                  # Database default stabilization tests
-│   └── test_milestone_53.py                   # Screening batch action tests
+│   ├── test_milestone_53.py                   # Screening batch action tests
+│   └── test_milestone_54.py                   # Manual score entry tests
 ├── .coverage                                  # Coverage data (generated)
 ├── .env.example                               # Example configuration
 ├── .gitignore
@@ -2358,7 +2383,7 @@ Protected real properties, never removed: `31801 Valone Ct`, `31457 Britton Cir`
 
 ## Milestone Status
 
-Milestones 1-53, including stabilization milestone 52A, are complete. The project
+Milestones 1-54, including stabilization milestone 52A, are complete. The project
 is at release candidate v0.1.0-rc1.
 
 **Note:** Milestone 51A (Operator Workflow Stabilization) fixed the operator
@@ -2380,6 +2405,7 @@ MIT
 - [docs/RUNBOOK.md](docs/RUNBOOK.md) - Operating Runbook
 - [docs/prompts/](docs/prompts/) - Implementation prompts
 - [docs/SCREENING_QUEUE_BATCH_ACTIONS.md](docs/SCREENING_QUEUE_BATCH_ACTIONS.md) - Screening batch actions guide
+- [docs/MANUAL_SCORE_ENTRY.md](docs/MANUAL_SCORE_ENTRY.md) - Manual Quiet/Vibrancy entry guide
 - [docs/decisions/](docs/decisions/) - Architecture decision records
 
 ## Notes

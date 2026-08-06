@@ -57,11 +57,44 @@ marketsentry candidate-decision --candidate-id 6 --decision hold_for_more_data -
 
 ## Entering Quiet and Vibrancy Scores
 
+You read the two lifestyle scores on the Redfin page yourself, then type them
+in. Nothing in this workflow reads Redfin.
+
+See which candidates still need scores:
+
+```bash
+marketsentry list-candidates-needing-scores
+marketsentry candidate-score-status --candidate-id 5
+```
+
 Instead of editing a CSV, enter scores directly from the command line:
 
 ```bash
 marketsentry candidate-location-scores --candidate-id 4 --quiet-score 9.9 --vibrancy-score 1.3 --notes "Verified from Redfin detail page"
 ```
+
+Or enter scores and noise knowledge in one validated step:
+
+```bash
+marketsentry candidate-score-and-noise-notes --candidate-id 4 \
+  --quiet-score 9.9 --vibrancy-score 1.3 \
+  --noise-risk low --noise-sources "traffic" \
+  --notes "Quiet cul-de-sac, verified on site"
+```
+
+The combined command validates every value **before** writing anything, so a
+typo such as `99` instead of `9.9` is rejected and leaves the candidate
+untouched. Scores must be between 0.0 and 10.0, and Quiet and Vibrancy must be
+supplied together so the gatekeeper sees a complete pair.
+
+Export the outstanding queue at any time:
+
+```bash
+marketsentry export-manual-score-entry-queue
+```
+
+See `docs/MANUAL_SCORE_ENTRY.md` for the full guide, including where to find
+the scores on the Redfin page.
 
 ### How Scores Work
 
