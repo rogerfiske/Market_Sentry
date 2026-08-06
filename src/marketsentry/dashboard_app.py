@@ -3365,6 +3365,53 @@ def _render_cross_site_fixture_processing(
         with sc8:
             st.metric("Error", scr_summary.error)
 
+        # Next Steps panel. Read-only; loading the dashboard never
+        # mutates screening, candidate, or watchlist state.
+        st.markdown("---")
+        st.markdown("**Next Steps**")
+        try:
+            from marketsentry.redfin_screening_queue import (
+                summarize_screening_operator_status,
+            )
+
+            operator_status = summarize_screening_operator_status(
+                db_path=db_path
+            )
+
+            for warning_text in operator_status.warnings:
+                st.warning(warning_text)
+
+            if operator_status.next_steps:
+                for step_index, next_step in enumerate(
+                    operator_status.next_steps, start=1
+                ):
+                    step_suffix = (
+                        f" ({next_step.count})"
+                        if next_step.count
+                        else ""
+                    )
+                    step_line = (
+                        f"{step_index}. {next_step.message}"
+                        f"{step_suffix}"
+                    )
+                    if next_step.severity == "warning":
+                        st.warning(step_line)
+                    else:
+                        st.markdown(step_line)
+                    if next_step.command:
+                        st.caption(f"`{next_step.command}`")
+            else:
+                st.info("No pending screening steps.")
+
+            st.caption(
+                "Guidance for gathering data only. "
+                "Not a purchase recommendation."
+            )
+        except Exception as next_step_error:
+            st.info(
+                f"Next steps unavailable: {next_step_error}"
+            )
+
         # Screening queue table
         scr_items = list_redfin_screening_items(
             db_path=db_path, limit=200
@@ -3399,7 +3446,177 @@ def _render_cross_site_fixture_processing(
         else:
             st.info("No screening items yet.")
 
-        # Action forms
+        # Batch action forms. Enter several IDs at once as 4,5,6.
+        st.markdown("---")
+        st.markdown("**Batch Screening Actions**")
+        st.caption(
+            "Enter comma-separated screening IDs from the ID "
+            "column above, for example: 4,5,6"
+        )
+
+        from marketsentry.redfin_screening_queue import (
+            batch_hold_screening_items,
+            batch_mark_screening_items_opened,
+            batch_reject_screening_items,
+            batch_save_screening_items_for_analysis,
+            parse_screening_id_list,
+        )
+
+        def _render_batch_outcome(batch_result) -> None:
+            """Show per-item outcomes for a batch action."""
+            if batch_result.invalid_entries:
+                st.warning(
+                    "Ignored invalid IDs: "
+                    + ", ".join(batch_result.invalid_entries)
+                )
+            if batch_result.duplicate_ids:
+                st.info(
+                    "Ignored duplicate IDs: "
+                    + ", ".join(
+                        str(i)
+                        for i in batch_result.duplicate_ids
+                    )
+                )
+            for batch_error in batch_result.errors:
+                st.error(batch_error)
+            for item_result in batch_result.item_results:
+                if item_result.success:
+                    st.success(
+                        f"ID {item_result.screening_id}: "
+                        f"{item_result.detail}"
+                    )
+                else:
+                    st.error(
+                        f"ID {item_result.screening_id}: "
+                        f"{item_result.detail}"
+                    )
+            if batch_result.refresh_requested:
+                if batch_result.refresh_ran:
+                    st.success("Local refresh workflow completed.")
+                    for out_path in (
+                        batch_result.refresh_output_paths
+                    ):
+                        st.caption(out_path)
+                else:
+                    st.warning(
+                        "Refresh failed: "
+                        f"{batch_result.refresh_error}. "
+                        "Batch actions were still applied."
+                    )
+
+        with st.form("screening_batch_save_form"):
+            st.markdown("**Batch Save for Analysis**")
+            _batch_save_ids = st.text_input(
+                "Screening IDs", key="batch_save_ids"
+            )
+            _batch_save_notes = st.text_area(
+                "Notes (optional)", key="batch_save_notes"
+            )
+            _batch_save_refresh = st.checkbox(
+                "Run local refresh after Save for Analysis",
+                value=False,
+                key="batch_save_refresh",
+            )
+            _batch_save_submit = st.form_submit_button(
+                "Batch Save for Analysis"
+            )
+            if _batch_save_submit:
+                _ids, _invalid, _dupes = parse_screening_id_list(
+                    _batch_save_ids
+                )
+                if not _ids and not _invalid:
+                    st.error("Enter at least one screening ID.")
+                else:
+                    _result = (
+                        batch_save_screening_items_for_analysis(
+                            screening_ids=_ids,
+                            notes=_batch_save_notes or None,
+                            db_path=db_path,
+                            refresh=_batch_save_refresh,
+                            duplicate_ids=_dupes,
+                            invalid_entries=_invalid,
+                        )
+                    )
+                    _render_batch_outcome(_result)
+
+        with st.form("screening_batch_reject_form"):
+            st.markdown("**Batch Reject**")
+            _batch_reject_ids = st.text_input(
+                "Screening IDs", key="batch_reject_ids"
+            )
+            _batch_reject_notes = st.text_area(
+                "Notes (optional)", key="batch_reject_notes"
+            )
+            _batch_reject_submit = st.form_submit_button(
+                "Batch Reject"
+            )
+            if _batch_reject_submit:
+                _ids, _invalid, _dupes = parse_screening_id_list(
+                    _batch_reject_ids
+                )
+                if not _ids and not _invalid:
+                    st.error("Enter at least one screening ID.")
+                else:
+                    _result = batch_reject_screening_items(
+                        screening_ids=_ids,
+                        notes=_batch_reject_notes or None,
+                        db_path=db_path,
+                        duplicate_ids=_dupes,
+                        invalid_entries=_invalid,
+                    )
+                    _render_batch_outcome(_result)
+
+        with st.form("screening_batch_hold_form"):
+            st.markdown("**Batch Hold**")
+            _batch_hold_ids = st.text_input(
+                "Screening IDs", key="batch_hold_ids"
+            )
+            _batch_hold_notes = st.text_area(
+                "Notes (optional)", key="batch_hold_notes"
+            )
+            _batch_hold_submit = st.form_submit_button(
+                "Batch Hold"
+            )
+            if _batch_hold_submit:
+                _ids, _invalid, _dupes = parse_screening_id_list(
+                    _batch_hold_ids
+                )
+                if not _ids and not _invalid:
+                    st.error("Enter at least one screening ID.")
+                else:
+                    _result = batch_hold_screening_items(
+                        screening_ids=_ids,
+                        notes=_batch_hold_notes or None,
+                        db_path=db_path,
+                        duplicate_ids=_dupes,
+                        invalid_entries=_invalid,
+                    )
+                    _render_batch_outcome(_result)
+
+        with st.form("screening_batch_open_form"):
+            st.markdown("**Batch Mark Opened**")
+            _batch_open_ids = st.text_input(
+                "Screening IDs", key="batch_open_ids"
+            )
+            _batch_open_submit = st.form_submit_button(
+                "Batch Mark Opened"
+            )
+            if _batch_open_submit:
+                _ids, _invalid, _dupes = parse_screening_id_list(
+                    _batch_open_ids
+                )
+                if not _ids and not _invalid:
+                    st.error("Enter at least one screening ID.")
+                else:
+                    _result = batch_mark_screening_items_opened(
+                        screening_ids=_ids,
+                        db_path=db_path,
+                        duplicate_ids=_dupes,
+                        invalid_entries=_invalid,
+                    )
+                    _render_batch_outcome(_result)
+
+        # Single-item action forms
         st.markdown("---")
         st.markdown("**Screening Actions**")
 

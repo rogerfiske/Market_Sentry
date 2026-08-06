@@ -1,7 +1,7 @@
 """Command-line interface for Market_Sentry."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 from rich.console import Console
@@ -9126,6 +9126,16 @@ def save_screening_item_for_analysis(
         "--db",
         help="Path to the SQLite database",
     ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Exports directory used when refreshing",
+    ),
+    refresh: bool = typer.Option(
+        False,
+        "--refresh/--no-refresh",
+        help="Run the local refresh workflow afterwards",
+    ),
 ) -> None:
     """Save a screening item for full candidate analysis.
 
@@ -9159,6 +9169,32 @@ def save_screening_item_for_analysis(
                 f"{result.detail}"
             )
             raise typer.Exit(code=1)
+
+        # Refresh runs only after a successful save, and a refresh
+        # failure never undoes the save above.
+        if refresh:
+            try:
+                from marketsentry.operator_workflow import (
+                    run_operator_refresh_workflow,
+                )
+
+                run_result = run_operator_refresh_workflow(
+                    db_path=db,
+                    exports_dir=exports_dir,
+                )
+                console.print(
+                    "\n[bold]Refresh workflow[/bold] completed."
+                )
+                for path in run_result.output_paths:
+                    console.print(f"  Report: {path}")
+            except Exception as refresh_error:
+                console.print(
+                    f"\n[yellow]Refresh workflow failed:"
+                    f"[/yellow] {refresh_error}"
+                )
+                console.print(
+                    "  The save above was still applied."
+                )
 
         console.print(
             "\n[bold yellow]Local-only. "
@@ -9386,6 +9422,344 @@ def export_redfin_screening_queue(
         logger.error(
             f"Export screening queue error: {e}"
         )
+        raise typer.Exit(code=1)
+
+
+def _render_batch_result(result: Any, action_label: str) -> None:
+    """Print a batch screening action result for the operator."""
+    console.print(f"\n[bold]{action_label}[/bold]")
+
+    if result.invalid_entries:
+        console.print(
+            f"  [yellow]Ignored invalid IDs:[/yellow] "
+            f"{', '.join(result.invalid_entries)}"
+        )
+    if result.duplicate_ids:
+        console.print(
+            f"  [yellow]Ignored duplicate IDs:[/yellow] "
+            f"{', '.join(str(i) for i in result.duplicate_ids)}"
+        )
+    for error in result.errors:
+        console.print(f"  [red]{error}[/red]")
+
+    if result.item_results:
+        table = Table(show_header=True)
+        table.add_column("ID")
+        table.add_column("Result")
+        table.add_column("Detail")
+        table.add_column("Candidate")
+        for item in result.item_results:
+            table.add_row(
+                str(item.screening_id),
+                "OK" if item.success else "FAILED",
+                item.detail,
+                str(item.candidate_id or ""),
+            )
+        console.print(table)
+
+    console.print(
+        f"  Succeeded: {result.succeeded_count}  "
+        f"Failed: {result.failed_count}"
+    )
+
+    if result.refresh_requested:
+        if result.refresh_ran:
+            console.print(
+                "\n[bold]Refresh workflow[/bold] completed."
+            )
+            for path in result.refresh_output_paths:
+                console.print(f"  Report: {path}")
+        else:
+            console.print(
+                f"\n[yellow]Refresh workflow failed:[/yellow] "
+                f"{result.refresh_error}"
+            )
+            console.print(
+                "  Batch actions above were still applied."
+            )
+
+    console.print(
+        "\n[bold yellow]Local-only. No live retrieval. "
+        "No outbound notifications.[/bold yellow]"
+    )
+
+
+def _parse_batch_ids(screening_ids: str):
+    """Parse and validate a comma-separated screening ID list."""
+    from marketsentry.redfin_screening_queue import (
+        parse_screening_id_list,
+    )
+
+    ids, invalid, duplicates = parse_screening_id_list(
+        screening_ids
+    )
+    if not ids and not invalid:
+        console.print(
+            "[bold red]Error:[/bold red] No screening IDs "
+            "supplied. Use --screening-ids 4,5,6"
+        )
+        raise typer.Exit(code=1)
+    return ids, invalid, duplicates
+
+
+@app.command()
+def batch_save_screening_items(
+    screening_ids: str = typer.Option(
+        ...,
+        "--screening-ids",
+        help="Comma-separated screening IDs, e.g. 4,5,6",
+    ),
+    notes: Optional[str] = typer.Option(
+        None,
+        "--notes",
+        help="Optional notes appended to each item",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    exports_dir: str = typer.Option(
+        "data/exports",
+        "--exports-dir",
+        help="Exports directory used when refreshing",
+    ),
+    refresh: bool = typer.Option(
+        False,
+        "--refresh/--no-refresh",
+        help="Run the local refresh workflow afterwards",
+    ),
+) -> None:
+    """Save several screening items for analysis.
+
+    Creates or links one candidate per item using the same dedup
+    logic as the single-item command. Explicit operator action;
+    imports never create candidates. Local-only.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            batch_save_screening_items_for_analysis,
+        )
+
+        ids, invalid, duplicates = _parse_batch_ids(screening_ids)
+        result = batch_save_screening_items_for_analysis(
+            screening_ids=ids,
+            notes=notes,
+            db_path=db,
+            refresh=refresh,
+            exports_dir=exports_dir,
+            duplicate_ids=duplicates,
+            invalid_entries=invalid,
+        )
+        _render_batch_result(result, "Batch Save for Analysis")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Batch save screening items error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def batch_reject_screening_items(
+    screening_ids: str = typer.Option(
+        ...,
+        "--screening-ids",
+        help="Comma-separated screening IDs, e.g. 4,5,6",
+    ),
+    notes: Optional[str] = typer.Option(
+        None,
+        "--notes",
+        help="Optional notes appended to each item",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Reject several screening items.
+
+    Items remain in the queue for audit. Local-only.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            batch_reject_screening_items as _batch_reject,
+        )
+
+        ids, invalid, duplicates = _parse_batch_ids(screening_ids)
+        result = _batch_reject(
+            screening_ids=ids,
+            notes=notes,
+            db_path=db,
+            duplicate_ids=duplicates,
+            invalid_entries=invalid,
+        )
+        _render_batch_result(result, "Batch Reject")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Batch reject screening items error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def batch_hold_screening_items(
+    screening_ids: str = typer.Option(
+        ...,
+        "--screening-ids",
+        help="Comma-separated screening IDs, e.g. 4,5,6",
+    ),
+    notes: Optional[str] = typer.Option(
+        None,
+        "--notes",
+        help="Optional notes appended to each item",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Hold several screening items for later review.
+
+    Local-only. No live retrieval.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            batch_hold_screening_items as _batch_hold,
+        )
+
+        ids, invalid, duplicates = _parse_batch_ids(screening_ids)
+        result = _batch_hold(
+            screening_ids=ids,
+            notes=notes,
+            db_path=db,
+            duplicate_ids=duplicates,
+            invalid_entries=invalid,
+        )
+        _render_batch_result(result, "Batch Hold")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Batch hold screening items error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def batch_mark_screening_items_opened(
+    screening_ids: str = typer.Option(
+        ...,
+        "--screening-ids",
+        help="Comma-separated screening IDs, e.g. 4,5,6",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Mark several screening items as opened.
+
+    Records that you clicked through and inspected the listing.
+    Local-only. No browser automation is used.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            batch_mark_screening_items_opened as _batch_open,
+        )
+
+        ids, invalid, duplicates = _parse_batch_ids(screening_ids)
+        result = _batch_open(
+            screening_ids=ids,
+            db_path=db,
+            duplicate_ids=duplicates,
+            invalid_entries=invalid,
+        )
+        _render_batch_result(result, "Batch Mark Opened")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Batch mark opened error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def screening_next_steps(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    project_root: str = typer.Option(
+        ".",
+        "--project-root",
+        help="Project root scanned for stray artifacts",
+    ),
+) -> None:
+    """Show what to do next in the screening workflow.
+
+    Read-only guidance for gathering data. Does not make purchase
+    recommendations and does not mutate any state.
+    """
+    try:
+        from marketsentry.redfin_screening_queue import (
+            summarize_screening_operator_status,
+        )
+
+        status = summarize_screening_operator_status(
+            db_path=db,
+            project_root=project_root,
+        )
+
+        console.print("\n[bold]Screening Next Steps[/bold]")
+        console.print(
+            f"  Queue: {status.queue.total} total "
+            f"({status.queue.new} new, "
+            f"{status.queue.opened} opened, "
+            f"{status.queue.saved_for_analysis} saved, "
+            f"{status.queue.hold} hold, "
+            f"{status.queue.rejected} rejected)"
+        )
+
+        console.print("\n[bold]Recommended Steps[/bold]")
+        for index, step in enumerate(status.next_steps, start=1):
+            marker = (
+                "[yellow]![/yellow]"
+                if step.severity == "warning"
+                else " "
+            )
+            suffix = f" ({step.count})" if step.count else ""
+            console.print(
+                f" {marker} {index}. {step.message}{suffix}"
+            )
+            if step.command:
+                console.print(f"      $ {step.command}")
+
+        if status.warnings:
+            console.print("\n[bold]Warnings[/bold]")
+            for warning in status.warnings:
+                console.print(f"  [yellow]{warning}[/yellow]")
+
+        console.print(
+            "\n[bold yellow]Read-only. No mutations. "
+            "Local-only. No live retrieval. "
+            "Guidance only, not a purchase recommendation."
+            "[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Screening next steps error: {e}")
         raise typer.Exit(code=1)
 
 

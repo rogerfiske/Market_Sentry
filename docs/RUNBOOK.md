@@ -2524,6 +2524,73 @@ The Streamlit dashboard includes an Initial Redfin Screening section with metric
 
 See `docs/REDFIN_SCREENING_QUEUE.md` for the full screening queue guide.
 
+## Screening Queue Batch Actions (Milestone 53)
+
+When you have reviewed several Redfin links in one sitting, record all the decisions together instead of one command per property.
+
+### Finding screening IDs
+
+The ID is the first column in the dashboard screening table, in `marketsentry list-redfin-screening-items`, and in the `screening_id` column of the CSV export.
+
+### The four batch commands
+
+```powershell
+python -m marketsentry.cli batch-mark-screening-items-opened --screening-ids 4,5,6
+python -m marketsentry.cli batch-save-screening-items --screening-ids 4,5 --notes "Batch save after visual review"
+python -m marketsentry.cli batch-reject-screening-items --screening-ids 7,8 --notes "Does not fit criteria"
+python -m marketsentry.cli batch-hold-screening-items --screening-ids 9,10 --notes "Needs more review"
+```
+
+### Input handling
+
+| Input | Behavior |
+|-------|----------|
+| `4,5,6` | All three are actioned |
+| `4, 5, 6` | Same; whitespace ignored |
+| `4,5,4` | `4` actioned once; the repeat reported as duplicate |
+| `4,abc,6` | `4` and `6` actioned; `abc` reported as invalid |
+| `4,999` | `4` actioned; `999` reported as not found |
+| empty | Command errors and changes nothing |
+
+One bad ID never stops the rest. Every item reports its own success or failure. Notes are appended to existing notes, never overwritten.
+
+### Knowing what to do next
+
+```powershell
+python -m marketsentry.cli screening-next-steps
+```
+
+Typical progression:
+
+```text
+New screening items          -> open the Redfin link and visually inspect
+Opened but undecided         -> Save for Analysis, Hold, or Reject
+Saved but no detail HTML     -> save the Redfin detail page and run enrichment
+Candidate missing scores     -> capture and enter Quiet/Vibrancy
+Candidate fails Quiet gate   -> add local noise notes, or hold/reject as noise-risk control
+Watchlist ready              -> run the operator refresh workflow
+```
+
+This is read-only guidance for gathering data. It never makes purchase recommendations.
+
+### Refreshing reports after saving
+
+```powershell
+# Default: no report regeneration
+python -m marketsentry.cli batch-save-screening-items --screening-ids 4,5
+
+# Save, then regenerate all local reports
+python -m marketsentry.cli batch-save-screening-items --screening-ids 4,5 --refresh
+```
+
+The default is `--no-refresh` because the refresh regenerates every local report. A refresh failure never rolls back saves that already succeeded; rerun `run-operator-refresh-workflow` on its own.
+
+### Dashboard
+
+The `Initial Redfin Screening` section provides Batch Save for Analysis, Batch Reject, Batch Hold, and Batch Mark Opened forms, each taking the same comma-separated ID list, plus a Next Steps panel. Loading the dashboard never mutates state; only submitting a form does.
+
+See `docs/SCREENING_QUEUE_BATCH_ACTIONS.md` for the full guide.
+
 ## Database Paths and Stray Files (Milestone 52A)
 
 ### The canonical database

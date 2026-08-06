@@ -15,9 +15,11 @@ import io
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
+
+from marketsentry.config import config
 
 
 # -------------------------------------------------------------------
@@ -108,6 +110,93 @@ class RedfinScreeningReportRow(BaseModel):
     candidate_id: Optional[int] = None
     redfin_url: str = ""
     user_notes: Optional[str] = None
+    saved_for_analysis: bool = False
+    candidate_has_enrichment: bool = False
+    candidate_has_quiet_vibrancy: bool = False
+    candidate_watchlisted: bool = False
+    next_step: str = ""
+
+
+class RedfinScreeningBatchActionRequest(BaseModel):
+    """A request to apply one action to several screening items."""
+
+    screening_ids: List[int] = Field(default_factory=list)
+    action: str = ""
+    notes: Optional[str] = None
+    refresh: bool = False
+
+
+class RedfinScreeningBatchActionResult(BaseModel):
+    """Outcome of a batch screening action.
+
+    Reports per-item success or failure. One failing item does not
+    stop the remaining items from being processed.
+    """
+
+    action: str = ""
+    requested_entries: List[str] = Field(default_factory=list)
+    valid_ids: List[int] = Field(default_factory=list)
+    duplicate_ids: List[int] = Field(default_factory=list)
+    invalid_entries: List[str] = Field(default_factory=list)
+    missing_ids: List[int] = Field(default_factory=list)
+    item_results: List[RedfinScreeningActionResult] = Field(
+        default_factory=list
+    )
+    refresh_requested: bool = False
+    refresh_ran: bool = False
+    refresh_output_paths: List[str] = Field(default_factory=list)
+    refresh_error: Optional[str] = None
+    errors: List[str] = Field(default_factory=list)
+
+    @property
+    def succeeded_count(self) -> int:
+        """Number of items the action succeeded on."""
+        return len([r for r in self.item_results if r.success])
+
+    @property
+    def failed_count(self) -> int:
+        """Number of items the action failed on."""
+        return len([r for r in self.item_results if not r.success])
+
+    @property
+    def created_candidate_ids(self) -> List[int]:
+        """Candidate IDs created or linked by this batch."""
+        return [
+            r.candidate_id
+            for r in self.item_results
+            if r.success and r.candidate_id is not None
+        ]
+
+
+class RedfinScreeningNextStep(BaseModel):
+    """One recommended next operator step.
+
+    Analytical guidance only. Never a purchase recommendation.
+    """
+
+    step_id: str = ""
+    category: str = ""
+    message: str = ""
+    count: int = 0
+    command: str = ""
+    severity: str = "info"
+
+
+class RedfinScreeningOperatorStatus(BaseModel):
+    """Combined screening and candidate status for the operator."""
+
+    queue: RedfinScreeningQueueSummary = Field(
+        default_factory=RedfinScreeningQueueSummary
+    )
+    saved_missing_enrichment: int = 0
+    candidates_missing_quiet_vibrancy: int = 0
+    candidates_failing_gatekeeper: int = 0
+    candidates_ready_for_decision: int = 0
+    watchlist_ready: int = 0
+    next_steps: List[RedfinScreeningNextStep] = Field(
+        default_factory=list
+    )
+    warnings: List[str] = Field(default_factory=list)
 
 
 # -------------------------------------------------------------------
@@ -136,7 +225,7 @@ def ensure_redfin_screening_queue_schema(
         db_path: Path to SQLite database.
     """
     if db_path is None:
-        db_path = "db/marketsentry.db"
+        db_path = config.database_path
 
     conn = sqlite3.connect(db_path)
     conn.execute("""
@@ -222,7 +311,7 @@ def import_redfin_screening_urls(
         Import result with counts and any warnings/errors.
     """
     if db_path is None:
-        db_path = "db/marketsentry.db"
+        db_path = config.database_path
 
     result = RedfinScreeningImportResult(
         source_file=csv_file_path,
@@ -362,7 +451,7 @@ def import_redfin_screening_fixture(
         Import result with counts and warnings.
     """
     if db_path is None:
-        db_path = "db/marketsentry.db"
+        db_path = config.database_path
 
     result = RedfinScreeningImportResult(
         source_file=fixture_path,
@@ -505,7 +594,7 @@ def list_redfin_screening_items(
         List of screening items.
     """
     if db_path is None:
-        db_path = "db/marketsentry.db"
+        db_path = config.database_path
 
     ensure_redfin_screening_queue_schema(db_path=db_path)
 
@@ -581,7 +670,7 @@ def summarize_redfin_screening_queue(
         Queue summary with status counts.
     """
     if db_path is None:
-        db_path = "db/marketsentry.db"
+        db_path = config.database_path
 
     ensure_redfin_screening_queue_schema(db_path=db_path)
     summary = RedfinScreeningQueueSummary()
@@ -651,7 +740,7 @@ def save_screening_item_for_analysis(
         Action result with candidate_id if created.
     """
     if db_path is None:
-        db_path = "db/marketsentry.db"
+        db_path = config.database_path
 
     result = RedfinScreeningActionResult(
         screening_id=screening_id,
@@ -814,7 +903,7 @@ def mark_screening_item_opened(
         Action result.
     """
     if db_path is None:
-        db_path = "db/marketsentry.db"
+        db_path = config.database_path
 
     result = RedfinScreeningActionResult(
         screening_id=screening_id,
@@ -860,6 +949,642 @@ def mark_screening_item_opened(
 
 
 # -------------------------------------------------------------------
+# Batch actions
+# -------------------------------------------------------------------
+
+
+def parse_screening_id_list(
+    raw: str,
+) -> Tuple[List[int], List[str], List[int]]:
+    """Parse a comma-separated screening ID list.
+
+    Accepts forms such as "4,5,6" or "4, 5, 6". Order of first
+    appearance is preserved. Repeated IDs are reported separately
+    rather than actioned twice.
+
+    Args:
+        raw: Comma-separated ID string.
+
+    Returns:
+        Tuple of (unique_ids, invalid_entries, duplicate_ids).
+    """
+    unique_ids: List[int] = []
+    invalid_entries: List[str] = []
+    duplicate_ids: List[int] = []
+
+    if raw is None:
+        return unique_ids, invalid_entries, duplicate_ids
+
+    for entry in str(raw).split(","):
+        cleaned = entry.strip()
+        if not cleaned:
+            continue
+        try:
+            value = int(cleaned)
+        except (ValueError, TypeError):
+            invalid_entries.append(cleaned)
+            continue
+        if value in unique_ids:
+            duplicate_ids.append(value)
+            continue
+        unique_ids.append(value)
+
+    return unique_ids, invalid_entries, duplicate_ids
+
+
+def _existing_screening_ids(
+    screening_ids: List[int],
+    db_path: str,
+) -> List[int]:
+    """Return the subset of IDs that exist in the queue."""
+    if not screening_ids:
+        return []
+
+    conn = sqlite3.connect(db_path)
+    try:
+        placeholders = ",".join("?" for _ in screening_ids)
+        rows = conn.execute(
+            "SELECT screening_id FROM redfin_screening_queue "
+            f"WHERE screening_id IN ({placeholders})",  # noqa: S608
+            tuple(screening_ids),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return [r[0] for r in rows]
+
+
+def _run_batch(
+    screening_ids: List[int],
+    action: str,
+    single_action: Callable[..., RedfinScreeningActionResult],
+    notes: Optional[str],
+    db_path: Optional[str],
+    duplicate_ids: Optional[List[int]] = None,
+    invalid_entries: Optional[List[str]] = None,
+) -> RedfinScreeningBatchActionResult:
+    """Apply one single-item action across a list of IDs.
+
+    Each item is processed independently so a failure on one ID
+    does not prevent the remaining IDs from being actioned.
+    """
+    path = db_path or config.database_path
+
+    result = RedfinScreeningBatchActionResult(
+        action=action,
+        duplicate_ids=list(duplicate_ids or []),
+        invalid_entries=list(invalid_entries or []),
+    )
+
+    if not screening_ids:
+        result.errors.append(
+            "No valid screening IDs supplied."
+        )
+        return result
+
+    ensure_redfin_screening_queue_schema(db_path=path)
+
+    existing = set(_existing_screening_ids(screening_ids, path))
+    for screening_id in screening_ids:
+        if screening_id not in existing:
+            result.missing_ids.append(screening_id)
+            result.item_results.append(
+                RedfinScreeningActionResult(
+                    screening_id=screening_id,
+                    action=action,
+                    success=False,
+                    detail=(
+                        f"Screening item {screening_id} not found"
+                    ),
+                )
+            )
+            continue
+
+        result.valid_ids.append(screening_id)
+        try:
+            if notes is None:
+                item_result = single_action(
+                    screening_id, db_path=path
+                )
+            else:
+                item_result = single_action(
+                    screening_id, notes=notes, db_path=path
+                )
+            result.item_results.append(item_result)
+        except Exception as exc:  # pragma: no cover - defensive
+            result.item_results.append(
+                RedfinScreeningActionResult(
+                    screening_id=screening_id,
+                    action=action,
+                    success=False,
+                    detail=f"Error: {exc}",
+                )
+            )
+
+    return result
+
+
+def _maybe_refresh(
+    result: RedfinScreeningBatchActionResult,
+    refresh: bool,
+    db_path: Optional[str],
+    exports_dir: Optional[str],
+) -> RedfinScreeningBatchActionResult:
+    """Optionally run the local operator refresh workflow.
+
+    A refresh failure is recorded but never rolls back the batch
+    actions that already succeeded.
+    """
+    result.refresh_requested = refresh
+    if not refresh:
+        return result
+
+    try:
+        from marketsentry.operator_workflow import (
+            run_operator_refresh_workflow,
+        )
+
+        run_result = run_operator_refresh_workflow(
+            db_path=db_path or config.database_path,
+            exports_dir=exports_dir,
+        )
+        result.refresh_ran = True
+        result.refresh_output_paths = list(
+            run_result.output_paths
+        )
+    except Exception as exc:
+        result.refresh_ran = False
+        result.refresh_error = str(exc)
+
+    return result
+
+
+def batch_save_screening_items_for_analysis(
+    screening_ids: List[int],
+    notes: Optional[str] = None,
+    db_path: Optional[str] = None,
+    refresh: bool = False,
+    exports_dir: Optional[str] = None,
+    duplicate_ids: Optional[List[int]] = None,
+    invalid_entries: Optional[List[str]] = None,
+) -> RedfinScreeningBatchActionResult:
+    """Save several screening items for analysis.
+
+    Creates or links a candidate per item using the same dedup
+    logic as the single-item action. This remains an explicit
+    operator action; imports never call it.
+
+    Args:
+        screening_ids: Screening item IDs.
+        notes: Optional notes appended to each item.
+        db_path: Path to SQLite database.
+        refresh: Run the local refresh workflow afterwards.
+        exports_dir: Exports directory for the refresh.
+        duplicate_ids: Duplicate IDs detected during parsing.
+        invalid_entries: Invalid entries detected during parsing.
+
+    Returns:
+        Batch result with per-item outcomes.
+    """
+    result = _run_batch(
+        screening_ids=screening_ids,
+        action="save_for_analysis",
+        single_action=save_screening_item_for_analysis,
+        notes=notes,
+        db_path=db_path,
+        duplicate_ids=duplicate_ids,
+        invalid_entries=invalid_entries,
+    )
+    return _maybe_refresh(
+        result, refresh, db_path, exports_dir
+    )
+
+
+def batch_reject_screening_items(
+    screening_ids: List[int],
+    notes: Optional[str] = None,
+    db_path: Optional[str] = None,
+    duplicate_ids: Optional[List[int]] = None,
+    invalid_entries: Optional[List[str]] = None,
+) -> RedfinScreeningBatchActionResult:
+    """Reject several screening items.
+
+    Args:
+        screening_ids: Screening item IDs.
+        notes: Optional notes appended to each item.
+        db_path: Path to SQLite database.
+        duplicate_ids: Duplicate IDs detected during parsing.
+        invalid_entries: Invalid entries detected during parsing.
+
+    Returns:
+        Batch result with per-item outcomes.
+    """
+    return _run_batch(
+        screening_ids=screening_ids,
+        action="reject",
+        single_action=reject_screening_item,
+        notes=notes,
+        db_path=db_path,
+        duplicate_ids=duplicate_ids,
+        invalid_entries=invalid_entries,
+    )
+
+
+def batch_hold_screening_items(
+    screening_ids: List[int],
+    notes: Optional[str] = None,
+    db_path: Optional[str] = None,
+    duplicate_ids: Optional[List[int]] = None,
+    invalid_entries: Optional[List[str]] = None,
+) -> RedfinScreeningBatchActionResult:
+    """Hold several screening items for later review.
+
+    Args:
+        screening_ids: Screening item IDs.
+        notes: Optional notes appended to each item.
+        db_path: Path to SQLite database.
+        duplicate_ids: Duplicate IDs detected during parsing.
+        invalid_entries: Invalid entries detected during parsing.
+
+    Returns:
+        Batch result with per-item outcomes.
+    """
+    return _run_batch(
+        screening_ids=screening_ids,
+        action="hold",
+        single_action=hold_screening_item,
+        notes=notes,
+        db_path=db_path,
+        duplicate_ids=duplicate_ids,
+        invalid_entries=invalid_entries,
+    )
+
+
+def batch_mark_screening_items_opened(
+    screening_ids: List[int],
+    db_path: Optional[str] = None,
+    duplicate_ids: Optional[List[int]] = None,
+    invalid_entries: Optional[List[str]] = None,
+) -> RedfinScreeningBatchActionResult:
+    """Mark several screening items as opened.
+
+    Args:
+        screening_ids: Screening item IDs.
+        db_path: Path to SQLite database.
+        duplicate_ids: Duplicate IDs detected during parsing.
+        invalid_entries: Invalid entries detected during parsing.
+
+    Returns:
+        Batch result with per-item outcomes.
+    """
+    return _run_batch(
+        screening_ids=screening_ids,
+        action="mark_opened",
+        single_action=mark_screening_item_opened,
+        notes=None,
+        db_path=db_path,
+        duplicate_ids=duplicate_ids,
+        invalid_entries=invalid_entries,
+    )
+
+
+# -------------------------------------------------------------------
+# Next-step guidance
+# -------------------------------------------------------------------
+
+
+def _collect_operator_counts(db_path: str) -> Dict[str, int]:
+    """Gather counts used to derive next steps."""
+    counts = {
+        "saved_missing_enrichment": 0,
+        "candidates_missing_quiet_vibrancy": 0,
+        "candidates_failing_gatekeeper": 0,
+        "candidates_ready_for_decision": 0,
+        "watchlist_ready": 0,
+    }
+
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.cursor()
+
+        def _table_exists(name: str) -> bool:
+            return cur.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='table' AND name=?",
+                (name,),
+            ).fetchone() is not None
+
+        has_candidates = _table_exists("candidate_review_queue")
+        has_screening = _table_exists("redfin_screening_queue")
+
+        if has_screening and has_candidates:
+            # Saved for analysis but candidate lacks enrichment.
+            cur.execute(
+                "SELECT COUNT(*) FROM redfin_screening_queue s "
+                "JOIN candidate_review_queue c "
+                "ON s.candidate_id = c.candidate_id "
+                "WHERE s.status = 'saved_for_analysis' "
+                "AND c.beds IS NULL "
+                "AND c.baths IS NULL "
+                "AND c.sqft IS NULL"
+            )
+            counts["saved_missing_enrichment"] = cur.fetchone()[0]
+
+        if has_candidates:
+            cur.execute(
+                "SELECT COUNT(*) FROM candidate_review_queue "
+                "WHERE quiet_score IS NULL "
+                "OR vibrancy_score IS NULL"
+            )
+            counts["candidates_missing_quiet_vibrancy"] = (
+                cur.fetchone()[0]
+            )
+
+            cur.execute(
+                "SELECT COUNT(*) FROM candidate_review_queue "
+                "WHERE quiet_gatekeeper_result = "
+                "'fail_noise_risk'"
+            )
+            counts["candidates_failing_gatekeeper"] = (
+                cur.fetchone()[0]
+            )
+
+            cur.execute(
+                "SELECT COUNT(*) FROM candidate_review_queue "
+                "WHERE review_status = 'pending' "
+                "AND quiet_score IS NOT NULL "
+                "AND vibrancy_score IS NOT NULL"
+            )
+            counts["candidates_ready_for_decision"] = (
+                cur.fetchone()[0]
+            )
+
+            cur.execute(
+                "SELECT COUNT(*) FROM candidate_review_queue "
+                "WHERE user_decision = 'save'"
+            )
+            counts["watchlist_ready"] = cur.fetchone()[0]
+    except sqlite3.Error:
+        pass
+    finally:
+        conn.close()
+
+    return counts
+
+
+def build_screening_next_steps(
+    db_path: Optional[str] = None,
+) -> List[RedfinScreeningNextStep]:
+    """Build the ordered list of recommended operator steps.
+
+    Steps describe required data-gathering actions only. They never
+    recommend buying, offering on, or valuing a property.
+
+    Args:
+        db_path: Path to SQLite database.
+
+    Returns:
+        Ordered list of next steps, most immediate first.
+    """
+    path = db_path or config.database_path
+    ensure_redfin_screening_queue_schema(db_path=path)
+
+    summary = summarize_redfin_screening_queue(db_path=path)
+    counts = _collect_operator_counts(path)
+    steps: List[RedfinScreeningNextStep] = []
+
+    if summary.new:
+        steps.append(
+            RedfinScreeningNextStep(
+                step_id="open_new_items",
+                category="screening",
+                message=(
+                    "New screening items: open the Redfin link "
+                    "and visually inspect the property."
+                ),
+                count=summary.new,
+                command=(
+                    "marketsentry batch-mark-screening-items-"
+                    "opened --screening-ids <ids>"
+                ),
+                severity="action",
+            )
+        )
+
+    if summary.opened:
+        steps.append(
+            RedfinScreeningNextStep(
+                step_id="decide_opened_items",
+                category="screening",
+                message=(
+                    "Opened but undecided: choose Save for "
+                    "Analysis, Hold, or Reject."
+                ),
+                count=summary.opened,
+                command=(
+                    "marketsentry batch-save-screening-items "
+                    "--screening-ids <ids>"
+                ),
+                severity="action",
+            )
+        )
+
+    if counts["saved_missing_enrichment"]:
+        steps.append(
+            RedfinScreeningNextStep(
+                step_id="save_detail_html",
+                category="candidate",
+                message=(
+                    "Saved for analysis but missing Redfin "
+                    "detail HTML: save the Redfin detail page to "
+                    "data/raw/redfin/details and run enrichment."
+                ),
+                count=counts["saved_missing_enrichment"],
+                command=(
+                    "marketsentry enrich-redfin-details "
+                    "--dir data/raw/redfin/details"
+                ),
+                severity="action",
+            )
+        )
+
+    if counts["candidates_missing_quiet_vibrancy"]:
+        steps.append(
+            RedfinScreeningNextStep(
+                step_id="capture_quiet_vibrancy",
+                category="candidate",
+                message=(
+                    "Candidates missing Quiet/Vibrancy: capture "
+                    "the Redfin visual scores and enter them."
+                ),
+                count=counts["candidates_missing_quiet_vibrancy"],
+                command=(
+                    "marketsentry candidate-location-scores "
+                    "--candidate-id <id> --quiet-score <q> "
+                    "--vibrancy-score <v>"
+                ),
+                severity="action",
+            )
+        )
+
+    if counts["candidates_failing_gatekeeper"]:
+        steps.append(
+            RedfinScreeningNextStep(
+                step_id="review_noise_risk",
+                category="candidate",
+                message=(
+                    "Candidates failing the Quiet gatekeeper: add "
+                    "local noise notes, or hold/reject as a "
+                    "noise-risk control."
+                ),
+                count=counts["candidates_failing_gatekeeper"],
+                command=(
+                    "marketsentry candidate-noise-notes "
+                    "--candidate-id <id> --noise-risk <level>"
+                ),
+                severity="warning",
+            )
+        )
+
+    if counts["candidates_ready_for_decision"]:
+        steps.append(
+            RedfinScreeningNextStep(
+                step_id="decide_candidates",
+                category="candidate",
+                message=(
+                    "Candidates with scores awaiting a decision: "
+                    "record save, maybe, hold, or reject."
+                ),
+                count=counts["candidates_ready_for_decision"],
+                command=(
+                    "marketsentry candidate-decision "
+                    "--candidate-id <id> --decision <decision>"
+                ),
+                severity="action",
+            )
+        )
+
+    if counts["watchlist_ready"]:
+        steps.append(
+            RedfinScreeningNextStep(
+                step_id="run_refresh",
+                category="watchlist",
+                message=(
+                    "Watchlist ready: run the local operator "
+                    "refresh workflow to update reports."
+                ),
+                count=counts["watchlist_ready"],
+                command=(
+                    "marketsentry run-operator-refresh-workflow"
+                ),
+                severity="info",
+            )
+        )
+
+    if not steps:
+        steps.append(
+            RedfinScreeningNextStep(
+                step_id="import_screening_urls",
+                category="screening",
+                message=(
+                    "No pending screening work. Import Redfin "
+                    "URLs to begin a new screening pass."
+                ),
+                count=0,
+                command=(
+                    "marketsentry import-redfin-screening-urls "
+                    "--file data/imports/redfin_screening_urls.csv"
+                ),
+                severity="info",
+            )
+        )
+
+    return steps
+
+
+def summarize_screening_operator_status(
+    db_path: Optional[str] = None,
+    project_root: Optional[str] = None,
+) -> RedfinScreeningOperatorStatus:
+    """Summarize screening and candidate state with next steps.
+
+    Read-only. Performs no mutation and no live retrieval.
+
+    Args:
+        db_path: Path to SQLite database.
+        project_root: Root scanned for stray file artifacts.
+
+    Returns:
+        Operator status including next steps and warnings.
+    """
+    path = db_path or config.database_path
+    ensure_redfin_screening_queue_schema(db_path=path)
+
+    summary = summarize_redfin_screening_queue(db_path=path)
+    counts = _collect_operator_counts(path)
+
+    status = RedfinScreeningOperatorStatus(
+        queue=summary,
+        saved_missing_enrichment=counts[
+            "saved_missing_enrichment"
+        ],
+        candidates_missing_quiet_vibrancy=counts[
+            "candidates_missing_quiet_vibrancy"
+        ],
+        candidates_failing_gatekeeper=counts[
+            "candidates_failing_gatekeeper"
+        ],
+        candidates_ready_for_decision=counts[
+            "candidates_ready_for_decision"
+        ],
+        watchlist_ready=counts["watchlist_ready"],
+        next_steps=build_screening_next_steps(db_path=path),
+    )
+
+    if counts["saved_missing_enrichment"]:
+        status.warnings.append(
+            f"{counts['saved_missing_enrichment']} item(s) saved "
+            "for analysis are missing Redfin detail enrichment."
+        )
+    if counts["candidates_missing_quiet_vibrancy"]:
+        status.warnings.append(
+            f"{counts['candidates_missing_quiet_vibrancy']} "
+            "candidate(s) are missing Quiet/Vibrancy scores."
+        )
+
+    # Demo/sample and stray artifact warnings reuse the Milestone
+    # 52A detection so the operator sees one consistent answer.
+    try:
+        from marketsentry.demo_data_cleanup import (
+            detect_stray_files,
+            identify_demo_records,
+        )
+
+        demo_records = identify_demo_records(path)
+        if demo_records:
+            status.warnings.append(
+                f"{len(demo_records)} demo/sample record(s) remain "
+                "in the database. Run "
+                "'marketsentry cleanup-demo-data' to review."
+            )
+
+        strays = [
+            s
+            for s in detect_stray_files(project_root or ".")
+            if s.exists
+        ]
+        if strays:
+            names = ", ".join(s.path for s in strays)
+            status.warnings.append(
+                f"Stray database/file artifacts detected: {names}."
+            )
+    except Exception:  # pragma: no cover - defensive
+        pass
+
+    return status
+
+
+# -------------------------------------------------------------------
 # Export functions
 # -------------------------------------------------------------------
 
@@ -880,13 +1605,17 @@ def export_redfin_screening_queue(
         List of exported file paths.
     """
     if db_path is None:
-        db_path = "db/marketsentry.db"
+        db_path = config.database_path
     if exports_dir is None:
         exports_dir = "data/exports"
 
     items = list_redfin_screening_items(
         db_path=db_path, limit=10000
     )
+    rows = build_screening_report_rows(
+        items, db_path=db_path
+    )
+    next_steps = build_screening_next_steps(db_path=db_path)
 
     out_path = Path(exports_dir)
     out_path.mkdir(parents=True, exist_ok=True)
@@ -897,7 +1626,9 @@ def export_redfin_screening_queue(
 
     if fmt in ("md", "both"):
         md_path = out_path / f"{base}.md"
-        md_content = _build_screening_md(items)
+        md_content = _build_screening_md(
+            items, rows=rows, next_steps=next_steps
+        )
         md_path.write_text(
             md_content, encoding="utf-8"
         )
@@ -905,7 +1636,7 @@ def export_redfin_screening_queue(
 
     if fmt in ("csv", "both"):
         csv_path = out_path / f"{base}.csv"
-        csv_content = _build_screening_csv(items)
+        csv_content = _build_screening_csv(items, rows=rows)
         csv_path.write_text(
             csv_content, encoding="utf-8"
         )
@@ -928,7 +1659,7 @@ def _update_screening_status(
 ) -> RedfinScreeningActionResult:
     """Update screening item status."""
     if db_path is None:
-        db_path = "db/marketsentry.db"
+        db_path = config.database_path
 
     result = RedfinScreeningActionResult(
         screening_id=screening_id,
@@ -1005,8 +1736,134 @@ def _parse_int(value: str) -> Optional[int]:
         return None
 
 
+def _item_next_step(row: RedfinScreeningReportRow) -> str:
+    """Derive the next operator step for one screening row."""
+    if row.status == "new":
+        return "Open Redfin link and visually inspect"
+    if row.status == "opened":
+        return "Choose Save for Analysis, Hold, or Reject"
+    if row.status == "saved_for_analysis":
+        if not row.candidate_has_enrichment:
+            return (
+                "Save Redfin detail HTML and run enrichment"
+            )
+        if not row.candidate_has_quiet_vibrancy:
+            return "Enter Quiet/Vibrancy scores"
+        if not row.candidate_watchlisted:
+            return "Record a candidate decision"
+        return "Watchlisted - run operator refresh workflow"
+    if row.status == "hold":
+        return "Held for later review"
+    if row.status == "rejected":
+        return "Rejected - no further action"
+    return "Review item status"
+
+
+def build_screening_report_rows(
+    items: List[RedfinScreeningItem],
+    db_path: Optional[str] = None,
+) -> List[RedfinScreeningReportRow]:
+    """Build enriched report rows with candidate status.
+
+    Joins each screening item to its linked candidate so the
+    export can show enrichment, scoring, and watchlist state
+    alongside the next recommended operator step.
+
+    Args:
+        items: Screening items to describe.
+        db_path: Path to SQLite database.
+
+    Returns:
+        List of enriched report rows.
+    """
+    path = db_path or config.database_path
+
+    candidate_info: Dict[int, Dict[str, Any]] = {}
+    watchlisted_urls: set = set()
+
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    try:
+        cur = conn.cursor()
+
+        def _table_exists(name: str) -> bool:
+            return cur.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='table' AND name=?",
+                (name,),
+            ).fetchone() is not None
+
+        if _table_exists("candidate_review_queue"):
+            for row in cur.execute(
+                "SELECT candidate_id, beds, baths, sqft, "
+                "quiet_score, vibrancy_score, redfin_url "
+                "FROM candidate_review_queue"
+            ).fetchall():
+                candidate_info[row["candidate_id"]] = {
+                    "has_enrichment": any(
+                        row[c] is not None
+                        for c in ("beds", "baths", "sqft")
+                    ),
+                    "has_quiet_vibrancy": (
+                        row["quiet_score"] is not None
+                        and row["vibrancy_score"] is not None
+                    ),
+                    "redfin_url": row["redfin_url"],
+                }
+
+        if _table_exists("watched_properties"):
+            for row in cur.execute(
+                "SELECT redfin_url FROM watched_properties"
+            ).fetchall():
+                if row["redfin_url"]:
+                    watchlisted_urls.add(row["redfin_url"])
+    except sqlite3.Error:
+        pass
+    finally:
+        conn.close()
+
+    rows: List[RedfinScreeningReportRow] = []
+    for item in items:
+        info = candidate_info.get(item.candidate_id or -1, {})
+        row = RedfinScreeningReportRow(
+            screening_id=item.screening_id,
+            address=item.address,
+            city=item.city,
+            price=item.price,
+            beds=item.beds,
+            baths=item.baths,
+            sqft=item.sqft,
+            quiet_score=item.quiet_score,
+            vibrancy_score=item.vibrancy_score,
+            status=item.status,
+            decision=item.user_screening_decision,
+            candidate_id=item.candidate_id,
+            redfin_url=item.redfin_url,
+            user_notes=item.user_notes,
+            saved_for_analysis=(
+                item.status == "saved_for_analysis"
+            ),
+            candidate_has_enrichment=bool(
+                info.get("has_enrichment", False)
+            ),
+            candidate_has_quiet_vibrancy=bool(
+                info.get("has_quiet_vibrancy", False)
+            ),
+            candidate_watchlisted=bool(
+                info.get("redfin_url")
+                and info["redfin_url"] in watchlisted_urls
+            ),
+        )
+        row.next_step = _item_next_step(row)
+        rows.append(row)
+
+    return rows
+
+
 def _build_screening_md(
     items: List[RedfinScreeningItem],
+    rows: Optional[List[RedfinScreeningReportRow]] = None,
+    next_steps: Optional[List[RedfinScreeningNextStep]] = None,
 ) -> str:
     """Build screening queue Markdown report."""
     lines = [
@@ -1016,9 +1873,22 @@ def _build_screening_md(
         f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"Total items: {len(items)}",
         "",
-        "## Screening Items",
-        "",
     ]
+
+    if next_steps:
+        lines.append("## Next Steps")
+        lines.append("")
+        for step in next_steps:
+            suffix = (
+                f" ({step.count})" if step.count else ""
+            )
+            lines.append(f"- {step.message}{suffix}")
+            if step.command:
+                lines.append(f"  - `{step.command}`")
+        lines.append("")
+
+    lines.append("## Screening Items")
+    lines.append("")
 
     if not items:
         lines.append("No screening items found.")
@@ -1028,11 +1898,15 @@ def _build_screening_md(
     lines.append(
         "| ID | Address | City | Price | "
         "Beds | Baths | SqFt | Status | "
-        "Decision | Candidate | Redfin Link |"
+        "Decision | Candidate | Enriched | Scored | "
+        "Watchlisted | Next Step | Redfin Link |"
     )
     lines.append(
-        "|---|---|---|---|---|---|---|---|---|---|---|"
+        "|---|---|---|---|---|---|---|---|---|---|"
+        "---|---|---|---|---|"
     )
+
+    row_by_id = {r.screening_id: r for r in (rows or [])}
 
     for item in items:
         price_str = (
@@ -1047,6 +1921,23 @@ def _build_screening_md(
             str(item.candidate_id)
             if item.candidate_id else ""
         )
+        row = row_by_id.get(item.screening_id)
+        enriched = (
+            "yes"
+            if row and row.candidate_has_enrichment
+            else "no"
+        )
+        scored = (
+            "yes"
+            if row and row.candidate_has_quiet_vibrancy
+            else "no"
+        )
+        watched = (
+            "yes"
+            if row and row.candidate_watchlisted
+            else "no"
+        )
+        next_step = row.next_step if row else ""
         lines.append(
             f"| {item.screening_id} "
             f"| {item.address or ''} "
@@ -1058,6 +1949,10 @@ def _build_screening_md(
             f"| {item.status} "
             f"| {item.user_screening_decision} "
             f"| {cid} "
+            f"| {enriched} "
+            f"| {scored} "
+            f"| {watched} "
+            f"| {next_step} "
             f"| {link} |"
         )
 
@@ -1067,7 +1962,9 @@ def _build_screening_md(
     lines.append(
         "All operations are local-only. No live "
         "retrieval, no outbound notifications, "
-        "no browser automation."
+        "no browser automation. Next steps are "
+        "data-gathering guidance, not purchase "
+        "recommendations."
     )
     lines.append("")
 
@@ -1076,6 +1973,7 @@ def _build_screening_md(
 
 def _build_screening_csv(
     items: List[RedfinScreeningItem],
+    rows: Optional[List[RedfinScreeningReportRow]] = None,
 ) -> str:
     """Build screening queue CSV report."""
     output = io.StringIO()
@@ -1084,10 +1982,17 @@ def _build_screening_csv(
         "screening_id", "address", "city", "price",
         "beds", "baths", "sqft", "quiet_score",
         "vibrancy_score", "status", "decision",
-        "candidate_id", "redfin_url", "user_notes",
+        "candidate_id", "saved_for_analysis",
+        "candidate_has_enrichment",
+        "candidate_has_quiet_vibrancy",
+        "candidate_watchlisted", "next_step",
+        "redfin_url", "user_notes",
     ])
 
+    row_by_id = {r.screening_id: r for r in (rows or [])}
+
     for item in items:
+        row = row_by_id.get(item.screening_id)
         writer.writerow([
             item.screening_id,
             item.address or "",
@@ -1101,6 +2006,23 @@ def _build_screening_csv(
             item.status,
             item.user_screening_decision,
             item.candidate_id or "",
+            "yes" if row and row.saved_for_analysis else "no",
+            (
+                "yes"
+                if row and row.candidate_has_enrichment
+                else "no"
+            ),
+            (
+                "yes"
+                if row and row.candidate_has_quiet_vibrancy
+                else "no"
+            ),
+            (
+                "yes"
+                if row and row.candidate_watchlisted
+                else "no"
+            ),
+            row.next_step if row else "",
             item.redfin_url,
             item.user_notes or "",
         ])

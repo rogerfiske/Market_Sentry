@@ -99,9 +99,44 @@ marketsentry hold-screening-item --screening-id 7 --notes "Wait for price reduct
 
 Marks the item as hold for later review.
 
+## Batch Actions
+
+When you have reviewed several links in one sitting, act on them together instead of one command at a time:
+
+```bash
+marketsentry batch-mark-screening-items-opened --screening-ids 4,5,6
+marketsentry batch-save-screening-items --screening-ids 4,5 --notes "Batch save after visual review"
+marketsentry batch-reject-screening-items --screening-ids 7,8 --notes "Does not fit criteria"
+marketsentry batch-hold-screening-items --screening-ids 9,10 --notes "Needs more review"
+```
+
+Each item reports its own success or failure. Invalid, duplicate, and missing IDs are reported and skipped without stopping the rest of the batch. Notes are appended, never overwritten.
+
+Batch Save for Analysis behaves exactly like the single-item action per item, including deduplication and candidate linking.
+
+See `docs/SCREENING_QUEUE_BATCH_ACTIONS.md` for the full guide.
+
+## Knowing What To Do Next
+
+```bash
+marketsentry screening-next-steps
+```
+
+Reads the screening and candidate queues and reports the next required data-gathering step, such as inspecting new links, saving Redfin detail HTML, entering Quiet/Vibrancy scores, or running the refresh workflow. It never makes purchase recommendations and mutates nothing.
+
+## Refreshing Reports After Saving
+
+Both the single and batch Save for Analysis commands accept `--refresh`:
+
+```bash
+marketsentry batch-save-screening-items --screening-ids 4,5 --refresh
+```
+
+The default is `--no-refresh`, since the refresh regenerates every local report. A refresh failure never rolls back saves that already succeeded.
+
 ## When a Property Becomes a Candidate
 
-A screening item becomes a candidate only when the operator explicitly runs "Save for Analysis." This is the single transition point.
+A screening item becomes a candidate only when the operator explicitly runs "Save for Analysis," single or batch. This is the single transition point.
 
 ## When a Property Becomes Watched
 

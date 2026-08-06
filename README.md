@@ -6,7 +6,26 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Global Database Default Stabilization (MVP 52A)
+## Current Milestone: Screening Queue Batch Actions (MVP 53)
+
+Batch actions and next-step guidance for the Redfin screening queue, so a whole
+review pass can be recorded in one command instead of one command per property.
+
+- 4 batch actions: save for analysis, reject, hold, mark opened
+- Comma-separated ID input (`--screening-ids 4,5,6`); invalid, duplicate, and missing IDs are reported and skipped without stopping the batch
+- Per-item success/failure reporting
+- New `screening-next-steps` command and dashboard panel showing the next required data-gathering step
+- Optional `--refresh` on single and batch Save for Analysis, defaulting to `--no-refresh`
+- A refresh failure never rolls back saves that already succeeded
+- Screening export now carries candidate enrichment, scoring, watchlist status, and a per-item next step
+- Dashboard batch forms with notes and a refresh checkbox
+- Save for Analysis remains the single explicit screening-to-candidate transition; imports still never create candidates
+- No live retrieval, browser automation, outbound notifications, or credential storage
+- Quiet Score gatekeeper unchanged at 7.0. Walkability remains excluded.
+
+See [docs/SCREENING_QUEUE_BATCH_ACTIONS.md](docs/SCREENING_QUEUE_BATCH_ACTIONS.md).
+
+### MVP 52A: Global Database Default Stabilization
 
 This stabilization milestone completes the MVP 51A database-default fix across
 the whole codebase and adds safe demo/sample cleanup.
@@ -1728,6 +1747,7 @@ Market_Sentry/
 │   ├── REDFIN_RETRIEVAL_APPROVAL_WORKFLOW.md
 │   ├── REDFIN_RETRIEVED_FIXTURE_PROCESSING.md
 │   ├── REDFIN_SCREENING_QUEUE.md
+│   ├── SCREENING_QUEUE_BATCH_ACTIONS.md
 │   ├── RELEASE_CANDIDATE_CHECKLIST.md
 │   ├── RELEASE_FINALIZATION_GUIDE.md
 │   ├── RELEASE_NOTES_DRAFT.md
@@ -1786,7 +1806,8 @@ Market_Sentry/
 │   │   ├── 048-release-candidate-hardening.md
 │   │   ├── 049-release-finalization.md
 │   │   ├── 050-guided-operator-workflow.md
-│   │   └── 051-redfin-screening-queue.md
+│   │   ├── 051-redfin-screening-queue.md
+│   │   └── 052-screening-queue-batch-actions.md
 │   ├── examples/                              # Example artifacts (empty)
 │   └── prompts/                               # Milestone build prompts (53)
 │       ├── Market_Sentry_Claude_Prompt_001_Project_Scaffold.md
@@ -1841,7 +1862,9 @@ Market_Sentry/
 │       ├── Market_Sentry_Claude_Prompt_048_Local_Operations_Bundle.md
 │       ├── Market_Sentry_Claude_Prompt_051_Guided_Operator_Workflow.md
 │       ├── Market_Sentry_Claude_Prompt_051A_Operator_Workflow_Stabilization.md
-│       └── Market_Sentry_Claude_Prompt_052_Redfin_Screening_Queue.md
+│       ├── Market_Sentry_Claude_Prompt_052_Redfin_Screening_Queue.md
+│       ├── Market_Sentry_Claude_Prompt_052A_Global_DB_Default_Stabilization.md
+│       └── Market_Sentry_Claude_Prompt_053_Screening_Queue_Batch_Actions.md
 ├── logs/                                      # Application logs
 │   ├── .gitkeep
 │   ├── marketsentry.log
@@ -1880,6 +1903,7 @@ Market_Sentry/
 │       ├── schema.py                          # Database schema
 │       ├── normalization.py                   # Address/data normalization
 │       ├── sample_data.py                     # Sample data generation
+│       ├── demo_data_cleanup.py               # Demo/sample cleanup and stray detection
 │       ├── gas_detection.py                   # Gas service detection
 │       ├── quiet_vibrancy.py                  # Location scoring
 │       ├── scoring.py                         # Property scoring engine
@@ -1897,7 +1921,7 @@ Market_Sentry/
 │       ├── redfin_detail_parser.py            # Redfin detail page parser
 │       ├── redfin_detail_enrichment.py        # Candidate enrichment workflow
 │       ├── redfin_batch_retrieval.py          # Pending-capture batch retrieval
-│       ├── redfin_screening_queue.py          # Redfin screening queue
+│       ├── redfin_screening_queue.py          # Redfin screening queue + batch actions
 │       ├── retrieval_approval.py              # Batch retrieval approval workflow
 │       ├── retrieval_dashboard.py             # Retrieval operations dashboard data
 │       ├── retrieval_health.py                # Retrieval health checks
@@ -2077,7 +2101,9 @@ Market_Sentry/
 │   ├── test_milestone_49.py                   # Release candidate hardening tests
 │   ├── test_milestone_50.py                   # Release finalization tests
 │   ├── test_milestone_51.py                   # Guided operator workflow tests
-│   └── test_milestone_52.py                   # Redfin screening queue tests
+│   ├── test_milestone_52.py                   # Redfin screening queue tests
+│   ├── test_milestone_52a.py                  # Database default stabilization tests
+│   └── test_milestone_53.py                   # Screening batch action tests
 ├── .coverage                                  # Coverage data (generated)
 ├── .env.example                               # Example configuration
 ├── .gitignore
@@ -2332,8 +2358,8 @@ Protected real properties, never removed: `31801 Valone Ct`, `31457 Britton Cir`
 
 ## Milestone Status
 
-Milestones 1-52 plus stabilization milestone 52A are complete. The project is at
-release candidate v0.1.0-rc1.
+Milestones 1-53, including stabilization milestone 52A, are complete. The project
+is at release candidate v0.1.0-rc1.
 
 **Note:** Milestone 51A (Operator Workflow Stabilization) fixed the operator
 workflow commands. Milestone 52A completed that fix across the entire codebase:
@@ -2353,6 +2379,7 @@ MIT
 - [Architecture.md](Architecture.md) - System Architecture
 - [docs/RUNBOOK.md](docs/RUNBOOK.md) - Operating Runbook
 - [docs/prompts/](docs/prompts/) - Implementation prompts
+- [docs/SCREENING_QUEUE_BATCH_ACTIONS.md](docs/SCREENING_QUEUE_BATCH_ACTIONS.md) - Screening batch actions guide
 - [docs/decisions/](docs/decisions/) - Architecture decision records
 
 ## Notes

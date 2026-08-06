@@ -205,6 +205,70 @@ Quick screening commands:
 | Mark opened | `marketsentry mark-screening-item-opened --screening-id <id>` |
 | Export queue | `marketsentry export-redfin-screening-queue` |
 
+## Batch Screening Actions
+
+When you have reviewed several Redfin links at once, record all the decisions
+together instead of running one command per property:
+
+```bash
+marketsentry batch-mark-screening-items-opened --screening-ids 4,5,6
+marketsentry batch-save-screening-items --screening-ids 4,5 --notes "Batch save after visual review"
+marketsentry batch-reject-screening-items --screening-ids 7,8 --notes "Does not fit criteria"
+marketsentry batch-hold-screening-items --screening-ids 9,10 --notes "Needs more review"
+```
+
+Find the IDs in the **ID** column of the dashboard screening table or in
+`marketsentry list-redfin-screening-items`.
+
+Each item reports its own result. An invalid, duplicate, or missing ID is
+reported and skipped without stopping the rest of the batch. Notes are appended
+to existing notes, never overwritten.
+
+| Task | Command |
+|------|---------|
+| Batch save for analysis | `marketsentry batch-save-screening-items --screening-ids 4,5,6` |
+| Batch reject | `marketsentry batch-reject-screening-items --screening-ids 4,5,6` |
+| Batch hold | `marketsentry batch-hold-screening-items --screening-ids 4,5,6` |
+| Batch mark opened | `marketsentry batch-mark-screening-items-opened --screening-ids 4,5,6` |
+| What to do next | `marketsentry screening-next-steps` |
+
+The dashboard exposes the same four actions as forms in the
+**Initial Redfin Screening** section, plus a **Next Steps** panel.
+
+See `docs/SCREENING_QUEUE_BATCH_ACTIONS.md` for the full guide.
+
+## Knowing What To Do Next
+
+```bash
+marketsentry screening-next-steps
+```
+
+Reads the screening and candidate queues and reports the next data-gathering
+step: inspect new links, decide on opened items, save Redfin detail HTML and run
+enrichment, enter Quiet/Vibrancy scores, address noise-risk candidates, or run
+the refresh workflow. It also warns about leftover demo records and stray
+database files.
+
+This is read-only guidance for gathering data. It never makes purchase
+recommendations and never mutates state.
+
+## Refreshing Reports After Saving
+
+Both the single and batch Save for Analysis commands accept an optional refresh:
+
+```bash
+# Default: fast, no report regeneration
+marketsentry batch-save-screening-items --screening-ids 4,5
+
+# Save, then regenerate all local reports
+marketsentry batch-save-screening-items --screening-ids 4,5 --refresh
+```
+
+The default is `--no-refresh` because the refresh regenerates every local report
+and is much slower than the save itself. If a refresh fails, the saves that
+already succeeded are **not** rolled back; rerun
+`marketsentry run-operator-refresh-workflow` on its own.
+
 ## Quick Reference
 
 | Task | Command |
