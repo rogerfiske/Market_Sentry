@@ -219,8 +219,52 @@ Quick screening commands:
 | Refresh all reports | `marketsentry run-operator-refresh-workflow` |
 | Export summary | `marketsentry export-operator-action-summary --format both` |
 
+## Cleaning Up Demo and Sample Data
+
+Sample records seeded for testing appear alongside your real properties and make
+the status screens noisier. Remove them safely:
+
+```bash
+# Preview only. This is the default; nothing is changed.
+marketsentry cleanup-demo-data
+
+# Apply the cleanup
+marketsentry cleanup-demo-data --confirm
+```
+
+The command is dry-run by default. It only selects records matching a fixed list
+of demo marker addresses (`12345 Sample St`, `67890 Busy Ave`, `11111 Unknown Rd`,
+`40000 Example St`, `30000 Sample Ave`, `55555 Fixture Ln`). Your real properties
+are protected by an explicit denylist that is checked again immediately before
+every deletion, so they cannot be removed even by accident.
+
+Stray files are reported but never deleted unless you add `--confirm-stray-files`.
+
 ## Troubleshooting
 
 If status shows zero candidates unexpectedly, run `python -m marketsentry.cli status` and confirm database path.
 
-All operator commands default to `db/marketsentry.db`. If you see errors about missing tables, verify you are running from the project root directory and that the database file exists at `db/marketsentry.db`.
+All commands default to `db/marketsentry.db`, resolved from `config.database_path`.
+As of Milestone 52A this applies to every command in the project, not just the
+operator workflow commands. If you see errors about missing tables, verify you are
+running from the project root directory and that the database file exists at
+`db/marketsentry.db`.
+
+### Stray database files
+
+If you see `data/market_sentry.db`, `dbmarketsentry.db`, or `nul` in the project
+folder, these are artifacts and hold no real data:
+
+| File | Cause |
+|------|-------|
+| `data/market_sentry.db` | Legacy wrong default, corrected in Milestone 52A |
+| `dbmarketsentry.db` | `--db db\marketsentry.db` where the backslash was consumed as a shell escape |
+| `nul` | A Windows-style `2>nul` redirect run under a POSIX shell such as Git Bash |
+
+Run `marketsentry cleanup-demo-data` to see which are present. To avoid recreating
+them, quote Windows paths or use forward slashes:
+
+```powershell
+python -m marketsentry.cli status --db "db\marketsentry.db"
+python -m marketsentry.cli status --db db/marketsentry.db
+```

@@ -79,7 +79,7 @@ The smoke test does not run full pytest, invoke live retrieval, or send notifica
 marketsentry local-operations-bundle
 
 # Show with custom database
-marketsentry local-operations-bundle --db data/market_sentry.db
+marketsentry local-operations-bundle --db db/marketsentry.db
 
 # Export Markdown and CSV reports
 marketsentry export-local-operations-bundle --format both
@@ -94,7 +94,7 @@ marketsentry export-local-operations-bundle --output-dir reports/bundles
 marketsentry local-operations-smoke-test
 
 # Run smoke test against existing database
-marketsentry local-operations-smoke-test --no-temp-db --db data/market_sentry.db
+marketsentry local-operations-smoke-test --no-temp-db --db db/marketsentry.db
 ```
 
 ## Export Files

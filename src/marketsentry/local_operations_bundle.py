@@ -1313,14 +1313,17 @@ def build_database_schema_inventory(
 
     Args:
         db_path: Path to the SQLite database file.
-            Defaults to data/market_sentry.db.
+            Defaults to the canonical project database
+            from config (db/marketsentry.db).
 
     Returns:
         Dictionary with table_count, table_names,
         column_counts, index_counts, and notes.
     """
     if db_path is None:
-        db_path = "data/market_sentry.db"
+        from marketsentry.config import config
+
+        db_path = config.database_path
 
     result: Dict[str, Any] = {
         "db_path": db_path,
@@ -1451,7 +1454,9 @@ def run_local_smoke_test(
             test_db = tmp.name
             tmp.close()
         else:
-            test_db = db_path or "data/market_sentry.db"
+            from marketsentry.config import config as _db_cfg
+
+            test_db = db_path or _db_cfg.database_path
 
         _init(test_db)
 

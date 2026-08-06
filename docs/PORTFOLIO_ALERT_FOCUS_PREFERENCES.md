@@ -114,7 +114,7 @@ marketsentry validate-portfolio-alert-focus-config --preference-config config/po
 ```bash
 marketsentry portfolio-alert-focus
 marketsentry portfolio-alert-focus --preference-config config/portfolio_alert_highlight_preferences.json --limit 10
-marketsentry portfolio-alert-focus --db data/market_sentry.db --exports-dir data/exports
+marketsentry portfolio-alert-focus --db db/marketsentry.db --exports-dir data/exports
 ```
 
 ### Export focus digest

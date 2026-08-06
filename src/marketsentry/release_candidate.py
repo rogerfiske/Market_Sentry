@@ -21,6 +21,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from marketsentry.config import config
+
 
 # -------------------------------------------------------------------
 # Models
@@ -194,7 +196,7 @@ def build_operator_acceptance_checklist(
     if project_root is None:
         project_root = "."
     if db_path is None:
-        db_path = "data/market_sentry.db"
+        db_path = config.database_path
     if exports_dir is None:
         exports_dir = "data/exports"
 
@@ -654,7 +656,7 @@ def run_release_candidate_validation(
     if project_root is None:
         project_root = "."
     if db_path is None:
-        db_path = "data/market_sentry.db"
+        db_path = config.database_path
     if exports_dir is None:
         exports_dir = "data/exports"
 

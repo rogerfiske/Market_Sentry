@@ -4371,7 +4371,7 @@ def persist_portfolio_trend_alerts(
         help="Whether to export digest files",
     ),
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to SQLite database",
     ),
@@ -4455,7 +4455,7 @@ def compare_portfolio_trend_alert_runs(
         help="Previous run ID (default: auto-detect)",
     ),
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to SQLite database",
     ),
@@ -4551,7 +4551,7 @@ def compare_portfolio_trend_alert_runs(
 @app.command()
 def portfolio_trend_alert_history_summary(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to SQLite database",
     ),
@@ -4656,7 +4656,7 @@ def portfolio_trend_alert_history_summary(
 @app.command()
 def export_portfolio_trend_alert_history_report(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to SQLite database",
     ),
@@ -4729,7 +4729,7 @@ def export_portfolio_trend_alert_history_report(
 @app.command()
 def export_portfolio_trend_alert_run_comparison(
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to SQLite database",
     ),
@@ -4812,7 +4812,7 @@ def portfolio_alert_focus(
         25, "--limit", help="Maximum focus items to display"
     ),
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to SQLite database",
     ),
@@ -4940,7 +4940,7 @@ def export_portfolio_alert_focus_digest(
         help="Export format: csv, md, or both",
     ),
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to SQLite database",
     ),
@@ -5170,7 +5170,7 @@ def portfolio_alert_email_digest(
         25, "--limit", help="Maximum focus items to include"
     ),
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to SQLite database",
     ),
@@ -5273,7 +5273,7 @@ def export_portfolio_alert_email_digest(
         help="Include .eml draft file",
     ),
     db: str = typer.Option(
-        "data/market_sentry.db",
+        config.database_path,
         "--db",
         help="Path to SQLite database",
     ),
@@ -9386,6 +9386,159 @@ def export_redfin_screening_queue(
         logger.error(
             f"Export screening queue error: {e}"
         )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def cleanup_demo_data(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    project_root: str = typer.Option(
+        ".",
+        "--project-root",
+        help="Project root scanned for stray file artifacts",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help=(
+            "Force preview mode. Preview is already the default; "
+            "this flag also overrides --confirm."
+        ),
+    ),
+    confirm: bool = typer.Option(
+        False,
+        "--confirm",
+        help="Required to actually remove demo database records",
+    ),
+    confirm_stray_files: bool = typer.Option(
+        False,
+        "--confirm-stray-files",
+        help="Required to actually delete detected stray files",
+    ),
+) -> None:
+    """Preview or remove demo/sample records and stray artifacts.
+
+    Dry-run by default. Only records matching a fixed allowlist of
+    demo marker addresses are ever selected; real user properties are
+    protected by an explicit denylist checked again before deletion.
+    Stray files are reported but require --confirm-stray-files.
+
+    Local-only. No live retrieval, no notifications.
+    """
+    try:
+        from marketsentry.demo_data_cleanup import (
+            build_cleanup_plan,
+            execute_cleanup,
+            summarize_cleanup_plan,
+        )
+
+        plan = build_cleanup_plan(
+            db_path=db,
+            project_root=project_root,
+        )
+        summary = summarize_cleanup_plan(plan)
+
+        console.print("\n[bold]Demo Data Cleanup[/bold]")
+        console.print(f"  Database:            {plan.db_path}")
+        console.print(
+            f"  Demo records found:  "
+            f"{summary['demo_record_count']}"
+        )
+        console.print(
+            f"  Stray files found:   "
+            f"{summary['stray_file_count']}"
+        )
+        console.print(
+            f"  Protected records:   "
+            f"{summary['protected_records_found']} "
+            "(real data, never removed)"
+        )
+
+        if plan.demo_records:
+            console.print("\n[bold]Demo records[/bold]")
+            table = Table(show_header=True)
+            table.add_column("Table")
+            table.add_column("ID")
+            table.add_column("Address")
+            table.add_column("Category")
+            for record in plan.demo_records:
+                table.add_row(
+                    record.table_name,
+                    str(record.record_id),
+                    record.address or "",
+                    record.category,
+                )
+            console.print(table)
+        else:
+            console.print(
+                "\n  No demo/sample records detected."
+            )
+
+        detected_strays = [
+            s for s in plan.stray_files if s.exists
+        ]
+        if detected_strays:
+            console.print("\n[bold]Stray file artifacts[/bold]")
+            for stray in detected_strays:
+                console.print(
+                    f"  {stray.path} "
+                    f"({stray.size_bytes} bytes) - {stray.kind}"
+                )
+                console.print(f"    {stray.explanation}")
+
+        # Preview unless --confirm is given. An explicit --dry-run
+        # always wins so the safer flag cannot be overridden.
+        apply_changes = confirm and not dry_run
+        result = execute_cleanup(
+            plan,
+            confirm=apply_changes,
+            confirm_stray_files=(
+                confirm_stray_files and apply_changes
+            ),
+        )
+
+        console.print("\n[bold]Planned actions[/bold]")
+        if result.actions:
+            for action in result.actions:
+                console.print(f"  {action}")
+        else:
+            console.print("  Nothing to do.")
+
+        if result.skipped_protected:
+            console.print(
+                "\n[bold]Protected records skipped[/bold]"
+            )
+            for skipped in result.skipped_protected:
+                console.print(f"  {skipped}")
+
+        if result.dry_run:
+            console.print(
+                "\n[bold yellow]DRY RUN - nothing was changed. "
+                "Re-run with --confirm to apply."
+                "[/bold yellow]"
+            )
+        else:
+            console.print(
+                f"\n[bold green]Removed "
+                f"{result.removed_record_count} records and "
+                f"{result.removed_file_count} files."
+                "[/bold green]"
+            )
+
+        console.print(
+            "[bold yellow]Local-only. No live retrieval. "
+            "No outbound notifications.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Cleanup demo data error: {e}")
         raise typer.Exit(code=1)
 
 

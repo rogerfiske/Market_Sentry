@@ -43,7 +43,7 @@ marketsentry portfolio-alert-email-digest --preference-config config/portfolio_a
 marketsentry portfolio-alert-email-digest --limit 10
 
 # Use a specific database
-marketsentry portfolio-alert-email-digest --db data/market_sentry.db
+marketsentry portfolio-alert-email-digest --db db/marketsentry.db
 ```
 
 ### Export Draft Files

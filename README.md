@@ -6,7 +6,36 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Configurable Portfolio Trend Alert Rules (MVP 44)
+## Current Milestone: Global Database Default Stabilization (MVP 52A)
+
+This stabilization milestone completes the MVP 51A database-default fix across
+the whole codebase and adds safe demo/sample cleanup.
+
+- All live code now resolves the database from `config.database_path` (`db/marketsentry.db`)
+- Fixed 9 CLI command defaults that pointed at the legacy `data/market_sentry.db` path
+- Fixed module-level defaults in `dashboard_app.py`, `release_candidate.py`, `local_operations_bundle.py`
+- Corrected 9 stale `--db` examples in the RUNBOOK and feature docs
+- New command: `marketsentry cleanup-demo-data` (dry-run by default, `--confirm` to apply)
+- Demo cleanup protects real user properties with an explicit denylist checked before every deletion
+- Stray artifact detection for `nul`, `dbmarketsentry.db`, `data/market_sentry.db` (never deleted without `--confirm-stray-files`)
+- No live retrieval, browser automation, outbound notifications, or credential storage added
+- Quiet Score gatekeeper unchanged. Walkability remains excluded.
+
+See [Troubleshooting: Database Paths and Stray Files](#troubleshooting-database-paths-and-stray-files).
+
+### MVP 52: Initial Redfin Screening Queue
+
+Clickable Redfin screening queue with Save for Analysis promotion to the candidate review queue.
+
+### MVP 51A: Operator Workflow Stabilization
+
+Operator workflow commands default to `db/marketsentry.db`; refresh workflow function calls stabilized.
+
+### MVP 51: Guided Operator Workflow
+
+Guided operator workflow commands and dashboard candidate action buttons.
+
+### MVP 44: Configurable Portfolio Trend Alert Rules
 
 This milestone makes Milestone 43 threshold rules configurable without code changes.
 
@@ -1612,145 +1641,457 @@ marketsentry export-watchlist-monitoring-report
 
 ```
 Market_Sentry/
-├── README.md
-├── PRD.md                      # Product Requirements Document
-├── Architecture.md             # Architecture documentation
-├── requirements.txt            # Python dependencies
-├── .env.example               # Example configuration
-├── .gitignore
-├── pyproject.toml             # Project metadata and build config
-├── config/                    # Configuration files
-│   └── alert_expiration_profiles.example.json  # Example custom profiles
-├── scripts/                   # Automation scripts
-│   ├── run_watchlist_refresh_workflow.bat
-│   ├── run_initial_review_workflow.bat
+├── .claude/                                   # Local Claude Code settings (untracked)
+│   └── settings.local.json
+├── config/                                    # Configuration templates
+│   ├── alert_expiration_profiles.example.json          # Example alert expiration profiles
+│   └── portfolio_alert_highlight_preferences.example.json  # Example highlight preferences
+├── data/                                      # Runtime data (generated, gitignored)
+│   ├── market_sentry.db                       # Stray DB from a mistyped --db path (untracked)
+│   ├── exports/                               # Report and export output
+│   │   ├── .gitkeep
+│   │   ├── archive_pre_operations_cleanup/    # 198 archived pre-cleanup exports
+│   │   │   ├── candidate_analysis_<timestamp>.csv          (70 files)
+│   │   │   ├── cross_site_alert_hygiene_<timestamp>.csv    (66 files)
+│   │   │   ├── cross_site_alert_hygiene_<timestamp>.md     (51 files)
+│   │   │   ├── demo_candidate_analysis.csv
+│   │   │   ├── demo_candidate_review.csv
+│   │   │   ├── demo_county_verification.csv
+│   │   │   ├── demo_effective_dom_v2.csv
+│   │   │   ├── demo_reviewed.csv
+│   │   │   ├── demo_watchlist_monitoring.csv
+│   │   │   ├── file_list.bat
+│   │   │   ├── file_list.md
+│   │   │   ├── file_list.md.pdf
+│   │   │   ├── file_list.zip
+│   │   │   └── review_queue.csv
+│   │   ├── quiet_search.txt                   # Ad-hoc quiet-area search notes
+│   │   ├── quiet_vibrancy_search.txt          # Ad-hoc quiet/vibrancy search notes
+│   │   ├── vibrancy_search.txt                # Ad-hoc vibrancy search notes
+│   │   ├── report_manifest.csv                # Stable manifest of generated reports
+│   │   └── <130 timestamped exports>          # One file per run, named
+│   │       #   candidate_analysis_<timestamp>.csv
+│   │       #   cross_site_alert_hygiene_<timestamp>.{csv,md}
+│   │       #   fixture_capture_queue_<timestamp>.csv
+│   │       #   local_operations_bundle_<timestamp>.{csv,md}
+│   │       #   operations_digest_<timestamp>.{csv,md}
+│   │       #   portfolio_alert_email_digest_<timestamp>.{eml,md,txt}
+│   │       #   portfolio_review_pack_<timestamp>.{csv,md}
+│   │       #   redfin_screening_queue_<timestamp>.{csv,md}
+│   │       #   release_candidate_report_<timestamp>.{csv,md}
+│   │       #   release_finalization_<timestamp>.{csv,md}
+│   │       #   review_queue_<timestamp>.csv
+│   │       #   watchlist_monitoring_<timestamp>.csv
+│   │       #   workflow_summary_<timestamp>.md
+│   ├── imports/                               # Operator-supplied input files
+│   │   ├── .gitkeep
+│   │   ├── redfin_screening_urls.csv          # Screening queue URL input
+│   │   ├── redfin_urls.csv                    # Manual Redfin URL import
+│   │   ├── redfin_urls_valid.csv              # Validated Redfin URL import
+│   │   └── reviewed_candidates.csv            # Review decision import
+│   ├── policies/                              # Cached retrieval policy artifacts
+│   │   └── robots/                            # Cached robots.txt files (empty)
+│   ├── processed/                             # Intermediate retrieval manifests
+│   │   ├── .gitkeep
+│   │   ├── redfin_batch_retrieval_manifest.csv
+│   │   └── redfin_retrieval_approval_manifest.csv
+│   └── raw/                                   # Raw captured HTML/JSON payloads
+│       ├── .gitkeep
+│       └── redfin/
+│           ├── redfin_search_fixture.html     # Saved search page capture
+│           ├── details/                       # Saved detail page captures
+│           │   ├── 32152_camino_nunez.html
+│           │   ├── 32420_san_marco_dr.html
+│           │   ├── effective_dom_agent_next_steps_and_persona.md
+│           │   ├── redfin_property_6574263_20260507_100758.html
+│           │   └── redfin_property_6574263_20260507_100758.json
+│           └── search/                        # 130 files: redfin_search_<timestamp>.html
+│                                              #   plus matching .json metadata sidecars
+├── db/                                        # SQLite database location
+│   ├── .gitkeep
+│   ├── demo_marketsentry.db                   # Fixture/demo database
+│   └── marketsentry.db                        # Primary operating database
+├── docs/                                      # Documentation
+│   ├── ALERT_EXPIRATION_PROFILES.md
+│   ├── CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md
+│   ├── FIXTURE_CAPTURE_QUEUE.md
+│   ├── How I use Obsidian.md                  # Operator notes (untracked)
+│   ├── HowLoud openapi.json                   # HowLoud noise API spec (untracked)
+│   ├── LIVE_RETRIEVAL_STRATEGY.md
+│   ├── LOCAL_OPERATIONS_BUNDLE.md
+│   ├── OPERATOR_WORKFLOW.md
+│   ├── PORTFOLIO_ALERT_EMAIL_DIGEST.md
+│   ├── PORTFOLIO_ALERT_FOCUS_PREFERENCES.md
+│   ├── PORTFOLIO_TREND_ALERT_RULES.md
+│   ├── REDFIN_LIVE_HTTP_PHASE_1.md
+│   ├── REDFIN_PENDING_CAPTURE_BATCH_RETRIEVAL.md
+│   ├── REDFIN_RETRIEVAL_APPROVAL_WORKFLOW.md
+│   ├── REDFIN_RETRIEVED_FIXTURE_PROCESSING.md
+│   ├── REDFIN_SCREENING_QUEUE.md
+│   ├── RELEASE_CANDIDATE_CHECKLIST.md
+│   ├── RELEASE_FINALIZATION_GUIDE.md
+│   ├── RELEASE_NOTES_DRAFT.md
+│   ├── RELEASE_NOTES_FINAL.md
+│   ├── Restart the dashboard.md               # Operator notes (untracked)
+│   ├── RUNBOOK.md
+│   ├── WINDOWS_TASK_SCHEDULER.md
+│   ├── decisions/                             # Architecture Decision Records (51)
+│   │   ├── 001-human-in-the-loop-review-queue.md
+│   │   ├── 002-redfin-discovery-adapter-foundation.md
+│   │   ├── 003-redfin-detail-parser-saved-fixtures.md
+│   │   ├── 004-effective-dom-v1-and-review-scoring.md
+│   │   ├── 005-cross-site-enrichment-foundation.md
+│   │   ├── 006-watchlist-monitoring-snapshots.md
+│   │   ├── 007-county-verification-foundation.md
+│   │   ├── 008-effective-dom-v2-county-reset-and-churn-index.md
+│   │   ├── 009-effective-dom-v2-operational-integration.md
+│   │   ├── 010-end-to-end-operating-workflow.md
+│   │   ├── 011-local-dashboard-report-viewer.md
+│   │   ├── 012-windows-task-scheduler-automation.md
+│   │   ├── 013-live-retrieval-strategy-and-compliance-adapters.md
+│   │   ├── 014-retrieval-safety-and-fixture-capture-queue.md
+│   │   ├── 015-redfin-live-http-phase-1.md
+│   │   ├── 016-redfin-retrieved-fixture-processing.md
+│   │   ├── 017-redfin-pending-capture-batch-retrieval.md
+│   │   ├── 018-redfin-retrieval-approval-workflow.md
+│   │   ├── 019-retrieval-operations-dashboard.md
+│   │   ├── 020-retrieval-health-checks.md
+│   │   ├── 021-cross-site-adapter-parity-manual-fixtures.md
+│   │   ├── 022-cross-site-parser-quality-fixture-corpus.md
+│   │   ├── 023-confidence-weighted-cross-site-analytics.md
+│   │   ├── 024-cross-site-analytics-trend-snapshots.md
+│   │   ├── 025-cross-site-trend-alerts-watchlist-monitoring.md
+│   │   ├── 026-cross-site-alert-aggregation-patterns.md
+│   │   ├── 027-cross-site-alert-triage-workflow.md
+│   │   ├── 028-cross-site-alert-hygiene-scheduled-reminders.md
+│   │   ├── 029-cross-site-alert-archive-policy.md
+│   │   ├── 030-cross-site-alert-expiration-policy.md
+│   │   ├── 031-user-defined-alert-expiration-profiles.md
+│   │   ├── 032-alert-expiration-profile-comparison-preferences.md
+│   │   ├── 033-alert-lifecycle-audit-trail.md
+│   │   ├── 034-alert-lifecycle-trend-snapshots.md
+│   │   ├── 035-lifecycle-health-scoring.md
+│   │   ├── 036-lifecycle-health-trend-snapshots.md
+│   │   ├── 037-operations-digest.md
+│   │   ├── 038-operations-digest-history.md
+│   │   ├── 039-portfolio-review-pack.md
+│   │   ├── 040-portfolio-review-comparison.md
+│   │   ├── 041-portfolio-review-trends.md
+│   │   ├── 042-portfolio-trend-alerts.md
+│   │   ├── 043-configurable-portfolio-trend-alert-rules.md
+│   │   ├── 044-portfolio-trend-alert-history.md
+│   │   ├── 045-portfolio-alert-focus-preferences.md
+│   │   ├── 046-local-email-digest-draft.md
+│   │   ├── 047-local-operations-bundle.md
+│   │   ├── 048-release-candidate-hardening.md
+│   │   ├── 049-release-finalization.md
+│   │   ├── 050-guided-operator-workflow.md
+│   │   └── 051-redfin-screening-queue.md
+│   ├── examples/                              # Example artifacts (empty)
+│   └── prompts/                               # Milestone build prompts (53)
+│       ├── Market_Sentry_Claude_Prompt_001_Project_Scaffold.md
+│       ├── Market_Sentry_Claude_Prompt_002_Candidate_Review_Workflow.md
+│       ├── Market_Sentry_Claude_Prompt_003_Redfin_Discovery_Adapter_Foundation.md
+│       ├── Market_Sentry_Claude_Prompt_004_Redfin_Detail_Parser.md
+│       ├── Market_Sentry_Claude_Prompt_005_Effective_DOM_Scoring_Report.md
+│       ├── Market_Sentry_Claude_Prompt_006_Cross_Site_Enrichment_Foundation.md
+│       ├── Market_Sentry_Claude_Prompt_006A_Cross_Site_Stabilization.md
+│       ├── Market_Sentry_Claude_Prompt_007_Watchlist_Monitoring_Snapshots.md
+│       ├── Market_Sentry_Claude_Prompt_008_County_Verification_Foundation_REVISED.md
+│       ├── Market_Sentry_Claude_Prompt_009_Effective_DOM_v2_County_Reset.md
+│       ├── Market_Sentry_Claude_Prompt_010_Effective_DOM_v2_Operational_Integration.md
+│       ├── Market_Sentry_Claude_Prompt_011_End_to_End_Workflow_Runbook.md
+│       ├── Market_Sentry_Claude_Prompt_011A_Export_Path_Stabilization.md
+│       ├── Market_Sentry_Claude_Prompt_012_Local_Dashboard_Report_Viewer.md
+│       ├── Market_Sentry_Claude_Prompt_013_Windows_Task_Scheduler_Automation.md
+│       ├── Market_Sentry_Claude_Prompt_014_Live_Retrieval_Strategy_Compliance_Adapters.md
+│       ├── Market_Sentry_Claude_Prompt_015_Retrieval_Safety_Fixture_Capture_Queue.md
+│       ├── Market_Sentry_Claude_Prompt_016_Redfin_Live_HTTP_Phase_1.md
+│       ├── Market_Sentry_Claude_Prompt_017_Redfin_Retrieved_Fixture_Processing.md
+│       ├── Market_Sentry_Claude_Prompt_018_Redfin_Pending_Capture_Batch_Retrieval.md
+│       ├── Market_Sentry_Claude_Prompt_019_Redfin_Batch_Retrieval_Approval_Workflow.md
+│       ├── Market_Sentry_Claude_Prompt_020_Retrieval_Operations_Dashboard.md
+│       ├── Market_Sentry_Claude_Prompt_021_Retrieval_Health_Checks.md
+│       ├── Market_Sentry_Claude_Prompt_022_Cross_Site_Adapter_Parity_Manual_Fixtures.md
+│       ├── Market_Sentry_Claude_Prompt_023_Cross_Site_Parser_Quality_Fixture_Corpus.md
+│       ├── Market_Sentry_Claude_Prompt_024_Confidence_Weighted_Cross_Site_Analytics.md
+│       ├── Market_Sentry_Claude_Prompt_025_Cross_Site_Analytics_Trend_Snapshots.md
+│       ├── Market_Sentry_Claude_Prompt_026_Cross_Site_Trend_Alerts.md
+│       ├── Market_Sentry_Claude_Prompt_027_Cross_Site_Alert_Analytics.md
+│       ├── Market_Sentry_Claude_Prompt_028_Cross_Site_Alert_Triage_Workflow.md
+│       ├── Market_Sentry_Claude_Prompt_029_Alert_Hygiene_Reports.md
+│       ├── Market_Sentry_Claude_Prompt_030_Alert_Archive_Policy.md
+│       ├── Market_Sentry_Claude_Prompt_031_Alert_Expiration_Policy.md
+│       ├── Market_Sentry_Claude_Prompt_032_User_Defined_Alert_Expiration_Profiles.md
+│       ├── Market_Sentry_Claude_Prompt_033_Profile_Comparison_Last_Used_Profile.md
+│       ├── Market_Sentry_Claude_Prompt_034_Alert_Lifecycle_Audit_Trail.md
+│       ├── Market_Sentry_Claude_Prompt_035_Alert_Lifecycle_Trends.md
+│       ├── Market_Sentry_Claude_Prompt_036_Lifecycle_Health_Scoring.md
+│       ├── Market_Sentry_Claude_Prompt_037_Lifecycle_Health_Trends.md
+│       ├── Market_Sentry_Claude_Prompt_038_Operations_Digest.md
+│       ├── Market_Sentry_Claude_Prompt_039_Operations_Digest_History.md
+│       ├── Market_Sentry_Claude_Prompt_040_Portfolio_Review_Pack.md
+│       ├── Market_Sentry_Claude_Prompt_041_Portfolio_Review_Comparison.md
+│       ├── Market_Sentry_Claude_Prompt_042_Portfolio_Review_Trends.md
+│       ├── Market_Sentry_Claude_Prompt_043_Portfolio_Trend_Alerts.md
+│       ├── Market_Sentry_Claude_Prompt_044_Configurable_Portfolio_Trend_Alert_Rules.md
+│       ├── Market_Sentry_Claude_Prompt_045_Portfolio_Trend_Alert_History.md
+│       ├── Market_Sentry_Claude_Prompt_046_Alert_Focus_Preferences.md
+│       ├── Market_Sentry_Claude_Prompt_047_Local_Email_Digest_Draft.md
+│       ├── Market_Sentry_Claude_Prompt_048_Local_Operations_Bundle.md
+│       ├── Market_Sentry_Claude_Prompt_051_Guided_Operator_Workflow.md
+│       ├── Market_Sentry_Claude_Prompt_051A_Operator_Workflow_Stabilization.md
+│       └── Market_Sentry_Claude_Prompt_052_Redfin_Screening_Queue.md
+├── logs/                                      # Application logs
+│   ├── .gitkeep
+│   ├── marketsentry.log
+│   └── retrieval_audit/                       # Retrieval compliance audit logs
+│       ├── dry_run_approvals_20260514.csv     # One file per retrieval day
+│       └── retrieval_audit_20260514.csv       # One file per retrieval day
+├── scripts/                                   # Automation scripts
+│   ├── install_task_scheduler_watchlist_refresh.ps1   # Register scheduled task
+│   ├── uninstall_task_scheduler_watchlist_refresh.ps1 # Remove scheduled task
+│   ├── run_marketsentry_task.ps1              # Scheduled task wrapper
+│   ├── run_alert_hygiene_report.bat
+│   ├── run_alert_lifecycle_trend_report.bat
 │   ├── run_dashboard_summary.bat
 │   ├── run_fixture_demo_workflow.bat
-│   ├── run_marketsentry_task.ps1
-│   ├── install_task_scheduler_watchlist_refresh.ps1
-│   └── uninstall_task_scheduler_watchlist_refresh.ps1
-├── data/                      # Data directories
-│   ├── raw/
-│   ├── processed/
-│   ├── exports/
-│   └── imports/
-├── db/                        # SQLite database location
-├── logs/                      # Application logs
-│   └── scheduled/             # Scheduled task logs
-├── docs/                      # Documentation
-│   ├── prompts/
-│   ├── decisions/
-│   └── examples/
+│   ├── run_initial_review_workflow.bat
+│   ├── run_lifecycle_health_report.bat
+│   ├── run_local_operations_bundle_report.bat
+│   ├── run_operations_digest_report.bat
+│   ├── run_portfolio_review_pack_report.bat
+│   └── run_watchlist_refresh_workflow.bat
 ├── src/
-│   └── marketsentry/          # Main Python package
+│   ├── marketsentry.egg-info/                 # Editable-install metadata (generated)
+│   │   ├── PKG-INFO
+│   │   ├── SOURCES.txt
+│   │   ├── dependency_links.txt
+│   │   ├── entry_points.txt
+│   │   ├── requires.txt
+│   │   └── top_level.txt
+│   └── marketsentry/                          # Main Python package
 │       ├── __init__.py
-│       ├── cli.py             # CLI entry point
-│       ├── config.py          # Configuration management
-│       ├── logging_config.py  # Logging setup
-│       ├── models.py          # Data models
-│       ├── database.py        # Database operations
-│       ├── schema.py          # Database schema
-│       ├── normalization.py   # Address/data normalization
-│       ├── gas_detection.py   # Gas service detection
-│       ├── quiet_vibrancy.py  # Location scoring
-│       ├── effective_dom.py            # Effective DOM calculation
-│       ├── scoring.py                  # Property scoring engine
-│       ├── review_export.py            # Review queue export
-│       ├── review_import.py            # Review decision import
-│       ├── redfin_url_utils.py         # Redfin URL validation and normalization
-│       ├── redfin_url_import.py        # Manual Redfin URL import
-│       ├── redfin_fixture_parser.py    # Saved HTML fixture parsing
-│       ├── redfin_detail_parser.py     # Redfin detail page parser
-│       ├── redfin_detail_enrichment.py # Candidate enrichment workflow
-│       ├── candidate_recalc.py         # Candidate metrics recalculation
-│       ├── candidate_report.py         # Candidate analysis report generation
-│       ├── cross_site_url_import.py    # Cross-site URL import
-│       ├── cross_site_enrichment.py    # Cross-site fixture parsing
-│       ├── cross_site_comparison.py    # Cross-site data comparison
-│       ├── cross_site_report.py        # Cross-site comparison report
-│       ├── zillow_parser.py            # Zillow detail page parser
-│       ├── realtor_parser.py           # Realtor.com detail page parser
-│       ├── homes_parser.py             # Homes.com detail page parser
-│       ├── compass_parser.py           # Compass detail page parser
-│       ├── watchlist.py                # Watchlist promotion logic
-│       ├── monitoring.py               # Watchlist monitoring snapshots
-│       ├── monitoring_report.py        # Monitoring report generation
-│       ├── effective_dom_v2_persistence.py  # v2 operational persistence
-│       ├── workflow.py                    # End-to-end workflow orchestration
-│       ├── dashboard.py                   # Dashboard data loading and preparation
-│       ├── dashboard_app.py               # Streamlit dashboard application
-│       ├── automation.py                  # Windows Task Scheduler automation helpers
-│       ├── source_adapters/               # Live retrieval strategy
-│       │   ├── __init__.py
-│       │   ├── base.py                    # Base abstractions
-│       │   ├── compliance.py              # Compliance guardrails
-│       │   ├── registry.py                # Adapter registry
-│       │   ├── redfin_adapter.py          # Redfin adapter with dry-run
-│       │   ├── zillow_adapter.py          # Zillow stub
-│       │   ├── realtor_adapter.py         # Realtor.com stub
-│       │   ├── homes_adapter.py           # Homes.com stub
-│       │   ├── compass_adapter.py         # Compass stub
-│       │   ├── county_adapter.py          # County stub
-│       │   ├── policy.py                  # Retrieval policy engine
-│       │   ├── robots_policy.py           # Offline robots.txt parser
-│       │   ├── rate_limiter.py            # Deterministic rate limiter
-│       │   ├── dry_run_approval.py        # Dry-run approval gate
-│       │   └── audit_report.py            # Retrieval audit reporting
-│       ├── fixture_capture_queue.py       # Fixture capture queue
-│       ├── cross_site_alert_archive_policy.py  # Archive policy workflow
-│       ├── cross_site_alert_expiration_policy.py  # Expiration policy workflow
-│       └── sample_data.py              # Sample data generation
-└── tests/                              # Unit tests
-    ├── fixtures/                       # Test fixtures
-    │   ├── redfin_urls_valid.csv
-    │   ├── redfin_urls_mixed_invalid.csv
-    │   ├── redfin_search_fixture.html
-    │   ├── redfin_detail/              # Redfin detail page fixtures
-    │   │   ├── normal_property_with_gas.html
-    │   │   ├── high_noise_property.html
-    │   │   ├── listing_churn_property.html
-    │   │   └── sparse_data_property.html
-    │   └── cross_site_urls.csv         # Cross-site URL import fixture
-    ├── test_database.py
-    ├── test_effective_dom.py
-    ├── test_effective_dom_v1.py       # Comprehensive v1 tests
-    ├── test_scoring.py
-    ├── test_scoring_v1.py             # Comprehensive v1 tests
-    ├── test_gas_detection.py
-    ├── test_quiet_vibrancy.py
-    ├── test_review_workflow.py
-    ├── test_redfin_url_utils.py
-    ├── test_redfin_url_import.py
-    ├── test_redfin_fixture_parser.py
-    ├── test_redfin_detail_parser.py
-    ├── test_cross_site_url_import.py
-    ├── test_cross_site_enrichment.py
-    ├── test_cross_site_comparison.py
-    ├── test_cross_site_report.py
-    ├── test_monitoring.py
-    ├── test_milestone_10.py           # v2 operational integration tests
-    ├── test_milestone_11.py           # End-to-end workflow tests
-    ├── test_milestone_12.py           # Dashboard and report viewer tests
-    ├── test_milestone_13.py           # Windows Task Scheduler automation tests
-    ├── test_milestone_14.py           # Live retrieval strategy tests
-    ├── test_milestone_15.py           # Retrieval safety and fixture capture queue tests
-    ├── test_milestone_23.py           # Cross-site parser quality and fixture corpus tests
-    ├── test_milestone_24.py           # Confidence-weighted cross-site analytics tests
-    ├── test_milestone_30.py           # Opt-in alert archive policy workflow tests
-    ├── test_milestone_31.py           # Alert expiration policy workflow tests
-    ├── test_milestone_32.py           # User-defined alert expiration profiles tests
-    ├── test_milestone_33.py           # Profile comparison and last-used profile tests
-    ├── test_milestone_34.py           # Alert lifecycle audit trail tests
-    ├── test_milestone_35.py           # Alert lifecycle trend snapshots tests
-    ├── test_milestone_36.py           # Property-level lifecycle health scoring tests
-    ├── test_milestone_37.py           # Lifecycle health trend snapshots tests
-    ├── test_milestone_38.py           # Watchlist operations digest tests
-    ├── test_milestone_39.py           # Operations digest history tests
-    ├── test_milestone_40.py           # Portfolio review pack tests
-    ├── test_milestone_41.py           # Portfolio review comparison tests
-    ├── test_milestone_42.py           # Portfolio review trends tests
-    ├── test_milestone_43.py           # Portfolio trend alerts tests
-    └── test_milestone_44.py           # Configurable trend alert rules tests
+│       ├── cli.py                             # CLI entry point
+│       ├── config.py                          # Configuration management
+│       ├── logging_config.py                  # Logging setup
+│       ├── models.py                          # Data models
+│       ├── database.py                        # Database operations
+│       ├── schema.py                          # Database schema
+│       ├── normalization.py                   # Address/data normalization
+│       ├── sample_data.py                     # Sample data generation
+│       ├── gas_detection.py                   # Gas service detection
+│       ├── quiet_vibrancy.py                  # Location scoring
+│       ├── scoring.py                         # Property scoring engine
+│       ├── effective_dom.py                   # Effective DOM v1 calculation
+│       ├── effective_dom_v2_calculator.py     # Effective DOM v2 calculation
+│       ├── effective_dom_v2_persistence.py    # v2 operational persistence
+│       ├── effective_dom_v2_recalc.py         # v2 recalculation workflow
+│       ├── effective_dom_v2_report.py         # v2 report generation
+│       ├── churn_index.py                     # Listing churn index
+│       ├── review_export.py                   # Review queue export
+│       ├── review_import.py                   # Review decision import
+│       ├── redfin_url_utils.py                # Redfin URL validation/normalization
+│       ├── redfin_url_import.py               # Manual Redfin URL import
+│       ├── redfin_fixture_parser.py           # Saved HTML fixture parsing
+│       ├── redfin_detail_parser.py            # Redfin detail page parser
+│       ├── redfin_detail_enrichment.py        # Candidate enrichment workflow
+│       ├── redfin_batch_retrieval.py          # Pending-capture batch retrieval
+│       ├── redfin_screening_queue.py          # Redfin screening queue
+│       ├── retrieval_approval.py              # Batch retrieval approval workflow
+│       ├── retrieval_dashboard.py             # Retrieval operations dashboard data
+│       ├── retrieval_health.py                # Retrieval health checks
+│       ├── retrieved_fixture_processor.py     # Retrieved fixture processing
+│       ├── fixture_capture_queue.py           # Fixture capture queue
+│       ├── candidate_recalc.py                # Candidate metrics recalculation
+│       ├── candidate_report.py                # Candidate analysis report generation
+│       ├── county_import.py                   # County record import
+│       ├── county_parser.py                   # County record parsers
+│       ├── county_verification.py             # County verification logic
+│       ├── county_verification_report.py      # County verification report
+│       ├── cross_site_url_import.py           # Cross-site URL import
+│       ├── cross_site_enrichment.py           # Cross-site fixture parsing
+│       ├── cross_site_fixture_processor.py    # Cross-site fixture processing
+│       ├── cross_site_comparison.py           # Cross-site data comparison
+│       ├── cross_site_report.py               # Cross-site comparison report
+│       ├── cross_site_analytics.py            # Confidence-weighted analytics
+│       ├── cross_site_analytics_report.py     # Analytics report generation
+│       ├── cross_site_trends.py               # Analytics trend snapshots
+│       ├── cross_site_trend_alerts.py         # Trend alert generation
+│       ├── cross_site_alert_analytics.py      # Alert aggregation patterns
+│       ├── cross_site_alert_triage.py         # Alert triage workflow
+│       ├── cross_site_alert_hygiene.py        # Alert hygiene reminders
+│       ├── cross_site_alert_archive_policy.py # Archive policy workflow
+│       ├── cross_site_alert_expiration_policy.py            # Expiration policy workflow
+│       ├── cross_site_alert_expiration_profile_comparison.py # Profile comparison
+│       ├── cross_site_alert_lifecycle.py      # Alert lifecycle audit trail
+│       ├── cross_site_alert_lifecycle_metrics.py    # Lifecycle trend snapshots
+│       ├── cross_site_alert_lifecycle_health.py     # Lifecycle health scoring
+│       ├── cross_site_lifecycle_health_trends.py    # Lifecycle health trends
+│       ├── zillow_parser.py                   # Zillow detail page parser
+│       ├── realtor_parser.py                  # Realtor.com detail page parser
+│       ├── homes_parser.py                    # Homes.com detail page parser
+│       ├── compass_parser.py                  # Compass detail page parser
+│       ├── watchlist.py                       # Watchlist promotion logic
+│       ├── monitoring.py                      # Watchlist monitoring snapshots
+│       ├── monitoring_report.py               # Monitoring report generation
+│       ├── operations_digest.py               # Watchlist operations digest
+│       ├── operations_digest_history.py       # Operations digest history
+│       ├── operator_workflow.py               # Guided operator workflow
+│       ├── portfolio_review_pack.py           # Portfolio review pack
+│       ├── portfolio_review_comparison.py     # Portfolio review comparison
+│       ├── portfolio_review_trends.py         # Portfolio review trends
+│       ├── portfolio_trend_alerts.py          # Portfolio trend alerts
+│       ├── portfolio_trend_alert_history.py   # Trend alert history
+│       ├── portfolio_alert_focus.py           # Alert focus preferences
+│       ├── portfolio_alert_email_digest.py    # Local email digest draft
+│       ├── local_operations_bundle.py         # Local operations bundle
+│       ├── release_candidate.py               # Release candidate hardening checks
+│       ├── release_finalization.py            # Release finalization workflow
+│       ├── workflow.py                        # End-to-end workflow orchestration
+│       ├── dashboard.py                       # Dashboard data loading and preparation
+│       ├── dashboard_app.py                   # Streamlit dashboard application
+│       ├── automation.py                      # Windows Task Scheduler automation helpers
+│       └── source_adapters/                   # Live retrieval strategy
+│           ├── __init__.py
+│           ├── base.py                        # Base abstractions
+│           ├── compliance.py                  # Compliance guardrails
+│           ├── registry.py                    # Adapter registry
+│           ├── http_client.py                 # Rate-limited HTTP client
+│           ├── policy.py                      # Retrieval policy engine
+│           ├── robots_policy.py               # Offline robots.txt parser
+│           ├── rate_limiter.py                # Deterministic rate limiter
+│           ├── dry_run_approval.py            # Dry-run approval gate
+│           ├── audit_report.py                # Retrieval audit reporting
+│           ├── redfin_adapter.py              # Redfin adapter with dry-run
+│           ├── zillow_adapter.py              # Zillow stub
+│           ├── realtor_adapter.py             # Realtor.com stub
+│           ├── homes_adapter.py               # Homes.com stub
+│           ├── compass_adapter.py             # Compass stub
+│           └── county_adapter.py              # County stub
+├── tests/                                     # Unit and integration tests
+│   ├── __init__.py
+│   ├── fixtures/                              # Test fixtures
+│   │   ├── cross_site_urls.csv                # Cross-site URL import fixture
+│   │   ├── redfin_search_fixture.html
+│   │   ├── redfin_urls_mixed_invalid.csv
+│   │   ├── redfin_urls_valid.csv
+│   │   ├── county/                            # County record fixtures
+│   │   │   ├── assessor/
+│   │   │   │   ├── property_001.html
+│   │   │   │   └── property_002_sparse.html
+│   │   │   ├── permits/
+│   │   │   │   └── building_permit_001.html
+│   │   │   ├── recorder/
+│   │   │   │   ├── deed_of_trust_001.html
+│   │   │   │   ├── grant_deed_001.html
+│   │   │   │   └── no_transfer_found.html
+│   │   │   └── tax_collector/
+│   │   │       └── property_001.html
+│   │   ├── cross_site/                        # Cross-site parser corpus
+│   │   │   ├── compass/
+│   │   │   │   ├── garage_evidence.html
+│   │   │   │   ├── gas_evidence.html
+│   │   │   │   ├── missing_optional_fields.html
+│   │   │   │   ├── normal_property.html
+│   │   │   │   ├── price_discrepancy.html
+│   │   │   │   ├── sold_or_off_market.html
+│   │   │   │   ├── sparse_data.html
+│   │   │   │   ├── sparse_or_malformed.html
+│   │   │   │   └── status_pending.html
+│   │   │   ├── homes/                         # same 9 scenario files as compass/
+│   │   │   ├── realtor/                       # same 9 scenario files as compass/
+│   │   │   └── zillow/                        # same 9 scenario files as compass/
+│   │   ├── redfin_detail/                     # Redfin detail page fixtures
+│   │   │   ├── high_noise_property.html
+│   │   │   ├── listing_churn_property.html
+│   │   │   ├── normal_property_with_gas.html
+│   │   │   └── sparse_data_property.html
+│   │   └── robots/                            # robots.txt parser fixtures
+│   │       ├── block_all_robots.txt
+│   │       ├── empty_robots.txt
+│   │       ├── redfin_robots.txt
+│   │       └── zillow_robots.txt
+│   ├── logs/                                  # Test log output
+│   │   └── marketsentry.log
+│   ├── test_county.py
+│   ├── test_cross_site_comparison.py
+│   ├── test_cross_site_enrichment.py
+│   ├── test_cross_site_report.py
+│   ├── test_cross_site_url_import.py
+│   ├── test_database.py
+│   ├── test_effective_dom.py
+│   ├── test_effective_dom_v1.py               # Comprehensive v1 tests
+│   ├── test_effective_dom_v2.py               # Comprehensive v2 tests
+│   ├── test_export_path_stabilization.py
+│   ├── test_gas_detection.py
+│   ├── test_monitoring.py
+│   ├── test_quiet_vibrancy.py
+│   ├── test_redfin_detail_parser.py
+│   ├── test_redfin_fixture_parser.py
+│   ├── test_redfin_url_import.py
+│   ├── test_redfin_url_utils.py
+│   ├── test_review_workflow.py
+│   ├── test_scoring.py
+│   ├── test_scoring_v1.py                     # Comprehensive v1 tests
+│   ├── test_zillow_parser.py
+│   ├── test_milestone_10.py                   # v2 operational integration tests
+│   ├── test_milestone_11.py                   # End-to-end workflow tests
+│   ├── test_milestone_12.py                   # Dashboard and report viewer tests
+│   ├── test_milestone_13.py                   # Windows Task Scheduler automation tests
+│   ├── test_milestone_14.py                   # Live retrieval strategy tests
+│   ├── test_milestone_15.py                   # Retrieval safety / capture queue tests
+│   ├── test_milestone_16.py                   # Redfin live HTTP phase 1 tests
+│   ├── test_milestone_17.py                   # Retrieved fixture processing tests
+│   ├── test_milestone_18.py                   # Pending-capture batch retrieval tests
+│   ├── test_milestone_19.py                   # Batch retrieval approval workflow tests
+│   ├── test_milestone_20.py                   # Retrieval operations dashboard tests
+│   ├── test_milestone_21.py                   # Retrieval health check tests
+│   ├── test_milestone_22.py                   # Cross-site adapter parity tests
+│   ├── test_milestone_23.py                   # Cross-site parser quality corpus tests
+│   ├── test_milestone_24.py                   # Confidence-weighted analytics tests
+│   ├── test_milestone_25.py                   # Analytics trend snapshot tests
+│   ├── test_milestone_26.py                   # Cross-site trend alert tests
+│   ├── test_milestone_27.py                   # Alert aggregation pattern tests
+│   ├── test_milestone_28.py                   # Alert triage workflow tests
+│   ├── test_milestone_29.py                   # Alert hygiene reminder tests
+│   ├── test_milestone_30.py                   # Opt-in alert archive policy tests
+│   ├── test_milestone_31.py                   # Alert expiration policy tests
+│   ├── test_milestone_32.py                   # User-defined expiration profile tests
+│   ├── test_milestone_33.py                   # Profile comparison / last-used tests
+│   ├── test_milestone_34.py                   # Alert lifecycle audit trail tests
+│   ├── test_milestone_35.py                   # Alert lifecycle trend snapshot tests
+│   ├── test_milestone_36.py                   # Lifecycle health scoring tests
+│   ├── test_milestone_37.py                   # Lifecycle health trend snapshot tests
+│   ├── test_milestone_38.py                   # Watchlist operations digest tests
+│   ├── test_milestone_39.py                   # Operations digest history tests
+│   ├── test_milestone_40.py                   # Portfolio review pack tests
+│   ├── test_milestone_41.py                   # Portfolio review comparison tests
+│   ├── test_milestone_42.py                   # Portfolio review trends tests
+│   ├── test_milestone_43.py                   # Portfolio trend alerts tests
+│   ├── test_milestone_44.py                   # Configurable trend alert rules tests
+│   ├── test_milestone_45.py                   # Portfolio trend alert history tests
+│   ├── test_milestone_46.py                   # Alert focus preference tests
+│   ├── test_milestone_47.py                   # Local email digest draft tests
+│   ├── test_milestone_48.py                   # Local operations bundle tests
+│   ├── test_milestone_49.py                   # Release candidate hardening tests
+│   ├── test_milestone_50.py                   # Release finalization tests
+│   ├── test_milestone_51.py                   # Guided operator workflow tests
+│   └── test_milestone_52.py                   # Redfin screening queue tests
+├── .coverage                                  # Coverage data (generated)
+├── .env.example                               # Example configuration
+├── .gitignore
+├── Architecture.md                            # Architecture documentation
+├── PRD.md                                     # Product Requirements Document
+├── README.md
+├── dbmarketsentry.db                          # Stray DB from a mistyped --db path (untracked)
+├── nul                                        # Stray Windows redirect artifact (untracked)
+├── pyproject.toml                             # Project metadata and build config
+└── requirements.txt                           # Python dependencies
+
+Generated caches not shown above (all gitignored): .mypy_cache/, .pytest_cache/,
+and __pycache__/ directories under src/marketsentry/, src/marketsentry/source_adapters/,
+and tests/.
 ```
 
 ## Running Tests
@@ -1897,11 +2238,106 @@ mypy src/
 - Screening items become candidates only through explicit Save for Analysis action
 - No live retrieval, no browser automation, no outbound notifications
 
+## Troubleshooting: Database Paths and Stray Files
+
+### The canonical database
+
+There is exactly one project database:
+
+```text
+db/marketsentry.db
+```
+
+Every command resolves this path from `config.database_path`. You do **not** need
+to pass `--db` when running from the project root. Custom databases are still
+supported with an explicit `--db <path>`.
+
+Override the default for a whole session with the `DATABASE_PATH` environment
+variable, or by setting `DATABASE_PATH` in your `.env` file.
+
+### Known stray file artifacts
+
+If you see any of these files, they are artifacts and contain no real data:
+
+| File | Cause | Safe to delete |
+| --- | --- | --- |
+| `data/market_sentry.db` | Legacy wrong default, fixed in MVP 52A | Yes, if it holds no real data |
+| `dbmarketsentry.db` | `--db db\marketsentry.db` where the backslash was consumed as a shell escape | Yes, if it holds no real data |
+| `nul` | A Windows-style `2>nul` redirect run under a POSIX shell (Git Bash) | Yes |
+
+To quote a Windows path safely, use forward slashes or quote the argument:
+
+```powershell
+python -m marketsentry.cli status --db "db\marketsentry.db"
+python -m marketsentry.cli status --db db/marketsentry.db
+```
+
+### Detecting and removing strays
+
+The cleanup command reports stray files without deleting them:
+
+```powershell
+python -m marketsentry.cli cleanup-demo-data
+```
+
+Deleting stray files requires two explicit flags together:
+
+```powershell
+python -m marketsentry.cli cleanup-demo-data --confirm --confirm-stray-files
+```
+
+### Symptom: a command reports zero data
+
+If a report or summary shows no records unexpectedly:
+
+1. Confirm you are running from the project root.
+2. Run `python -m marketsentry.cli status` and check the reported database path.
+3. Confirm `db/marketsentry.db` exists and is non-empty.
+4. Check whether you passed a `--db` value pointing somewhere else.
+
+## Demo and Sample Data Cleanup
+
+Sample records seeded for testing make the operator console noisy. The
+`cleanup-demo-data` command removes them safely.
+
+```powershell
+# Preview only. This is the default; nothing is changed.
+python -m marketsentry.cli cleanup-demo-data
+
+# Apply the cleanup
+python -m marketsentry.cli cleanup-demo-data --confirm
+
+# Apply cleanup and also delete detected stray files
+python -m marketsentry.cli cleanup-demo-data --confirm --confirm-stray-files
+```
+
+### Safety model
+
+- **Dry-run is the default.** Nothing is removed without `--confirm`.
+- An explicit `--dry-run` always wins, even when combined with `--confirm`.
+- Only records matching a fixed allowlist of demo marker addresses are selected.
+- Real user properties are protected by an explicit denylist that is re-checked
+  immediately before every deletion, independent of how the plan was built.
+- Stray files are never deleted without the separate `--confirm-stray-files` flag.
+
+### What counts as demo data
+
+| Category | Marker addresses |
+| --- | --- |
+| `seeded_sample` (from `sample_data.py`) | `12345 Sample St`, `67890 Busy Ave`, `11111 Unknown Rd` |
+| `screening_demo` (MVP 52 validation) | `40000 Example St`, `30000 Sample Ave`, `55555 Fixture Ln` |
+
+Protected real properties, never removed: `31801 Valone Ct`, `31457 Britton Cir`,
+`41451 Royal Dornoch Ct`, `32420 San Marco Dr`, `32152 Camino Nunez`.
+
 ## Milestone Status
 
-Milestones 1-52 are complete. The project is at release candidate v0.1.0-rc1.
+Milestones 1-52 plus stabilization milestone 52A are complete. The project is at
+release candidate v0.1.0-rc1.
 
-**Note:** Milestone 51A (Operator Workflow Stabilization) is complete. All operator workflow commands default to `db/marketsentry.db`.
+**Note:** Milestone 51A (Operator Workflow Stabilization) fixed the operator
+workflow commands. Milestone 52A completed that fix across the entire codebase:
+all live code now resolves the database from `config.database_path`.
 
 ## Repository
 

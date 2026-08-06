@@ -2132,7 +2132,7 @@ Milestone 45 adds append-only persistence of portfolio trend alert evaluation re
 
 ```bash
 marketsentry persist-portfolio-trend-alerts
-marketsentry persist-portfolio-trend-alerts --exports-dir data/exports --db data/market_sentry.db
+marketsentry persist-portfolio-trend-alerts --exports-dir data/exports --db db/marketsentry.db
 marketsentry persist-portfolio-trend-alerts --rule-config config/portfolio_trend_alert_rules.json
 ```
 
@@ -2142,7 +2142,7 @@ Each run creates one row in `portfolio_trend_alert_runs` and one row per alert i
 
 ```bash
 marketsentry compare-portfolio-trend-alert-runs
-marketsentry compare-portfolio-trend-alert-runs --db data/market_sentry.db --limit 20
+marketsentry compare-portfolio-trend-alert-runs --db db/marketsentry.db --limit 20
 ```
 
 Shows new, persistent, disappeared, worsened, improved, and unchanged alerts between the latest two runs.
@@ -2268,7 +2268,7 @@ The local operations bundle aggregates command inventory, report freshness, scri
 marketsentry local-operations-bundle
 
 # With custom database path
-marketsentry local-operations-bundle --db data/market_sentry.db
+marketsentry local-operations-bundle --db db/marketsentry.db
 ```
 
 ### Export Bundle Reports
@@ -2288,7 +2288,7 @@ marketsentry export-local-operations-bundle --output-dir reports/bundles --forma
 marketsentry local-operations-smoke-test
 
 # Run smoke test against existing database
-marketsentry local-operations-smoke-test --no-temp-db --db data/market_sentry.db
+marketsentry local-operations-smoke-test --no-temp-db --db db/marketsentry.db
 ```
 
 ### Bundle Contents
@@ -2320,7 +2320,7 @@ The release candidate module provides documentation, validation, and GitHub rele
 marketsentry release-candidate-summary
 
 # With custom database path
-marketsentry release-candidate-summary --db data/market_sentry.db
+marketsentry release-candidate-summary --db db/marketsentry.db
 ```
 
 ### Export Release Candidate Report
@@ -2523,6 +2523,76 @@ marketsentry export-redfin-screening-queue
 The Streamlit dashboard includes an Initial Redfin Screening section with metrics, table, action forms, import instructions, and export button.
 
 See `docs/REDFIN_SCREENING_QUEUE.md` for the full screening queue guide.
+
+## Database Paths and Stray Files (Milestone 52A)
+
+### The canonical database
+
+There is exactly one project database:
+
+```text
+db/marketsentry.db
+```
+
+Every command resolves this from `config.database_path`. Running from the project root, you never need `--db`. Custom databases remain supported with an explicit `--db <path>`.
+
+To change the default for a session, set the `DATABASE_PATH` environment variable or add `DATABASE_PATH` to your `.env` file.
+
+### Known stray file artifacts
+
+| File | Cause |
+|------|-------|
+| `data/market_sentry.db` | Legacy wrong default, corrected in Milestone 52A |
+| `dbmarketsentry.db` | `--db db\marketsentry.db` where the backslash was consumed as a shell escape |
+| `nul` | A Windows-style `2>nul` redirect run under a POSIX shell such as Git Bash |
+
+None of these hold real data. To avoid recreating them, quote Windows paths or use forward slashes:
+
+```powershell
+python -m marketsentry.cli status --db "db\marketsentry.db"
+python -m marketsentry.cli status --db db/marketsentry.db
+```
+
+### Symptom: a report shows zero records
+
+1. Confirm you are running from the project root.
+2. Run `python -m marketsentry.cli status` and check the reported database path.
+3. Confirm `db/marketsentry.db` exists and is non-empty.
+4. Check whether a `--db` value is pointing somewhere else.
+
+## Demo and Sample Data Cleanup (Milestone 52A)
+
+Sample records seeded for testing make the operator console noisier. Remove them safely with:
+
+```powershell
+# Preview only. Default behavior; nothing changes.
+python -m marketsentry.cli cleanup-demo-data
+
+# Apply the cleanup
+python -m marketsentry.cli cleanup-demo-data --confirm
+
+# Apply cleanup and also delete detected stray files
+python -m marketsentry.cli cleanup-demo-data --confirm --confirm-stray-files
+```
+
+### Safety model
+
+- Dry-run is the default. Nothing is removed without `--confirm`.
+- An explicit `--dry-run` always wins, even when combined with `--confirm`.
+- Only records matching a fixed allowlist of demo marker addresses are selected.
+- Real user properties are protected by an explicit denylist re-checked immediately before every deletion.
+- Stray files are never deleted without the separate `--confirm-stray-files` flag.
+
+### Demo markers and protected addresses
+
+| Category | Marker addresses |
+|----------|------------------|
+| `seeded_sample` | `12345 Sample St`, `67890 Busy Ave`, `11111 Unknown Rd` |
+| `screening_demo` | `40000 Example St`, `30000 Sample Ave`, `55555 Fixture Ln` |
+
+Protected real properties, never removed: `31801 Valone Ct`, `31457 Britton Cir`, `41451 Royal Dornoch Ct`, `32420 San Marco Dr`, `32152 Camino Nunez`.
+
+The command performs no live retrieval, sends no notifications, stores no credentials, does not modify the Quiet Score gatekeeper, and adds no walkability fields.
 
 ## No Live Scraping Warning
 

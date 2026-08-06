@@ -1868,11 +1868,7 @@ def _render_cross_site(exports_dir: str, db_path: str = "") -> None:
             summarize_portfolio_trend_alert_history,
         )
 
-        db_path = str(
-            Path(config.database_path)
-            if hasattr(config, "database_path")
-            else Path("data/market_sentry.db")
-        )
+        db_path = str(Path(config.database_path))
 
         latest_run = get_latest_portfolio_trend_alert_run(
             db_path
