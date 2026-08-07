@@ -3315,6 +3315,208 @@ def _render_cross_site_fixture_processing(
 
 
     # -------------------------------------------------------------------
+    # Milestone 56 - Effective DOM Evidence Audit
+    # -------------------------------------------------------------------
+
+    st.subheader("Effective DOM Evidence Audit")
+    st.caption(
+        "How much the Effective DOM numbers can be trusted. "
+        "Effective DOM and Churn Index are separate measures and are "
+        "shown separately. Read-only: nothing is changed by loading "
+        "this page."
+    )
+
+    try:
+        from marketsentry.dom_evidence_audit import (
+            build_all_dom_evidence_audits,
+            export_dom_evidence_audit_report,
+            summarize_dom_evidence_audits,
+        )
+
+        _dom_audits = build_all_dom_evidence_audits(
+            db_path=db_path
+        )
+        _dom_summary = summarize_dom_evidence_audits(_dom_audits)
+
+        _dc1, _dc2, _dc3, _dc4 = st.columns(4)
+        with _dc1:
+            st.metric(
+                "Audited", _dom_summary.total_audited
+            )
+        with _dc2:
+            st.metric("High", _dom_summary.high_confidence)
+        with _dc3:
+            st.metric(
+                "Moderate", _dom_summary.moderate_confidence
+            )
+        with _dc4:
+            st.metric("Low", _dom_summary.low_confidence)
+
+        _dc5, _dc6, _dc7, _dc8 = st.columns(4)
+        with _dc5:
+            st.metric(
+                "Insufficient",
+                _dom_summary.insufficient_confidence,
+            )
+        with _dc6:
+            st.metric(
+                "With gaps", _dom_summary.with_evidence_gaps
+            )
+        with _dc7:
+            st.metric(
+                "With v2 reset",
+                _dom_summary.with_reset_evidence,
+            )
+        with _dc8:
+            st.metric(
+                "Churn preserved",
+                _dom_summary.with_churn_preserved,
+            )
+
+        st.info(
+            "A county-confirmed transfer may reset Effective DOM "
+            "v2. It never erases the Churn Index, which is reported "
+            "separately over its own lookback window."
+        )
+
+        if _dom_audits:
+            import pandas as pd
+
+            st.dataframe(
+                pd.DataFrame([
+                    {
+                        "Subject": a.subject_label,
+                        "Address": a.address or "",
+                        "Displayed DOM": (
+                            a.displayed_dom
+                            if a.displayed_dom is not None
+                            else ""
+                        ),
+                        "Eff DOM v1": (
+                            a.effective_dom_v1
+                            if a.effective_dom_v1 is not None
+                            else ""
+                        ),
+                        "Eff DOM v2": (
+                            a.effective_dom_v2
+                            if a.effective_dom_v2 is not None
+                            else ""
+                        ),
+                        "Churn Index": (
+                            a.churn.churn_index
+                            if a.churn.churn_index is not None
+                            else ""
+                        ),
+                        "Reset": (
+                            "yes" if a.reset.reset_applied else "no"
+                        ),
+                        "Confidence": a.confidence.category,
+                        "Score": a.confidence.score,
+                        "Gaps": len(a.gaps),
+                    }
+                    for a in _dom_audits
+                ]),
+                use_container_width=True,
+            )
+
+            _dom_labels = {
+                a.subject_label: a for a in _dom_audits
+            }
+            _dom_choice = st.selectbox(
+                "Select subject",
+                list(_dom_labels.keys()),
+                key="dom_audit_select",
+            )
+            _dom_selected = _dom_labels[_dom_choice]
+
+            st.markdown(f"**{_dom_selected.address or ''}**")
+            if _dom_selected.redfin_url:
+                st.markdown(
+                    f"[Open Redfin page]"
+                    f"({_dom_selected.redfin_url})"
+                )
+
+            _de1, _de2, _de3 = st.columns(3)
+            with _de1:
+                st.metric(
+                    "Effective DOM v1",
+                    _dom_selected.effective_dom_v1
+                    if _dom_selected.effective_dom_v1 is not None
+                    else "-",
+                )
+            with _de2:
+                st.metric(
+                    "Effective DOM v2",
+                    _dom_selected.effective_dom_v2
+                    if _dom_selected.effective_dom_v2 is not None
+                    else "-",
+                )
+            with _de3:
+                st.metric(
+                    "Churn Index (separate)",
+                    _dom_selected.churn.churn_index
+                    if _dom_selected.churn.churn_index is not None
+                    else "-",
+                )
+
+            st.markdown("**Reset evidence**")
+            if _dom_selected.reset.reset_applied:
+                st.success(_dom_selected.reset.explanation)
+            else:
+                st.info(_dom_selected.reset.explanation)
+
+            st.markdown("**Churn Index**")
+            st.caption(_dom_selected.churn.explanation)
+
+            st.markdown("**Evidence gaps**")
+            if _dom_selected.gaps:
+                for _gap in _dom_selected.gaps:
+                    _line = (
+                        f"`{_gap.gap_id}` ({_gap.severity}): "
+                        f"{_gap.detail}"
+                    )
+                    if _gap.severity == "high":
+                        st.warning(_line)
+                    else:
+                        st.caption(_line)
+            else:
+                st.success("No evidence gaps identified.")
+
+            st.markdown(
+                f"**Confidence: "
+                f"{_dom_selected.confidence.category} "
+                f"({_dom_selected.confidence.score}/100)**"
+            )
+            st.caption(_dom_selected.confidence.explanation)
+            st.caption(
+                "Evidence summary for review. No seller intent is "
+                "inferred and this is not a purchase recommendation."
+            )
+        else:
+            st.info("No subjects available to audit.")
+
+        with st.form("dom_evidence_export_form"):
+            st.markdown("**Export DOM Evidence Audit Report**")
+            _dom_fmt = st.selectbox(
+                "Format",
+                ["both", "csv", "md"],
+                key="dom_export_fmt",
+            )
+            _dom_export_submit = st.form_submit_button(
+                "Export Report"
+            )
+            if _dom_export_submit:
+                for _p in export_dom_evidence_audit_report(
+                    db_path=db_path, fmt=_dom_fmt
+                ):
+                    st.success(f"Exported: {_p}")
+
+    except Exception as _dom_error:
+        st.info(
+            f"DOM evidence audit unavailable: {_dom_error}"
+        )
+
+    # -------------------------------------------------------------------
     # Milestone 55 - HowLoud Noise Enrichment
     # -------------------------------------------------------------------
 

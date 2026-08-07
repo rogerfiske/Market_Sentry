@@ -6,7 +6,27 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Workflow, Test Isolation, and Coverage Stabilization (MVP 55A)
+## Current Milestone: Effective DOM Evidence Audit and Confidence Report (MVP 56)
+
+Effective DOM was a bare number. The audit shows how much evidence supports it,
+what is missing, and how much to trust it.
+
+- New `dom_evidence_audit.py` with 8 models; **no schema changes**
+- New commands: `dom-evidence-audit` (by candidate or watched property), `list-dom-evidence-gaps`, `export-dom-evidence-audit-report`
+- **Effective DOM v1 and v2 shown side by side; Churn Index reported as a separate measure** in its own field and its own column
+- **A county-confirmed transfer may reset Effective DOM v2; it never erases the Churn Index.** Every reset explanation states this, whether or not a reset applied
+- 7 named evidence gaps, including `conflicting_dom_values` when v1 and v2 differ with no reset to explain it
+- Deterministic, itemized confidence scoring: 6 positive factors totalling 100, 3 penalties, every factor reported with its weight
+- Confidence categories: `high` / `moderate` / `low` / `insufficient`, where `insufficient` specifically means no exposure evidence existed
+- Recomputes from underlying events rather than trusting persisted values, so stored/evidence disagreements surface instead of hiding
+- Dashboard **Effective DOM Evidence Audit** section; loading it changes nothing
+- CSV and Markdown export with clickable Redfin links
+- Neutral language only: no seller intent inferred, no purchase recommendations
+- No live retrieval, scraping, browser automation, outbound notifications, credential handling, or walkability fields
+
+See [docs/DOM_EVIDENCE_AUDIT.md](docs/DOM_EVIDENCE_AUDIT.md).
+
+### MVP 55A: Workflow, Test Isolation, and Coverage Stabilization
 
 A stabilization pass. No new product features.
 
@@ -1789,6 +1809,7 @@ Market_Sentry/
 ├── docs/                                      # Documentation
 │   ├── ALERT_EXPIRATION_PROFILES.md
 │   ├── CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md
+│   ├── DOM_EVIDENCE_AUDIT.md
 │   ├── FIXTURE_CAPTURE_QUEUE.md
 │   ├── HOWLOUD_NOISE_ENRICHMENT.md
 │   ├── How I use Obsidian.md                  # Operator notes (untracked)
@@ -1868,7 +1889,8 @@ Market_Sentry/
 │   │   ├── 052-screening-queue-batch-actions.md
 │   │   ├── 053-manual-score-entry-v2.md
 │   │   ├── 054-howloud-noise-enrichment.md
-│   │   └── 055-workflow-test-coverage-stabilization.md
+│   │   ├── 055-workflow-test-coverage-stabilization.md
+│   │   └── 056-dom-evidence-audit-confidence-report.md
 │   ├── examples/                              # Example artifacts (empty)
 │   └── prompts/                               # Milestone build prompts (53)
 │       ├── Market_Sentry_Claude_Prompt_001_Project_Scaffold.md
@@ -1928,7 +1950,8 @@ Market_Sentry/
 │       ├── Market_Sentry_Claude_Prompt_053_Screening_Queue_Batch_Actions.md
 │       ├── Market_Sentry_Claude_Prompt_054_Manual_Score_Entry_v2.md
 │       ├── Market_Sentry_Claude_Prompt_055_HowLoud_Noise_Enrichment.md
-│       └── Market_Sentry_Claude_Prompt_055A_Workflow_Test_Coverage_Stabilization.md
+│       ├── Market_Sentry_Claude_Prompt_055A_Workflow_Test_Coverage_Stabilization.md
+│       └── Market_Sentry_Claude_Prompt_056_DOM_Evidence_Audit.md
 ├── logs/                                      # Application logs
 │   ├── .gitkeep
 │   ├── marketsentry.log
@@ -1970,6 +1993,7 @@ Market_Sentry/
 │       ├── demo_data_cleanup.py               # Demo/sample cleanup and stray detection
 │       ├── manual_score_entry.py              # Manual Quiet/Vibrancy entry and validation
 │       ├── howloud_adapter.py                 # HowLoud noise enrichment (opt-in)
+│       ├── dom_evidence_audit.py              # Effective DOM evidence and confidence audit
 │       ├── gas_detection.py                   # Gas service detection
 │       ├── quiet_vibrancy.py                  # Location scoring
 │       ├── scoring.py                         # Property scoring engine
@@ -2172,7 +2196,8 @@ Market_Sentry/
 │   ├── test_milestone_53.py                   # Screening batch action tests
 │   ├── test_milestone_54.py                   # Manual score entry tests
 │   ├── test_milestone_55.py                   # HowLoud enrichment tests
-│   └── test_milestone_55a.py                  # Workflow/coverage stabilization tests
+│   ├── test_milestone_55a.py                  # Workflow/coverage stabilization tests
+│   └── test_milestone_56.py                   # DOM evidence audit tests
 ├── .coverage                                  # Coverage data (generated)
 ├── .env.example                               # Example configuration
 ├── .gitignore
@@ -2427,7 +2452,7 @@ Protected real properties, never removed: `31801 Valone Ct`, `31457 Britton Cir`
 
 ## Milestone Status
 
-Milestones 1-55, including stabilization milestones 52A and 55A, are complete.
+Milestones 1-56, including stabilization milestones 52A and 55A, are complete.
 The project is at release candidate v0.1.0-rc1.
 
 **Note:** Milestone 51A (Operator Workflow Stabilization) fixed the operator
@@ -2451,6 +2476,7 @@ MIT
 - [docs/SCREENING_QUEUE_BATCH_ACTIONS.md](docs/SCREENING_QUEUE_BATCH_ACTIONS.md) - Screening batch actions guide
 - [docs/MANUAL_SCORE_ENTRY.md](docs/MANUAL_SCORE_ENTRY.md) - Manual Quiet/Vibrancy entry guide
 - [docs/HOWLOUD_NOISE_ENRICHMENT.md](docs/HOWLOUD_NOISE_ENRICHMENT.md) - HowLoud noise enrichment guide
+- [docs/DOM_EVIDENCE_AUDIT.md](docs/DOM_EVIDENCE_AUDIT.md) - Effective DOM evidence audit guide
 - [docs/decisions/](docs/decisions/) - Architecture decision records
 
 ## Notes

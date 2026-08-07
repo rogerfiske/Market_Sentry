@@ -96,6 +96,37 @@ marketsentry export-manual-score-entry-queue
 See `docs/MANUAL_SCORE_ENTRY.md` for the full guide, including where to find
 the scores on the Redfin page.
 
+## Checking the Evidence Behind Effective DOM
+
+Effective DOM is a single number, but the evidence behind it varies a lot. The
+audit shows how much to trust it:
+
+```bash
+marketsentry dom-evidence-audit --candidate-id 4
+marketsentry dom-evidence-audit --watched-property-id 2
+marketsentry list-dom-evidence-gaps
+marketsentry export-dom-evidence-audit-report
+```
+
+You get Effective DOM v1 and v2 side by side, the Churn Index as a **separate**
+measure, an explanation of any county reset, every piece of missing evidence
+named, and a confidence rating of `high`, `moderate`, `low`, or `insufficient`.
+
+Two things worth knowing:
+
+- **v1 and v2 differ only when the current listing began before a county
+  transfer.** If the property sold and was relisted afterwards, both agree.
+- **A county transfer never erases the Churn Index.** A property with a history
+  of relisting keeps that record after changing hands. The transfer explains a
+  clean DOM; it does not erase what came before.
+
+If you see the `conflicting_dom_values` gap, look at that property first: v1 and
+v2 disagree with no reset to explain it.
+
+The audit is read-only and describes evidence only. It infers nothing about why
+a property was listed or repriced, and makes no purchase recommendation. See
+`docs/DOM_EVIDENCE_AUDIT.md`.
+
 ## Optional: HowLoud Noise Enrichment
 
 HowLoud is an optional third-party noise signal, stored separately from Redfin

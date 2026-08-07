@@ -2524,6 +2524,77 @@ The Streamlit dashboard includes an Initial Redfin Screening section with metric
 
 See `docs/REDFIN_SCREENING_QUEUE.md` for the full screening queue guide.
 
+## Effective DOM Evidence Audit (Milestone 56)
+
+Effective DOM was previously a bare number. The audit shows how much evidence supports it, what is missing, and how much to trust it.
+
+### Auditing a subject
+
+```powershell
+python -m marketsentry.cli dom-evidence-audit --candidate-id 4
+python -m marketsentry.cli dom-evidence-audit --watched-property-id 2
+```
+
+Reports evidence gathered (listing events, county records, source pages), Effective DOM v1 and v2 side by side, the reset explanation, the Churn Index as a separate measure, every evidence gap, and a confidence category with its full factor breakdown.
+
+### v1 vs v2, and what a reset does
+
+**Effective DOM v1** measures exposure from listing history alone. **Effective DOM v2** additionally treats a county-confirmed ownership transfer as a reset boundary and excludes exposure before it.
+
+They differ only when the current listing began *before* the transfer. If a property sold and was relisted afterwards, the current listing is already entirely post-transfer and the two agree.
+
+```text
+Listed          2024-03-01
+County transfer 2025-11-18   <- reset boundary
+Price change    2026-05-15
+
+Effective DOM v1: 822   Effective DOM v2: 30   delta: 792
+Churn Index: 0.5 (unchanged by the reset)
+```
+
+**A county-confirmed transfer never erases the Churn Index.** Churn is computed over its own lookback window from the full event history. A property with a history of relisting still carries that record after changing hands; the transfer explains a clean DOM, it does not erase the instability before it.
+
+### Evidence gaps
+
+| Gap | Meaning |
+|-----|---------|
+| `missing_listing_events` | No events; exposure cannot be reconstructed |
+| `missing_current_listing_start` | Listing start unknown; exposure estimated |
+| `missing_displayed_dom` | No displayed DOM captured for comparison |
+| `missing_county_transfer_evidence` | No confirmed transfer, so no reset applies |
+| `missing_source_page` | No saved capture backs these values |
+| `conflicting_dom_values` | v1 and v2 differ with no reset to explain it |
+| `stale_observation` | Most recent event older than 90 days |
+
+Check `conflicting_dom_values` first: a v1/v2 difference is normal with a reset, but without one it means the stored values disagree with the evidence.
+
+```powershell
+python -m marketsentry.cli list-dom-evidence-gaps
+python -m marketsentry.cli list-dom-evidence-gaps --gap conflicting_dom_values
+```
+
+### Confidence categories
+
+| Category | Meaning |
+|----------|---------|
+| `high` | 75-100. Multiple events, known listing start, corroborating records |
+| `moderate` | 50-74. Usable history with some evidence missing |
+| `low` | 25-49. Thin evidence; treat the numbers cautiously |
+| `insufficient` | Under 25, or no listing events and no displayed DOM at all |
+
+Scoring is deterministic and itemized: six positive factors totalling 100, three penalties, every one reported with its weight.
+
+### Export
+
+```powershell
+python -m marketsentry.cli export-dom-evidence-audit-report
+python -m marketsentry.cli export-dom-evidence-audit-report --format csv
+```
+
+Writes `data/exports/dom_evidence_audit_<timestamp>.{csv,md}` with clickable Redfin links.
+
+The audit is read-only and local-only. It describes evidence, infers no seller intent, and makes no purchase recommendation. See `docs/DOM_EVIDENCE_AUDIT.md`.
+
 ## Custom Export Directories and Test Isolation (Milestone 55A)
 
 ### Sending a refresh run somewhere else

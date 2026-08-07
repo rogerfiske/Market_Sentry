@@ -10650,6 +10650,381 @@ def export_howloud_noise_report(
 
 
 @app.command()
+def dom_evidence_audit(
+    candidate_id: Optional[int] = typer.Option(
+        None,
+        "--candidate-id",
+        help="Candidate ID to audit",
+    ),
+    watched_property_id: Optional[int] = typer.Option(
+        None,
+        "--watched-property-id",
+        help="Watched property ID to audit",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Audit the evidence behind Effective DOM and Churn Index.
+
+    Shows Effective DOM v1 and v2 side by side, reports the Churn
+    Index separately, explains any county reset boundary, names every
+    evidence gap, and rates confidence. Read-only; no live retrieval.
+    Describes evidence only, not seller intent, and makes no purchase
+    recommendation.
+    """
+    try:
+        from marketsentry.dom_evidence_audit import (
+            build_dom_evidence_audit,
+        )
+
+        if candidate_id is None and watched_property_id is None:
+            console.print(
+                "[bold red]Error:[/bold red] Supply "
+                "--candidate-id or --watched-property-id."
+            )
+            raise typer.Exit(code=1)
+
+        audit = build_dom_evidence_audit(
+            candidate_id=candidate_id,
+            watched_property_id=watched_property_id,
+            db_path=db,
+        )
+        if audit is None:
+            console.print(
+                "[bold red]Error:[/bold red] Subject not found."
+            )
+            raise typer.Exit(code=1)
+
+        console.print(
+            f"\n[bold]Effective DOM Evidence Audit - "
+            f"{audit.subject_label}[/bold]"
+        )
+        console.print(f"  Address:            {audit.address or ''}")
+        if audit.redfin_url:
+            console.print(f"  Redfin:             {audit.redfin_url}")
+
+        console.print("\n[bold]Evidence Gathered[/bold]")
+        console.print(
+            f"  Listing events:     {audit.listing_event_count}"
+        )
+        if audit.listing_event_types:
+            console.print(
+                f"  Event types:        "
+                f"{', '.join(audit.listing_event_types)}"
+            )
+        console.print(
+            f"  First event:        "
+            f"{audit.first_event_date or 'unknown'}"
+        )
+        console.print(
+            f"  Latest event:       "
+            f"{audit.latest_event_date or 'unknown'}"
+        )
+        console.print(
+            f"  Current listing:    "
+            f"{audit.current_listing_start_date or 'unknown'}"
+        )
+        console.print(
+            f"  County records:     {audit.county_record_count}"
+        )
+        console.print(
+            f"  Source pages:       {audit.source_page_count}"
+        )
+
+        console.print("\n[bold]Effective DOM[/bold]")
+        console.print(
+            f"  Displayed DOM:      "
+            f"{audit.displayed_dom if audit.displayed_dom is not None else 'not captured'}"
+        )
+        console.print(
+            f"  Effective DOM v1:   "
+            f"{audit.effective_dom_v1 if audit.effective_dom_v1 is not None else 'not computable'}"
+        )
+        console.print(
+            f"  Effective DOM v2:   "
+            f"{audit.effective_dom_v2 if audit.effective_dom_v2 is not None else 'not computable'}"
+        )
+        if audit.v1_v2_delta is not None:
+            console.print(
+                f"  v1 - v2:            {audit.v1_v2_delta}"
+            )
+
+        console.print("\n[bold]Reset Evidence[/bold]")
+        console.print(
+            f"  Reset applied:      "
+            f"{'yes' if audit.reset.reset_applied else 'no'}"
+        )
+        if audit.reset.reset_date:
+            console.print(
+                f"  Transfer date:      {audit.reset.reset_date}"
+            )
+            console.print(
+                f"  Record type:        "
+                f"{audit.reset.record_type or ''}"
+            )
+        console.print(
+            f"  Evidence source:    "
+            f"{audit.reset.evidence_source}"
+        )
+        console.print(
+            f"  Evidence status:    "
+            f"{audit.reset.evidence_status}"
+        )
+        console.print(f"  {audit.reset.explanation}")
+
+        console.print(
+            "\n[bold]Churn Index (separate measure)[/bold]"
+        )
+        console.print(
+            f"  Churn Index:        "
+            f"{audit.churn.churn_index if audit.churn.churn_index is not None else 'not computable'}"
+        )
+        console.print(
+            f"  Lookback years:     {audit.churn.lookback_years}"
+        )
+        console.print(
+            f"  Churn events:       "
+            f"{audit.churn.churn_event_count}"
+        )
+        console.print(
+            f"  Listing churn:      "
+            f"{audit.churn.listing_churn_count}"
+        )
+        console.print(
+            f"  DOM resets:         "
+            f"{audit.churn.dom_reset_count}"
+        )
+        console.print(
+            f"  Preserved:          "
+            f"{'yes' if audit.churn.preserved_after_transfer else 'no'}"
+        )
+        console.print(f"  {audit.churn.explanation}")
+
+        console.print("\n[bold]Evidence Gaps[/bold]")
+        if audit.gaps:
+            table = Table(show_header=True)
+            table.add_column("Gap")
+            table.add_column("Severity")
+            table.add_column("Detail")
+            for gap in audit.gaps:
+                table.add_row(
+                    gap.gap_id, gap.severity, gap.detail
+                )
+            console.print(table)
+        else:
+            console.print("  None identified.")
+
+        console.print("\n[bold]Confidence[/bold]")
+        console.print(
+            f"  Category:           {audit.confidence.category}"
+        )
+        console.print(
+            f"  Score:              "
+            f"{audit.confidence.score}/100"
+        )
+        for factor in audit.confidence.factors:
+            marker = "+" if factor.present else " "
+            console.print(
+                f"   {marker} {factor.label} "
+                f"({factor.contribution:+d})"
+            )
+        for penalty in audit.confidence.penalties:
+            if penalty.present:
+                console.print(
+                    f"   - {penalty.label} "
+                    f"({penalty.contribution:+d})"
+                )
+
+        console.print(
+            "\n[bold yellow]Read-only. No live retrieval. "
+            "Effective DOM and Churn Index are separate measures. "
+            "Evidence summary only, not a purchase recommendation."
+            "[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"DOM evidence audit error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def list_dom_evidence_gaps(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    gap: Optional[str] = typer.Option(
+        None,
+        "--gap",
+        help="Filter to one gap identifier",
+    ),
+) -> None:
+    """List Effective DOM evidence gaps across all subjects.
+
+    Read-only. No live retrieval, no mutation.
+    """
+    try:
+        from marketsentry.dom_evidence_audit import (
+            build_all_dom_evidence_audits,
+            list_dom_evidence_gaps as _list_gaps,
+            summarize_dom_evidence_audits,
+        )
+
+        rows = _list_gaps(db_path=db, gap_id=gap)
+        summary = summarize_dom_evidence_audits(
+            build_all_dom_evidence_audits(db_path=db)
+        )
+
+        console.print("\n[bold]DOM Evidence Gaps[/bold]")
+        console.print(
+            f"  Subjects audited:   {summary.total_audited}"
+        )
+        console.print(
+            f"  With gaps:          "
+            f"{summary.with_evidence_gaps}"
+        )
+        console.print(f"  Gap occurrences:    {len(rows)}")
+
+        if summary.gap_counts:
+            console.print("\n[bold]Gap Counts[/bold]")
+            for gap_id, count in sorted(
+                summary.gap_counts.items()
+            ):
+                console.print(f"  {gap_id}: {count}")
+
+        if rows:
+            table = Table(show_header=True)
+            table.add_column("Subject")
+            table.add_column("Address")
+            table.add_column("Gap")
+            table.add_column("Severity")
+            table.add_column("Confidence")
+            for row in rows:
+                table.add_row(
+                    row["subject"],
+                    row["address"] or "",
+                    row["gap_id"],
+                    row["severity"],
+                    row["confidence_category"],
+                )
+            console.print(table)
+        else:
+            console.print("\n  No evidence gaps found.")
+
+        console.print(
+            "\n[bold yellow]Read-only. No live retrieval. "
+            "Evidence summary only, not a purchase recommendation."
+            "[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"List DOM evidence gaps error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_dom_evidence_audit_report(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    candidate_id: Optional[int] = typer.Option(
+        None,
+        "--candidate-id",
+        help="Limit the report to one candidate",
+    ),
+    watched_property_id: Optional[int] = typer.Option(
+        None,
+        "--watched-property-id",
+        help="Limit the report to one watched property",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for the report",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export the Effective DOM evidence audit report.
+
+    Reports every candidate and watched property unless an ID is
+    supplied. Read-only apart from writing the report files.
+    """
+    try:
+        from marketsentry.dom_evidence_audit import (
+            build_all_dom_evidence_audits,
+            export_dom_evidence_audit_report as _export,
+            summarize_dom_evidence_audits,
+        )
+
+        paths = _export(
+            db_path=db,
+            exports_dir=output_dir,
+            fmt=fmt,
+            candidate_id=candidate_id,
+            watched_property_id=watched_property_id,
+        )
+        summary = summarize_dom_evidence_audits(
+            build_all_dom_evidence_audits(db_path=db)
+        )
+
+        console.print(
+            "\n[bold]DOM Evidence Audit Report Export[/bold]"
+        )
+        for path in paths:
+            console.print(f"  Exported: {path}")
+        console.print(
+            f"  Subjects audited:    {summary.total_audited}"
+        )
+        console.print(
+            f"  High confidence:     {summary.high_confidence}"
+        )
+        console.print(
+            f"  Moderate confidence: "
+            f"{summary.moderate_confidence}"
+        )
+        console.print(
+            f"  Low confidence:      {summary.low_confidence}"
+        )
+        console.print(
+            f"  Insufficient:        "
+            f"{summary.insufficient_confidence}"
+        )
+        console.print(
+            f"  With reset evidence: "
+            f"{summary.with_reset_evidence}"
+        )
+
+        console.print(
+            "\n[bold yellow]Read-only export. Effective DOM and "
+            "Churn Index are reported separately. Evidence summary "
+            "only, not a purchase recommendation.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"Export DOM evidence audit error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def cleanup_demo_data(
     db: str = typer.Option(
         config.database_path,
