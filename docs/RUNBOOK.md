@@ -2524,6 +2524,54 @@ The Streamlit dashboard includes an Initial Redfin Screening section with metric
 
 See `docs/REDFIN_SCREENING_QUEUE.md` for the full screening queue guide.
 
+## Custom Export Directories and Test Isolation (Milestone 55A)
+
+### Sending a refresh run somewhere else
+
+Every report from the refresh workflow lands in `data/exports/` by default. To direct a whole run elsewhere:
+
+```powershell
+python -m marketsentry.cli run-operator-refresh-workflow --exports-dir reports\2026-08-review
+```
+
+All eight steps honor this. Before Milestone 55A, candidate analysis, the watchlist monitoring report, and the operations digest ignored it and wrote to `data/exports` regardless, which made the flag misleading. Omitting the flag keeps the previous default behavior.
+
+The exporters also accept an optional `exports_dir` directly:
+
+```python
+export_candidate_analysis_report(database_path=db, exports_dir="reports/review")
+export_watchlist_monitoring_report(database_path=db, exports_dir="reports/review")
+```
+
+An explicit `output_path` still wins, since it already names the exact destination.
+
+### Generating release documents without touching the repo
+
+The release commands write `docs/RELEASE_CANDIDATE_CHECKLIST.md`, `docs/RELEASE_NOTES_DRAFT.md`, and `docs/RELEASE_NOTES_FINAL.md` under the project root. Use `--project-root` to send them to a scratch directory for review first:
+
+```powershell
+python -m marketsentry.cli export-release-candidate-report --output-dir tmp\rc --project-root tmp\rc
+python -m marketsentry.cli export-release-finalization-report --output-dir tmp\rc --project-root tmp\rc
+```
+
+`--project-root` defaults to `.`, so normal operator use is unchanged.
+
+### Test isolation
+
+`python -m pytest` no longer modifies tracked release documents. A guard test fails and names the file if a future test regenerates one, so this cannot silently regress.
+
+### Coverage policy
+
+`pyproject.toml` enforces `fail_under = 75`. Measured coverage is about 76.3%.
+
+- Current stabilization floor: **75%**
+- Goal: **80%**
+- Raise the floor as coverage climbs; never lower it
+- Live-network paths are covered with fakes and mocks only
+- **Do not add tests that make real network calls to inflate coverage.** `source_adapters/http_client.py` sits near 55% because its live branch is deliberately untested; that is correct, not a defect
+
+See `docs/decisions/055-workflow-test-coverage-stabilization.md`.
+
 ## HowLoud Noise Enrichment (Milestone 55)
 
 HowLoud is an optional third-party noise signal, stored separately from Redfin Quiet/Vibrancy and never blended into them. It is opt-in: nothing calls HowLoud unless you run an explicit command with enrichment enabled and a key configured.

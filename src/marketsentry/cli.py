@@ -5660,6 +5660,14 @@ def export_release_candidate_report(
         "--output-dir",
         help="Output directory for release candidate reports",
     ),
+    project_root: str = typer.Option(
+        ".",
+        "--project-root",
+        help=(
+            "Project root whose docs/ receives the generated "
+            "checklist and release notes"
+        ),
+    ),
     fmt: str = typer.Option(
         "both",
         "--format",
@@ -5669,8 +5677,9 @@ def export_release_candidate_report(
     """Export release candidate report to CSV and/or Markdown.
 
     Also generates docs/RELEASE_CANDIDATE_CHECKLIST.md and
-    docs/RELEASE_NOTES_DRAFT.md. Read-only; no mutations, no
-    GitHub release created, no outbound notifications.
+    docs/RELEASE_NOTES_DRAFT.md under --project-root. Read-only;
+    no mutations, no GitHub release created, no outbound
+    notifications.
     """
     try:
         from marketsentry.release_candidate import (
@@ -5682,7 +5691,10 @@ def export_release_candidate_report(
             db_path=db, exports_dir=exports_dir
         )
         exported = _export(
-            result, output_dir=output_dir, fmt=fmt
+            result,
+            output_dir=output_dir,
+            fmt=fmt,
+            project_root=project_root,
         )
 
         console.print(
@@ -5863,6 +5875,14 @@ def export_release_finalization_report(
         "--output-dir",
         help="Output directory for finalization reports",
     ),
+    project_root: str = typer.Option(
+        ".",
+        "--project-root",
+        help=(
+            "Project root whose docs/ receives the generated "
+            "final release notes"
+        ),
+    ),
     fmt: str = typer.Option(
         "both",
         "--format",
@@ -5872,8 +5892,9 @@ def export_release_finalization_report(
     """Export release finalization report.
 
     Exports Markdown and/or CSV finalization reports. Also
-    generates docs/RELEASE_NOTES_FINAL.md. Read-only; no
-    GitHub release/tag created, no outbound notifications.
+    generates docs/RELEASE_NOTES_FINAL.md under --project-root.
+    Read-only; no GitHub release/tag created, no outbound
+    notifications.
     """
     try:
         from marketsentry.release_finalization import (
@@ -5885,7 +5906,10 @@ def export_release_finalization_report(
             version=version
         )
         exported = _export(
-            result, output_dir=output_dir, fmt=fmt
+            result,
+            output_dir=output_dir,
+            fmt=fmt,
+            project_root=project_root,
         )
 
         console.print(

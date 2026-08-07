@@ -191,6 +191,22 @@ The command:
 - Reports warnings instead of crashing when a non-critical step fails
 - Tolerates empty or missing optional tables
 
+### Sending reports somewhere else
+
+By default every report lands in `data/exports/`. To write a whole refresh run
+into a different directory, for example to review it before it mixes with your
+normal exports:
+
+```bash
+marketsentry run-operator-refresh-workflow --exports-dir reports/2026-08-review
+```
+
+All eight steps honor this. As of Milestone 55A, candidate analysis, the
+watchlist monitoring report, and the operations digest follow it too; before
+that fix they silently wrote to `data/exports` regardless.
+
+Omitting `--exports-dir` keeps the previous default behavior.
+
 All commands default to the project database at `db/marketsentry.db`. You do not need to add `--db db\marketsentry.db` unless you are intentionally using a custom database.
 
 ## Exporting an Action Summary

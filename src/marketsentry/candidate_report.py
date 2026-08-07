@@ -16,13 +16,18 @@ from marketsentry.scoring import score_candidate
 def export_candidate_analysis_report(
     database_path: Optional[str] = None,
     output_path: Optional[str] = None,
+    exports_dir: Optional[str] = None,
 ) -> str:
     """
     Export candidate analysis report to CSV.
 
     Args:
         database_path: Path to database (defaults to config)
-        output_path: Output file path (defaults to timestamped file in data/exports/)
+        output_path: Output file path (defaults to a timestamped file in
+            the exports directory)
+        exports_dir: Optional directory for the auto-generated filename.
+            Ignored when output_path is given, since that already names
+            the destination. Defaults to the configured exports directory.
 
     Returns:
         Path to exported file
@@ -32,7 +37,7 @@ def export_candidate_analysis_report(
     # Generate output path if not provided
     if output_path is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = Path("data/exports")
+        output_dir = Path(exports_dir or config.data_exports_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"candidate_analysis_{timestamp}.csv"
     else:
@@ -296,13 +301,18 @@ def _write_csv_report(candidates: List[dict], output_path: Path):
 def export_markdown_summary(
     database_path: Optional[str] = None,
     output_path: Optional[str] = None,
+    exports_dir: Optional[str] = None,
 ) -> str:
     """
     Export candidate analysis summary to Markdown.
 
     Args:
         database_path: Path to database (defaults to config)
-        output_path: Output file path (defaults to timestamped file in data/exports/)
+        output_path: Output file path (defaults to a timestamped file
+            in the exports directory)
+        exports_dir: Optional directory for the auto-generated filename.
+            Ignored when output_path is given, since that already names
+            the destination. Defaults to the configured exports directory.
 
     Returns:
         Path to exported file
@@ -312,7 +322,7 @@ def export_markdown_summary(
     # Generate output path if not provided
     if output_path is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = Path("data/exports")
+        output_dir = Path(exports_dir or config.data_exports_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"candidate_summary_{timestamp}.md"
     else:

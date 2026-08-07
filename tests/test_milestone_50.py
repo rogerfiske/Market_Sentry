@@ -558,6 +558,10 @@ class TestCLI:
                     "export-release-finalization-report",
                     "--output-dir",
                     tmpdir,
+                    # Keeps the generated final release notes out of
+                    # the tracked docs/ directory.
+                    "--project-root",
+                    tmpdir,
                     "--format",
                     "both",
                 ],

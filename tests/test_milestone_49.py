@@ -627,6 +627,10 @@ class TestCLI:
                     "export-release-candidate-report",
                     "--output-dir",
                     tmpdir,
+                    # Keeps the generated checklist and release notes
+                    # out of the tracked docs/ directory.
+                    "--project-root",
+                    tmpdir,
                     "--format",
                     "both",
                 ],

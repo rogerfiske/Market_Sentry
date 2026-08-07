@@ -12,7 +12,9 @@ from marketsentry.monitoring import get_latest_snapshot
 
 
 def export_watchlist_monitoring_report(
-    output_path: Optional[str] = None, database_path: Optional[str] = None
+    output_path: Optional[str] = None,
+    database_path: Optional[str] = None,
+    exports_dir: Optional[str] = None,
 ) -> int:
     """
     Export watchlist monitoring report to CSV.
@@ -23,6 +25,9 @@ def export_watchlist_monitoring_report(
     Args:
         output_path: Optional output CSV path (auto-generated if not specified)
         database_path: Optional database path
+        exports_dir: Optional directory for the auto-generated filename.
+            Ignored when output_path is given, since that already names
+            the destination. Defaults to the configured exports directory.
 
     Returns:
         Number of properties exported
@@ -30,8 +35,10 @@ def export_watchlist_monitoring_report(
     # Generate output path if not specified
     if not output_path:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        target_dir = Path(exports_dir or config.data_exports_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
         output_path = str(
-            Path(config.data_exports_dir) / f"watchlist_monitoring_{timestamp}.csv"
+            target_dir / f"watchlist_monitoring_{timestamp}.csv"
         )
 
     # Ensure export directory exists

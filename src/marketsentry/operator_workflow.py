@@ -514,6 +514,7 @@ def run_operator_refresh_workflow(
 
         row_count = export_watchlist_monitoring_report(
             database_path=db_path,
+            exports_dir=exports_dir,
         )
         steps.append(
             OperatorWorkflowStep(
@@ -557,6 +558,7 @@ def run_operator_refresh_workflow(
 
         report_path = export_candidate_analysis_report(
             database_path=db_path,
+            exports_dir=exports_dir,
         )
         if report_path:
             output_paths.append(str(report_path))
@@ -595,9 +597,13 @@ def run_operator_refresh_workflow(
             export_operations_digest,
         )
 
+        # export_operations_digest separates where it scans for
+        # existing reports (exports_dir) from where it writes new
+        # ones (output_dir). Both must follow a custom directory.
         digest_result = export_operations_digest(
             db_path=db_path,
             exports_dir=exports_dir,
+            output_dir=exports_dir,
         )
         if hasattr(digest_result, 'export_paths'):
             output_paths.extend(

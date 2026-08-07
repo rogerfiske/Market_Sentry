@@ -6,7 +6,21 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: HowLoud Noise Enrichment Adapter (MVP 55)
+## Current Milestone: Workflow, Test Isolation, and Coverage Stabilization (MVP 55A)
+
+A stabilization pass. No new product features.
+
+- **`--exports-dir` now works for every refresh step.** Candidate analysis, the watchlist monitoring report, and the operations digest previously ignored it and wrote to `data/exports` regardless
+- Added an optional `exports_dir` to the candidate analysis and monitoring exporters, backward compatible; an explicit `output_path` still wins
+- Replaced two hardcoded `data/exports` paths with `config.data_exports_dir`, so `DATA_EXPORTS_DIR` finally works in `candidate_report.py`
+- **`pytest` no longer dirties tracked release documents.** Added `--project-root` to both release CLI commands and pointed the two CLI tests at a temp directory
+- A guard test fails and names the file if a future test regenerates a tracked release doc
+- **Coverage floor enforced:** `fail_under = 75` against a measured 76.3%, with a documented goal of 80%
+- No schema changes, no new dependencies, no behavior change when flags are omitted
+
+See [docs/decisions/055-workflow-test-coverage-stabilization.md](docs/decisions/055-workflow-test-coverage-stabilization.md).
+
+### MVP 55: HowLoud Noise Enrichment Adapter
 
 An optional, opt-in third-party noise signal, stored separately from Redfin
 Quiet/Vibrancy and never blended into them.
@@ -1853,7 +1867,8 @@ Market_Sentry/
 │   │   ├── 051-redfin-screening-queue.md
 │   │   ├── 052-screening-queue-batch-actions.md
 │   │   ├── 053-manual-score-entry-v2.md
-│   │   └── 054-howloud-noise-enrichment.md
+│   │   ├── 054-howloud-noise-enrichment.md
+│   │   └── 055-workflow-test-coverage-stabilization.md
 │   ├── examples/                              # Example artifacts (empty)
 │   └── prompts/                               # Milestone build prompts (53)
 │       ├── Market_Sentry_Claude_Prompt_001_Project_Scaffold.md
@@ -1912,7 +1927,8 @@ Market_Sentry/
 │       ├── Market_Sentry_Claude_Prompt_052A_Global_DB_Default_Stabilization.md
 │       ├── Market_Sentry_Claude_Prompt_053_Screening_Queue_Batch_Actions.md
 │       ├── Market_Sentry_Claude_Prompt_054_Manual_Score_Entry_v2.md
-│       └── Market_Sentry_Claude_Prompt_055_HowLoud_Noise_Enrichment.md
+│       ├── Market_Sentry_Claude_Prompt_055_HowLoud_Noise_Enrichment.md
+│       └── Market_Sentry_Claude_Prompt_055A_Workflow_Test_Coverage_Stabilization.md
 ├── logs/                                      # Application logs
 │   ├── .gitkeep
 │   ├── marketsentry.log
@@ -2155,7 +2171,8 @@ Market_Sentry/
 │   ├── test_milestone_52a.py                  # Database default stabilization tests
 │   ├── test_milestone_53.py                   # Screening batch action tests
 │   ├── test_milestone_54.py                   # Manual score entry tests
-│   └── test_milestone_55.py                   # HowLoud enrichment tests
+│   ├── test_milestone_55.py                   # HowLoud enrichment tests
+│   └── test_milestone_55a.py                  # Workflow/coverage stabilization tests
 ├── .coverage                                  # Coverage data (generated)
 ├── .env.example                               # Example configuration
 ├── .gitignore
@@ -2410,8 +2427,8 @@ Protected real properties, never removed: `31801 Valone Ct`, `31457 Britton Cir`
 
 ## Milestone Status
 
-Milestones 1-55, including stabilization milestone 52A, are complete. The project
-is at release candidate v0.1.0-rc1.
+Milestones 1-55, including stabilization milestones 52A and 55A, are complete.
+The project is at release candidate v0.1.0-rc1.
 
 **Note:** Milestone 51A (Operator Workflow Stabilization) fixed the operator
 workflow commands. Milestone 52A completed that fix across the entire codebase:

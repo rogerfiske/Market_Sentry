@@ -77,3 +77,21 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=marketsentry --cov-report=term-missing"
+
+[tool.coverage.report]
+# Stabilization floor, not the target. Measured coverage is ~76.3%.
+# The floor sits one point below that on purpose: a gate set exactly
+# at the current value flips red on the first uncovered line anyone
+# adds, which trains people to bypass it. One point of headroom keeps
+# the gate meaningful and trustworthy.
+#
+# Goal: 80%. Raise this floor as real coverage climbs; never lower it.
+#
+# Live-network code paths (source_adapters/http_client.py, the HowLoud
+# adapter's fetch path) are covered with fakes and mocks only. Do not
+# add tests that make real network calls to inflate this number, and
+# do not treat those modules' lower coverage as a defect to fix that
+# way. See docs/decisions/055-workflow-test-coverage-stabilization.md.
+fail_under = 75
+precision = 2
+show_missing = true
