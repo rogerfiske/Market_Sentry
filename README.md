@@ -6,7 +6,29 @@ Buyer-side real-estate market observation and watchlist system for Temecula/Murr
 
 Market_Sentry is a disciplined market observation tool that helps buyers identify residential properties with significant market exposure patterns. The system begins with candidate discovery, stages candidates for user review, and monitors selected properties using Effective DOM, Quiet/Vibrancy scoring, garage spaces, gas-service evidence, listing churn, and cross-site validation.
 
-## Current Milestone: Manual Quiet/Vibrancy and Noise Risk Entry v2 (MVP 54)
+## Current Milestone: HowLoud Noise Enrichment Adapter (MVP 55)
+
+An optional, opt-in third-party noise signal, stored separately from Redfin
+Quiet/Vibrancy and never blended into them.
+
+- New `howloud_observations` table; no existing table changed
+- New commands: `howloud-config-status`, `list-candidates-needing-howloud`, `enrich-candidate-howloud`, `compare-howloud-redfin`, `export-howloud-noise-report`
+- **Dry-run is the default** and is strictly non-mutating: no request, no rows, not even a schema change
+- A real call requires all three of `--no-dry-run`, `MARKETSENTRY_HOWLOUD_ENABLED=true`, and a configured key
+- The API key is read from the environment only, is deliberately **not** a config model field, travels in the `x-api-key` header rather than the query string, and is stripped from every string before storage
+- Comparison categories: `agreement_clear`, `possible_disagreement`, `missing_redfin_score`, `missing_howloud_score`, `manual_review_needed`
+- **HowLoud never changes the Quiet gatekeeper.** Every comparison prints a gatekeeper statement so it cannot be misread.
+- Coordinates are supplied by the operator: the HowLoud v2 API is coordinate-only and no geocoding service is called
+- Dashboard **HowLoud Noise Enrichment** section; loading it makes no request
+- No browser automation, no Redfin scraping, no outbound notifications, no credential storage, no walkability fields
+
+See [docs/HOWLOUD_NOISE_ENRICHMENT.md](docs/HOWLOUD_NOISE_ENRICHMENT.md).
+
+**Note:** the previously sequenced Redfin Rendered Lifestyle Score Capture Agent
+was deferred by the PM because it requires browser automation and explicit
+compliance scoping. It remains unimplemented and unscoped.
+
+### MVP 54: Manual Quiet/Vibrancy and Noise Risk Entry v2
 
 A safer, clearer workflow for the most manual step: typing in the Quiet and
 Vibrancy scores you read on the Redfin page, and recording local noise knowledge.
@@ -1754,6 +1776,7 @@ Market_Sentry/
 │   ├── ALERT_EXPIRATION_PROFILES.md
 │   ├── CROSS_SITE_MANUAL_FIXTURE_WORKFLOW.md
 │   ├── FIXTURE_CAPTURE_QUEUE.md
+│   ├── HOWLOUD_NOISE_ENRICHMENT.md
 │   ├── How I use Obsidian.md                  # Operator notes (untracked)
 │   ├── HowLoud openapi.json                   # HowLoud noise API spec (untracked)
 │   ├── LIVE_RETRIEVAL_STRATEGY.md
@@ -1829,7 +1852,8 @@ Market_Sentry/
 │   │   ├── 050-guided-operator-workflow.md
 │   │   ├── 051-redfin-screening-queue.md
 │   │   ├── 052-screening-queue-batch-actions.md
-│   │   └── 053-manual-score-entry-v2.md
+│   │   ├── 053-manual-score-entry-v2.md
+│   │   └── 054-howloud-noise-enrichment.md
 │   ├── examples/                              # Example artifacts (empty)
 │   └── prompts/                               # Milestone build prompts (53)
 │       ├── Market_Sentry_Claude_Prompt_001_Project_Scaffold.md
@@ -1887,7 +1911,8 @@ Market_Sentry/
 │       ├── Market_Sentry_Claude_Prompt_052_Redfin_Screening_Queue.md
 │       ├── Market_Sentry_Claude_Prompt_052A_Global_DB_Default_Stabilization.md
 │       ├── Market_Sentry_Claude_Prompt_053_Screening_Queue_Batch_Actions.md
-│       └── Market_Sentry_Claude_Prompt_054_Manual_Score_Entry_v2.md
+│       ├── Market_Sentry_Claude_Prompt_054_Manual_Score_Entry_v2.md
+│       └── Market_Sentry_Claude_Prompt_055_HowLoud_Noise_Enrichment.md
 ├── logs/                                      # Application logs
 │   ├── .gitkeep
 │   ├── marketsentry.log
@@ -1928,6 +1953,7 @@ Market_Sentry/
 │       ├── sample_data.py                     # Sample data generation
 │       ├── demo_data_cleanup.py               # Demo/sample cleanup and stray detection
 │       ├── manual_score_entry.py              # Manual Quiet/Vibrancy entry and validation
+│       ├── howloud_adapter.py                 # HowLoud noise enrichment (opt-in)
 │       ├── gas_detection.py                   # Gas service detection
 │       ├── quiet_vibrancy.py                  # Location scoring
 │       ├── scoring.py                         # Property scoring engine
@@ -2128,7 +2154,8 @@ Market_Sentry/
 │   ├── test_milestone_52.py                   # Redfin screening queue tests
 │   ├── test_milestone_52a.py                  # Database default stabilization tests
 │   ├── test_milestone_53.py                   # Screening batch action tests
-│   └── test_milestone_54.py                   # Manual score entry tests
+│   ├── test_milestone_54.py                   # Manual score entry tests
+│   └── test_milestone_55.py                   # HowLoud enrichment tests
 ├── .coverage                                  # Coverage data (generated)
 ├── .env.example                               # Example configuration
 ├── .gitignore
@@ -2383,7 +2410,7 @@ Protected real properties, never removed: `31801 Valone Ct`, `31457 Britton Cir`
 
 ## Milestone Status
 
-Milestones 1-54, including stabilization milestone 52A, are complete. The project
+Milestones 1-55, including stabilization milestone 52A, are complete. The project
 is at release candidate v0.1.0-rc1.
 
 **Note:** Milestone 51A (Operator Workflow Stabilization) fixed the operator
@@ -2406,6 +2433,7 @@ MIT
 - [docs/prompts/](docs/prompts/) - Implementation prompts
 - [docs/SCREENING_QUEUE_BATCH_ACTIONS.md](docs/SCREENING_QUEUE_BATCH_ACTIONS.md) - Screening batch actions guide
 - [docs/MANUAL_SCORE_ENTRY.md](docs/MANUAL_SCORE_ENTRY.md) - Manual Quiet/Vibrancy entry guide
+- [docs/HOWLOUD_NOISE_ENRICHMENT.md](docs/HOWLOUD_NOISE_ENRICHMENT.md) - HowLoud noise enrichment guide
 - [docs/decisions/](docs/decisions/) - Architecture decision records
 
 ## Notes

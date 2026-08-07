@@ -3315,6 +3315,337 @@ def _render_cross_site_fixture_processing(
 
 
     # -------------------------------------------------------------------
+    # Milestone 55 - HowLoud Noise Enrichment
+    # -------------------------------------------------------------------
+
+    st.subheader("HowLoud Noise Enrichment")
+    st.caption(
+        "Optional third-party noise signal, stored separately from "
+        "Redfin Quiet/Vibrancy. Opt-in only: no request is made when "
+        "this page loads."
+    )
+
+    try:
+        from marketsentry.howloud_adapter import (
+            compare_howloud_to_redfin,
+            enrich_candidate_with_howloud,
+            export_howloud_noise_report,
+            get_howloud_config_status,
+            get_latest_howloud_observation,
+            list_candidates_needing_howloud,
+        )
+
+        # Config status. Shows a masked key only, never the value.
+        _hl_status = get_howloud_config_status()
+
+        _hc1, _hc2, _hc3 = st.columns(3)
+        with _hc1:
+            st.metric(
+                "Enabled",
+                "yes" if _hl_status.enabled else "no",
+            )
+        with _hc2:
+            st.metric(
+                "API key",
+                "present"
+                if _hl_status.api_key_present
+                else "not set",
+            )
+        with _hc3:
+            st.metric(
+                "Ready", "yes" if _hl_status.ready else "no"
+            )
+
+        st.caption(f"Key: {_hl_status.api_key_masked}")
+        st.caption(
+            f"Base URL: {_hl_status.base_url} | Timeout: "
+            f"{_hl_status.timeout_seconds}s"
+        )
+        for _msg in _hl_status.messages:
+            st.info(_msg)
+
+        st.warning(
+            "HowLoud is separate evidence. It is never blended into "
+            "Redfin Quiet/Vibrancy and never changes the Quiet "
+            "gatekeeper result."
+        )
+
+        # Candidates needing enrichment. Read-only.
+        _hl_needing = list_candidates_needing_howloud(
+            db_path=db_path
+        )
+        if _hl_needing:
+            import pandas as pd
+
+            st.markdown("**Candidates needing HowLoud**")
+            st.dataframe(
+                pd.DataFrame([
+                    {
+                        "ID": r["candidate_id"],
+                        "Address": r["address"] or "",
+                        "City": r["city"] or "",
+                        "Redfin Quiet": (
+                            r["quiet_score"]
+                            if r["quiet_score"] is not None
+                            else ""
+                        ),
+                        "Gatekeeper": (
+                            r["quiet_gatekeeper_result"] or ""
+                        ),
+                        "Coordinates": (
+                            f"{r['latitude']}, {r['longitude']}"
+                            if r["has_coordinates"]
+                            else "not set"
+                        ),
+                    }
+                    for r in _hl_needing
+                ]),
+                use_container_width=True,
+            )
+            st.caption(
+                "The HowLoud v2 API accepts latitude and longitude "
+                "only; it has no address endpoint. Supply "
+                "coordinates below."
+            )
+        else:
+            st.success(
+                "All candidates have a HowLoud reading."
+            )
+
+        # Candidate selector and latest observation. Read-only.
+        _hl_conn = sqlite3.connect(db_path)
+        try:
+            _hl_ids = [
+                r[0]
+                for r in _hl_conn.execute(
+                    "SELECT candidate_id FROM "
+                    "candidate_review_queue ORDER BY candidate_id"
+                ).fetchall()
+            ]
+        except Exception:
+            _hl_ids = []
+        finally:
+            _hl_conn.close()
+
+        if _hl_ids:
+            _hl_selected = st.selectbox(
+                "Select candidate",
+                _hl_ids,
+                key="howloud_candidate_select",
+            )
+
+            _hl_latest = get_latest_howloud_observation(
+                int(_hl_selected), db_path=db_path
+            )
+            if _hl_latest:
+                st.markdown("**Latest HowLoud observation**")
+                _ho1, _ho2, _ho3, _ho4 = st.columns(4)
+                with _ho1:
+                    st.metric(
+                        "Soundscore",
+                        _hl_latest.noise_score
+                        if _hl_latest.noise_score is not None
+                        else "-",
+                    )
+                with _ho2:
+                    st.metric(
+                        "Traffic",
+                        _hl_latest.traffic_score
+                        if _hl_latest.traffic_score is not None
+                        else "-",
+                    )
+                with _ho3:
+                    st.metric(
+                        "Airports",
+                        _hl_latest.airport_score
+                        if _hl_latest.airport_score is not None
+                        else "-",
+                    )
+                with _ho4:
+                    st.metric(
+                        "Local",
+                        _hl_latest.locality_score
+                        if _hl_latest.locality_score is not None
+                        else "-",
+                    )
+                st.caption(
+                    f"Label: {_hl_latest.raw_score_label or '-'} | "
+                    f"Observed: {_hl_latest.created_at or '-'}"
+                )
+            else:
+                st.info(
+                    "No HowLoud observation recorded for this "
+                    "candidate."
+                )
+
+            # Comparison. Read-only, never merges the two sources.
+            _hl_cmp = compare_howloud_to_redfin(
+                int(_hl_selected), db_path=db_path
+            )
+            st.markdown("**Redfin vs HowLoud**")
+            _cc1, _cc2 = st.columns(2)
+            with _cc1:
+                st.markdown("Redfin")
+                st.caption(
+                    f"Quiet: {_hl_cmp.redfin_quiet_score} | "
+                    f"Vibrancy: {_hl_cmp.redfin_vibrancy_score}"
+                )
+                st.caption(
+                    f"Gatekeeper: "
+                    f"{_hl_cmp.redfin_gatekeeper_result or '-'}"
+                )
+            with _cc2:
+                st.markdown("HowLoud")
+                st.caption(
+                    f"Soundscore: {_hl_cmp.howloud_noise_score} "
+                    f"({_hl_cmp.howloud_score_label or '-'})"
+                )
+                st.caption(
+                    f"Traffic: {_hl_cmp.howloud_traffic_score} | "
+                    f"Airports: {_hl_cmp.howloud_airport_score}"
+                )
+
+            st.caption(f"Agreement: {_hl_cmp.agreement_level}")
+            if _hl_cmp.needs_manual_review:
+                st.warning(_hl_cmp.comparison_note)
+            else:
+                st.info(_hl_cmp.comparison_note)
+            st.caption(_hl_cmp.gatekeeper_note)
+
+            # Enrichment forms. Network only on explicit submit.
+            with st.form("howloud_dry_run_form"):
+                st.markdown("**Dry-run preview**")
+                _hl_dr_id = st.number_input(
+                    "Candidate ID",
+                    min_value=1,
+                    step=1,
+                    value=int(_hl_selected),
+                    key="howloud_dr_id",
+                )
+                _hl_dr_lat = st.number_input(
+                    "Latitude",
+                    min_value=-90.0,
+                    max_value=90.0,
+                    step=0.0001,
+                    format="%.6f",
+                    key="howloud_dr_lat",
+                )
+                _hl_dr_lng = st.number_input(
+                    "Longitude",
+                    min_value=-180.0,
+                    max_value=180.0,
+                    step=0.0001,
+                    format="%.6f",
+                    key="howloud_dr_lng",
+                )
+                _hl_dr_submit = st.form_submit_button(
+                    "Preview (no request)"
+                )
+                if _hl_dr_submit:
+                    _hl_dr_result = enrich_candidate_with_howloud(
+                        candidate_id=int(_hl_dr_id),
+                        latitude=float(_hl_dr_lat),
+                        longitude=float(_hl_dr_lng),
+                        db_path=db_path,
+                        dry_run=True,
+                    )
+                    if _hl_dr_result.request and (
+                        _hl_dr_result.request.endpoint_url
+                    ):
+                        st.code(
+                            _hl_dr_result.request.endpoint_url
+                        )
+                    st.info(_hl_dr_result.detail)
+                    for _e in _hl_dr_result.errors:
+                        st.warning(_e)
+
+            with st.form("howloud_enrich_form"):
+                st.markdown("**Enrich with HowLoud**")
+                st.caption(
+                    "Makes one outbound request to HowLoud. "
+                    "Requires enrichment enabled and an API key."
+                )
+                _hl_en_id = st.number_input(
+                    "Candidate ID",
+                    min_value=1,
+                    step=1,
+                    value=int(_hl_selected),
+                    key="howloud_en_id",
+                )
+                _hl_en_lat = st.number_input(
+                    "Latitude",
+                    min_value=-90.0,
+                    max_value=90.0,
+                    step=0.0001,
+                    format="%.6f",
+                    key="howloud_en_lat",
+                )
+                _hl_en_lng = st.number_input(
+                    "Longitude",
+                    min_value=-180.0,
+                    max_value=180.0,
+                    step=0.0001,
+                    format="%.6f",
+                    key="howloud_en_lng",
+                )
+                _hl_en_confirm = st.checkbox(
+                    "I want to send a request to HowLoud now",
+                    value=False,
+                    key="howloud_en_confirm",
+                )
+                _hl_en_submit = st.form_submit_button(
+                    "Enrich with HowLoud"
+                )
+                if _hl_en_submit:
+                    if not _hl_en_confirm:
+                        st.error(
+                            "Tick the confirmation box to send a "
+                            "request."
+                        )
+                    elif not _hl_status.ready:
+                        st.error(
+                            "HowLoud is not configured. See the "
+                            "notes above."
+                        )
+                    else:
+                        _hl_en_result = (
+                            enrich_candidate_with_howloud(
+                                candidate_id=int(_hl_en_id),
+                                latitude=float(_hl_en_lat),
+                                longitude=float(_hl_en_lng),
+                                db_path=db_path,
+                                dry_run=False,
+                            )
+                        )
+                        if _hl_en_result.success:
+                            st.success(_hl_en_result.detail)
+                        else:
+                            st.error(_hl_en_result.detail)
+                        for _e in _hl_en_result.errors:
+                            st.warning(_e)
+
+        with st.form("howloud_export_form"):
+            st.markdown("**Export HowLoud Noise Report**")
+            _hl_fmt = st.selectbox(
+                "Format",
+                ["both", "csv", "md"],
+                key="howloud_export_fmt",
+            )
+            _hl_export_submit = st.form_submit_button(
+                "Export Report"
+            )
+            if _hl_export_submit:
+                for _p in export_howloud_noise_report(
+                    db_path=db_path, fmt=_hl_fmt
+                ):
+                    st.success(f"Exported: {_p}")
+
+    except Exception as _hl_error:
+        st.info(
+            f"HowLoud enrichment unavailable: {_hl_error}"
+        )
+
+    # -------------------------------------------------------------------
     # Milestone 54 - Manual Quiet/Vibrancy Entry
     # -------------------------------------------------------------------
 

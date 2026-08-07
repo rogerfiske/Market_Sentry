@@ -96,6 +96,36 @@ marketsentry export-manual-score-entry-queue
 See `docs/MANUAL_SCORE_ENTRY.md` for the full guide, including where to find
 the scores on the Redfin page.
 
+## Optional: HowLoud Noise Enrichment
+
+HowLoud is an optional third-party noise signal, stored separately from Redfin
+Quiet/Vibrancy and never blended into them. It is opt-in: nothing calls HowLoud
+unless you run an explicit command with enrichment enabled and a key configured.
+
+```bash
+marketsentry howloud-config-status
+marketsentry list-candidates-needing-howloud
+
+# Preview only. Default; no request, no database write.
+marketsentry enrich-candidate-howloud --candidate-id 5 --lat 33.4936 --lng -117.1484
+
+# Actually call HowLoud
+marketsentry enrich-candidate-howloud --candidate-id 5 --lat 33.4936 --lng -117.1484 --no-dry-run
+
+marketsentry compare-howloud-redfin --candidate-id 5
+marketsentry export-howloud-noise-report
+```
+
+The HowLoud v2 API accepts latitude and longitude only, so you supply
+coordinates once per property. They are stored and reused on later runs.
+
+**HowLoud never changes the Quiet gatekeeper.** A candidate that fails at
+Quiet 6.9 still fails, whatever HowLoud reports. Disagreement between the two
+sources is flagged for your manual review, which is the point of having both.
+
+The API key is read from the environment only and is never printed, logged,
+stored, or included in any report. See `docs/HOWLOUD_NOISE_ENRICHMENT.md`.
+
 ### How Scores Work
 
 - **Quiet Score**: 0 to 10 scale. Higher is quieter (better). The gatekeeper threshold is 7.0.

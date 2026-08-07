@@ -10214,6 +10214,418 @@ def export_manual_score_entry_queue(
 
 
 @app.command()
+def howloud_config_status(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Show HowLoud configuration without exposing the API key.
+
+    Read-only. Reports whether enrichment is enabled and whether a key
+    is present. The key itself is never printed; only a masked form
+    showing the last four characters.
+    """
+    try:
+        from marketsentry.howloud_adapter import (
+            get_howloud_config_status,
+        )
+
+        status = get_howloud_config_status()
+
+        console.print("\n[bold]HowLoud Configuration[/bold]")
+        console.print(
+            f"  Enabled:      "
+            f"{'yes' if status.enabled else 'no'}"
+        )
+        console.print(
+            f"  API key:      {status.api_key_masked}"
+        )
+        console.print(f"  Base URL:     {status.base_url}")
+        console.print(
+            f"  Timeout:      {status.timeout_seconds}s"
+        )
+        console.print(
+            f"  Ready:        "
+            f"{'yes' if status.ready else 'no'}"
+        )
+
+        if status.messages:
+            console.print("\n[bold]Notes[/bold]")
+            for message in status.messages:
+                console.print(f"  {message}")
+
+        console.print(
+            "\n[bold yellow]Read-only. No request was made. "
+            "The API key is never printed, logged, or stored."
+            "[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"HowLoud config status error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def list_candidates_needing_howloud(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """List candidates without a successful HowLoud reading.
+
+    Read-only and offline. Makes no HowLoud request.
+    """
+    try:
+        from marketsentry.howloud_adapter import (
+            list_candidates_needing_howloud as _needing,
+        )
+
+        rows = _needing(db_path=db)
+
+        console.print(
+            "\n[bold]Candidates Needing HowLoud Enrichment[/bold]"
+        )
+        console.print(f"  Total: {len(rows)}")
+
+        if rows:
+            table = Table(show_header=True)
+            table.add_column("ID")
+            table.add_column("Address")
+            table.add_column("City")
+            table.add_column("Redfin Quiet")
+            table.add_column("Gatekeeper")
+            table.add_column("Coordinates")
+            for row in rows:
+                table.add_row(
+                    str(row["candidate_id"]),
+                    row["address"] or "",
+                    row["city"] or "",
+                    (
+                        str(row["quiet_score"])
+                        if row["quiet_score"] is not None
+                        else ""
+                    ),
+                    row["quiet_gatekeeper_result"] or "",
+                    (
+                        f"{row['latitude']}, {row['longitude']}"
+                        if row["has_coordinates"]
+                        else "not set"
+                    ),
+                )
+            console.print(table)
+
+            missing_coords = [
+                r for r in rows if not r["has_coordinates"]
+            ]
+            if missing_coords:
+                console.print(
+                    "\n[bold]Coordinates required[/bold]"
+                )
+                console.print(
+                    "  The HowLoud v2 API accepts latitude and "
+                    "longitude only; it has no address endpoint."
+                )
+                for row in missing_coords:
+                    console.print(
+                        "    $ marketsentry "
+                        "enrich-candidate-howloud --candidate-id "
+                        f"{row['candidate_id']} --lat <lat> "
+                        "--lng <lng> --dry-run"
+                    )
+        else:
+            console.print(
+                "\n  All candidates have a HowLoud reading."
+            )
+
+        console.print(
+            "\n[bold yellow]Read-only. No HowLoud request was "
+            "made.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"List candidates needing HowLoud error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def enrich_candidate_howloud(
+    candidate_id: int = typer.Option(
+        ...,
+        "--candidate-id",
+        help="Candidate ID to enrich",
+    ),
+    lat: Optional[float] = typer.Option(
+        None,
+        "--lat",
+        help="Latitude of the property",
+    ),
+    lng: Optional[float] = typer.Option(
+        None,
+        "--lng",
+        help="Longitude of the property",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--no-dry-run",
+        help="Preview only. Default is dry-run; no request is made.",
+    ),
+) -> None:
+    """Enrich one candidate with a HowLoud noise reading.
+
+    Dry-run by default: no network request and no database write.
+    A real call requires --no-dry-run, MARKETSENTRY_HOWLOUD_ENABLED,
+    and a configured API key. HowLoud values are stored separately and
+    never overwrite Redfin Quiet/Vibrancy.
+    """
+    try:
+        from marketsentry.howloud_adapter import (
+            enrich_candidate_with_howloud,
+        )
+
+        result = enrich_candidate_with_howloud(
+            candidate_id=candidate_id,
+            latitude=lat,
+            longitude=lng,
+            db_path=db,
+            dry_run=dry_run,
+        )
+
+        console.print("\n[bold]HowLoud Enrichment[/bold]")
+        console.print(f"  Candidate:    {candidate_id}")
+        console.print(f"  Mode:         "
+                      f"{'dry-run' if result.dry_run else 'live'}")
+        console.print(f"  Status:       {result.status}")
+        console.print(
+            f"  Network call: "
+            f"{'yes' if result.network_call_performed else 'no'}"
+        )
+
+        if result.request:
+            console.print(
+                f"  Address:      "
+                f"{result.request.address or ''}"
+            )
+            if result.request.latitude is not None:
+                console.print(
+                    f"  Coordinates:  "
+                    f"{result.request.latitude}, "
+                    f"{result.request.longitude}"
+                )
+            if result.request.endpoint_url:
+                console.print(
+                    f"  Endpoint:     "
+                    f"{result.request.endpoint_url}"
+                )
+
+        if result.observation and result.observation.status == "ok":
+            obs = result.observation
+            console.print("\n[bold]HowLoud Reading[/bold]")
+            console.print(
+                f"  Soundscore:   {obs.noise_score} "
+                f"({obs.raw_score_label or 'no label'})"
+            )
+            console.print(
+                f"  Traffic:      {obs.traffic_score} "
+                f"({obs.traffic_label or ''})"
+            )
+            console.print(
+                f"  Airports:     {obs.airport_score} "
+                f"({obs.airport_label or ''})"
+            )
+            console.print(
+                f"  Local:        {obs.locality_score} "
+                f"({obs.locality_label or ''})"
+            )
+
+        if result.errors:
+            console.print("\n[bold]Notes[/bold]")
+            for error in result.errors:
+                console.print(f"  [yellow]{error}[/yellow]")
+
+        console.print(f"\n  {result.detail}")
+
+        console.print(
+            "\n[bold yellow]HowLoud is stored separately and does "
+            "not change Redfin Quiet/Vibrancy or the Quiet "
+            "gatekeeper. No API key is printed or stored."
+            "[/bold yellow]"
+        )
+
+        if not result.success and not result.dry_run:
+            raise typer.Exit(code=1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"HowLoud enrichment error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def compare_howloud_redfin(
+    candidate_id: int = typer.Option(
+        ...,
+        "--candidate-id",
+        help="Candidate ID to compare",
+    ),
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+) -> None:
+    """Compare stored HowLoud evidence against Redfin scores.
+
+    Read-only. Reports both sources side by side without merging them.
+    HowLoud never changes the Quiet gatekeeper result.
+    """
+    try:
+        from marketsentry.howloud_adapter import (
+            compare_howloud_to_redfin,
+        )
+
+        result = compare_howloud_to_redfin(
+            candidate_id, db_path=db
+        )
+
+        console.print(
+            f"\n[bold]HowLoud vs Redfin - Candidate "
+            f"{candidate_id}[/bold]"
+        )
+        console.print(f"  Address:            {result.address or ''}")
+
+        console.print("\n[bold]Redfin[/bold]")
+        console.print(
+            f"  Quiet:              "
+            f"{result.redfin_quiet_score}"
+        )
+        console.print(
+            f"  Vibrancy:           "
+            f"{result.redfin_vibrancy_score}"
+        )
+        console.print(
+            f"  Gatekeeper:         "
+            f"{result.redfin_gatekeeper_result or 'not evaluated'}"
+        )
+
+        console.print("\n[bold]HowLoud[/bold]")
+        console.print(
+            f"  Soundscore:         "
+            f"{result.howloud_noise_score} "
+            f"({result.howloud_score_label or 'no label'})"
+        )
+        console.print(
+            f"  Traffic:            "
+            f"{result.howloud_traffic_score}"
+        )
+        console.print(
+            f"  Airports:           "
+            f"{result.howloud_airport_score}"
+        )
+        console.print(
+            f"  Observed at:        "
+            f"{result.howloud_observed_at or 'never'}"
+        )
+
+        console.print("\n[bold]Comparison[/bold]")
+        console.print(f"  Agreement:          {result.agreement_level}")
+        console.print(
+            f"  Needs manual review:"
+            f" {'yes' if result.needs_manual_review else 'no'}"
+        )
+        if result.needs_manual_review:
+            console.print(
+                f"  [yellow]{result.comparison_note}[/yellow]"
+            )
+        else:
+            console.print(f"  {result.comparison_note}")
+
+        console.print(
+            f"\n[bold]Gatekeeper[/bold]\n  {result.gatekeeper_note}"
+        )
+
+        console.print(
+            "\n[bold yellow]Read-only. Sources are reported side by "
+            "side and never blended. Analytical evidence, not a "
+            "purchase recommendation.[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"HowLoud comparison error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export_howloud_noise_report(
+    db: str = typer.Option(
+        config.database_path,
+        "--db",
+        help="Path to the SQLite database",
+    ),
+    output_dir: str = typer.Option(
+        "data/exports",
+        "--output-dir",
+        help="Output directory for the report",
+    ),
+    fmt: str = typer.Option(
+        "both",
+        "--format",
+        help="Export format: csv, md, or both",
+    ),
+) -> None:
+    """Export the HowLoud vs Redfin comparison report.
+
+    Read-only. Makes no HowLoud request and contains no API key.
+    """
+    try:
+        from marketsentry.howloud_adapter import (
+            export_howloud_noise_report as _export,
+        )
+
+        paths = _export(
+            db_path=db,
+            exports_dir=output_dir,
+            fmt=fmt,
+        )
+
+        console.print("\n[bold]HowLoud Noise Report Export[/bold]")
+        for path in paths:
+            console.print(f"  Exported: {path}")
+
+        console.print(
+            "\n[bold yellow]Read-only export. No HowLoud request "
+            "was made. No API key appears in the report."
+            "[/bold yellow]"
+        )
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        logger.error(f"HowLoud report export error: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def cleanup_demo_data(
     db: str = typer.Option(
         config.database_path,

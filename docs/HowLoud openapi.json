@@ -1,0 +1,577 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Howloud",
+    "description": "# Introduction\nThe howloud API offers map tiles and soundscores.\n",
+    "version": "2.0.0",
+    "contact": {
+      "url": "https://www.howloud.com"
+    },
+    "x-logo": {
+      "url": "https://howloud.com/howloud-logo.png",
+      "altText": "howloud logo"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.howloud.com/"
+    }
+  ],
+  "paths": {
+    "/v2/score": {
+      "get": {
+        "summary": "Retrieves a soundscore for the given latitude and longitude",
+        "operationId": "v2GetSoundscoreLatLng",
+        "parameters": [
+          {
+            "name": "lat",
+            "$ref": "#/components/parameters/lat"
+          },
+          {
+            "name": "lng",
+            "$ref": "#/components/parameters/lng"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A soundscore",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/soundscore"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The address could not be found, or could not be geocoded"
+          },
+          "500": {
+            "description": "An internal error. Please contact support"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "python",
+            "source": "params = { 'lng': '-93.3', 'lat': '37.12' }\nurl = 'https://api.howloud.com/v2/score'\nheaders = {'x-api-key': '<YOUR API KEY>'}\nr = requests.get(url, params=params, headers=headers)\nres = r.json()\nprint(res['result'][0]['score'])\n"
+          },
+          {
+            "lang": "ruby",
+            "source": "#!/usr/bin/env ruby\n\nrequire 'net/http'\nrequire 'uri'\n\nuri = URI(\"https://api.howloud.com/v2/score?lat=37.12&lng=-93.3\")\nrequest = Net::HTTP::Get.new(uri)\n\nrequest[\"x-api-key\"] = \"<YOUR API KEY>\"\n\nreq_options = {\n    use_ssl: true\n}\n\nresponse = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|\n  http.request(request)\nend\n\nputs response.code\nputs response.body\n"
+          },
+          {
+            "lang": "curl",
+            "source": "curl -G -H \"x-api-key: <YOUR API KEY>\" \"https://api.howloud.com/v2/score\" --data-urlencode \"lng=-93.3\" --data-urlencode \"lat=37.12\"\n"
+          }
+        ],
+        "security": [
+          {
+            "query-api-key": []
+          },
+          {
+            "header-api-key": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Retrieves up to 250 soundscores for the given coordinates",
+        "description": "Submit a list of locations to get soundscore results in a single request.\nEach input object must have:\n- `id`: a user-supplied string (not validated or used by the system, but must be a string)\n- `lat`: latitude (number)\n- `lng`: longitude (number)\n\nThe response will be a list of objects, each containing:\n- `id`, `lat`, `lng` (echoed from input)\n- `result`: the same as the `result` member from GET /v2/score\n\nThis endpoint is suitable for synchronous scoring of a small number of locations.\n\nFor larger requests use the `/v2/jobs` endpoints for asynchronous processing of up to 10,000 locations.\n",
+        "operationId": "v2BatchScore",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "lat",
+                    "lng"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "lat": {
+                      "type": "number"
+                    },
+                    "lng": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "List of results for each input location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "lat": {
+                        "type": "number"
+                      },
+                      "lng": {
+                        "type": "number"
+                      },
+                      "result": {
+                        "$ref": "#/components/schemas/soundscore/properties/result"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "python",
+            "source": "import requests\nurl = 'https://api.howloud.com/v2/score'\nheaders = {'x-api-key': '<YOUR API KEY>', 'Content-Type': 'application/json'}\ndata = [\n    {\"id\": \"abc123\", \"lat\": 37.12, \"lng\": -93.3},\n    {\"id\": \"def456\", \"lat\": 37.13, \"lng\": -93.4}\n]\nr = requests.post(url, json=data, headers=headers)\nresults = r.json()\nprint(results)\n"
+          },
+          {
+            "lang": "curl",
+            "source": "curl -X POST -H \"x-api-key: <YOUR API KEY>\" -H \"Content-Type: application/json\" \\\n  -d '[{\"id\": \"abc123\", \"lat\": 37.12, \"lng\": -93.3}, {\"id\": \"def456\", \"lat\": 37.13, \"lng\": -93.4}]' \\\n  \"https://api.howloud.com/v2/score\"\n"
+          }
+        ]
+      }
+    },
+    "/v2/tiles/{type}/{z}/{x}/{y}.png": {
+      "get": {
+        "summary": "Retrieves tiles for the given type, latitude, longitude and zoom level (WGS84/EPSG:3857)",
+        "operationId": "v2GetTiles",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "description": "type of tile to retrieve",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "airports",
+              "enum": [
+                "airports",
+                "local",
+                "score",
+                "traffic"
+              ]
+            }
+          },
+          {
+            "name": "z",
+            "in": "path",
+            "$ref": "#/components/parameters/z"
+          },
+          {
+            "name": "x",
+            "in": "path",
+            "$ref": "#/components/parameters/x"
+          },
+          {
+            "name": "y",
+            "$ref": "#/components/parameters/y"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "tile in png format",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An internal error. Please contact support"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "python",
+            "source": "url = 'https://api.howloud.com/v2/tiles/airports/12/1195/1565.png'\nheaders = {'x-api-key': '<YOUR API KEY>'}\nr = requests.get(url, params=params, headers=headers)\n"
+          },
+          {
+            "lang": "curl",
+            "source": "curl -G -H \"x-api-key: <YOUR API KEY>\" \"https://api.howloud.com/v2/tiles/airports/12/1195/1565.png\"\n"
+          }
+        ],
+        "security": [
+          {
+            "query-api-key": []
+          },
+          {
+            "header-api-key": []
+          }
+        ]
+      }
+    },
+    "/map/": {
+      "get": {
+        "summary": "Retrieves soundscore heatmap, an html map showing soundscore heatmap tiles. Requires trailing slash.",
+        "operationId": "getMap",
+        "responses": {
+          "200": {
+            "description": "An html map",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "http",
+            "source": "https://api.howloud.com/map/?x-api-key=<YOUR API KEY>\n"
+          },
+          {
+            "lang": "curl",
+            "source": "curl -G -H \"x-api-key: <YOUR API KEY>\" \"https://api.howloud.com/map/\"\n"
+          }
+        ],
+        "security": [
+          {
+            "query-api-key": []
+          },
+          {
+            "header-api-key": []
+          }
+        ]
+      }
+    },
+    "/coverage/": {
+      "get": {
+        "summary": "Retrieves soundscore coverage, an html map showing soundscore coverage. Requires trailing slash.",
+        "operationId": "getCoverageMap",
+        "responses": {
+          "200": {
+            "description": "An html map",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "http",
+            "source": "https://api.howloud.com/coverage/?x-api-key=<YOUR API KEY>\n"
+          },
+          {
+            "lang": "curl",
+            "source": "curl -G -H \"x-api-key: <YOUR API KEY>\" \"https://api.howloud.com/coverage/\"\n"
+          }
+        ],
+        "security": [
+          {
+            "query-api-key": []
+          },
+          {
+            "header-api-key": []
+          }
+        ]
+      }
+    },
+    "/v2/jobs": {
+      "post": {
+        "summary": "Create a new job and get a presigned S3 upload URL",
+        "description": "Create a new job to process a bulk upload of up to 10,000 locations. The response includes a presigned S3 upload URL where the user can upload a file containing the locations to be processed.\n\n**Limit:**\nThe uploaded NDJSON file may contain up to 10,000 records. Larger uploads will be rejected.\n\n**Upload Format:**\nThe file uploaded to the S3 presigned URL MUST be in newline-delimited JSON (NDJSON) format. Each line should be a valid JSON object with the following structure:\n\n`{ \"id\": <string>, \"lat\": <number>, \"lng\": <number> }`\n\n- The `id` field is a user-supplied string. It is not used or validated by the system, but must be a string. You can use this field to correlate results with your original request after retrieving results from S3.\n\nExample NDJSON file:\n```\n{ \"id\": \"abc123\", \"lat\": 37.12, \"lng\": -93.3 }\n{ \"id\": \"def456\", \"lat\": 37.13, \"lng\": -93.4 }\n```\n\nAfter uploading the file to the provided URL, the job will be processed asynchronously. Users can check the status of the job using the job ID returned in the response.\n",
+        "operationId": "createJob",
+        "requestBody": {
+          "description": "No request body required",
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "description": "Job created, presigned upload URL returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string"
+                    },
+                    "uploadUrl": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "waiting_for_upload"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "python",
+            "source": "import requests\nurl = 'https://api.howloud.com/v2/jobs'\nheaders = {'x-api-key': '<YOUR API KEY>'}\nr = requests.post(url, headers=headers)\njob = r.json()\nprint(job)\nuploadUrl = job['uploadUrl']\n\n# Prepare NDJSON file\nwith open('locations.ndjson', 'w') as f:\n    f.write('{\"id\": \"abc123\", \"lat\": 37.12, \"lng\": -93.3 }\\n')\n    f.write('{\"id\": \"def456\", \"lat\": 37.13, \"lng\": -93.4 }\\n')\n# Example PUT to S3\nwith open('locations.ndjson', 'rb') as f:\n    put_resp = requests.put(uploadUrl, data=f, headers={\"Content-Type\": \"application/x-ndjson\"})\n    print(put_resp.status_code)\n"
+          },
+          {
+            "lang": "curl",
+            "source": "curl -X POST -H \"x-api-key: <YOUR API KEY>\" \"https://api.howloud.com/v2/jobs\"\n# Prepare NDJSON file\necho '{\"id\": \"abc123\", \"lat\": 37.12, \"lng\": -93.3 }' > locations.ndjson\necho '{\"id\": \"def456\", \"lat\": 37.13, \"lng\": -93.4 }' >> locations.ndjson\n# Example PUT to S3\ncurl -X PUT -H \"Content-Type: application/x-ndjson\" --upload-file locations.ndjson \"<uploadUrl>\"\n"
+          }
+        ],
+        "security": [
+          {
+            "query-api-key": []
+          },
+          {
+            "header-api-key": []
+          }
+        ]
+      },
+      "get": {
+        "summary": "Get job status and details",
+        "description": "Retrieve the status and details of a bulk job. If the job is completed, the response will include a presigned S3 download URL (`downloadUrl`).\n\n**How to use:**\n1. Call this endpoint with the job ID to check the job status.\n2. If the job status is `completed` and a `downloadUrl` is present, use the presigned URL to download your results file.\n\nThe downloaded file will be in NDJSON format, with each line containing a JSON object like:\n`{ \"id\": <string>, \"lat\": <number>, \"lng\": <number>, \"result\": <same as the JSON for GET /score> }`\n\n- The `id` field is a user-supplied string from your original request. It is not used or validated by the system, but must be a string. Use this field to correlate each result with your input data.\n\nExample NDJSON result file:\n```\n{ \"id\": \"abc123\", \"lat\": 37.12, \"lng\": -93.3, \"result\": { \"score\": 80, ... } }\n{ \"id\": \"def456\", \"lat\": 37.13, \"lng\": -93.4, \"result\": { \"score\": 75, ... } }\n```\n\nDownload the file using curl or Python as shown in the examples below.\n",
+        "operationId": "getJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "number",
+                      "description": "Optional, creation timestamp"
+                    },
+                    "updatedAt": {
+                      "type": "number",
+                      "description": "Optional, last update timestamp"
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Optional, error message"
+                    },
+                    "processedCount": {
+                      "type": "number",
+                      "description": "Optional, processed item count"
+                    },
+                    "totalCount": {
+                      "type": "number",
+                      "description": "Optional, total item count"
+                    },
+                    "downloadUrl": {
+                      "type": "string",
+                      "description": "Optional, presigned S3 download URL (if completed)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "python",
+            "source": "import requests\njob_id = '<jobId>'\nurl = f'https://api.howloud.com/v2/jobs/{job_id}'\nheaders = {'x-api-key': '<YOUR API KEY>'}\nr = requests.get(url, headers=headers)\njob = r.json()\nprint(job)\nif job.get('status') == 'completed' and 'downloadUrl' in job:\n    # Download result\n    result = requests.get(job['downloadUrl'])\n    with open('result.dat', 'wb') as f:\n        f.write(result.content)\n"
+          },
+          {
+            "lang": "curl",
+            "source": "curl -H \"x-api-key: <YOUR API KEY>\" \"https://api.howloud.com/v2/jobs/<jobId>\"\n# If completed and downloadUrl present:\ncurl -O \"<downloadUrl>\"\n"
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "lat": {
+        "name": "lat",
+        "description": "latitude",
+        "in": "query",
+        "schema": {
+          "type": "number",
+          "example": 37.13397
+        }
+      },
+      "lng": {
+        "name": "lng",
+        "description": "longitude",
+        "in": "query",
+        "schema": {
+          "type": "number",
+          "example": -93.32604
+        }
+      },
+      "z": {
+        "in": "path",
+        "name": "z",
+        "description": "z coordinate of the tile (wgs84)",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "example": 14
+        }
+      },
+      "x": {
+        "in": "path",
+        "name": "x",
+        "description": "x coordinate of the tile (wgs84)",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "example": 2622
+        }
+      },
+      "y": {
+        "in": "path",
+        "name": "y",
+        "description": "y coordinate of the tile (wgs84)",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "example": 5719
+        }
+      }
+    },
+    "schemas": {
+      "soundscore": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "description": "status of response",
+            "type": "string",
+            "example": "OK"
+          },
+          "request": {
+            "description": "Details for lat/lng of request. For an address will return the geocoded location.",
+            "type": "object",
+            "properties": {
+              "lat": {
+                "$ref": "#/components/parameters/lat"
+              },
+              "lng": {
+                "$ref": "#/components/parameters/lng"
+              }
+            }
+          },
+          "result": {
+            "description": "Details of soundscore",
+            "type": "object",
+            "properties": {
+              "airports": {
+                "description": "Number of nearby airports",
+                "type": "number",
+                "example": 0
+              },
+              "traffictext": {
+                "description": "A description of traffic conditions",
+                "type": "string",
+                "example": "Active"
+              },
+              "localtext": {
+                "description": "A description of noise levels",
+                "type": "string",
+                "example": "Calm"
+              },
+              "airportstext": {
+                "description": "A description of airport traffic levels",
+                "type": "string",
+                "example": "Calm"
+              },
+              "score": {
+                "description": "A number indicating noise levels",
+                "type": "number",
+                "example": 80
+              },
+              "traffic": {
+                "description": "A number indicating traffic levels",
+                "type": "number",
+                "example": 18
+              },
+              "scoretext": {
+                "description": "Descriptive text of this soundscore",
+                "type": "string",
+                "example": "Active"
+              },
+              "local": {
+                "description": "A number indicating local noise levels",
+                "type": "number",
+                "example": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "header-api-key": {
+        "description": "Required API Key",
+        "type": "apiKey",
+        "name": "x-api-key",
+        "in": "header"
+      },
+      "query-api-key": {
+        "description": "Required API Key",
+        "type": "apiKey",
+        "name": "x-api-key",
+        "in": "query"
+      }
+    }
+  }
+}

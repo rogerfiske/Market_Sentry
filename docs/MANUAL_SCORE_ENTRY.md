@@ -185,6 +185,24 @@ python -m marketsentry.cli run-operator-refresh-workflow
 Or add `--refresh` to the combined command, or tick the refresh checkbox in the
 dashboard. A refresh failure never undoes the scores you just saved.
 
+## Optional: Cross-Checking with HowLoud
+
+Redfin Quiet is one opinion. HowLoud is an optional independent noise estimate
+you can record alongside it:
+
+```powershell
+python -m marketsentry.cli enrich-candidate-howloud --candidate-id 5 --lat 33.4936 --lng -117.1484 --no-dry-run
+python -m marketsentry.cli compare-howloud-redfin --candidate-id 5
+```
+
+HowLoud values are stored in their own table and are **never** blended into
+Redfin Quiet/Vibrancy. They do not change the gatekeeper: a candidate failing at
+Quiet 6.9 still fails whatever HowLoud reports. Where the two sources disagree,
+the comparison flags it for your manual review, which is exactly the case where
+your own local knowledge matters most.
+
+See `docs/HOWLOUD_NOISE_ENRICHMENT.md`.
+
 ## Why This Is Manual and Local-Only
 
 - Scores are typed by the operator after reading the Redfin page visually.

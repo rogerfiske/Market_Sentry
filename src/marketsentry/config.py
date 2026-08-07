@@ -41,6 +41,16 @@ class Config(BaseModel):
     # Effective DOM settings
     effective_dom_lookback_days: int = Field(default=365)
 
+    # HowLoud noise enrichment (opt-in, off by default).
+    # The API key is deliberately NOT a field on this model. Config
+    # objects get printed in logs and tracebacks; a secret stored here
+    # would leak. Read it through get_howloud_api_key() instead.
+    howloud_enabled: bool = Field(default=False)
+    howloud_base_url: str = Field(
+        default="https://api.howloud.com"
+    )
+    howloud_timeout_seconds: int = Field(default=15)
+
     @classmethod
     def from_env(cls) -> "Config":
         """Load configuration from environment variables."""
@@ -62,6 +72,21 @@ class Config(BaseModel):
                 os.getenv("VIBRANCY_SCORE_EXCELLENT_MAX", "2.0")
             ),
             effective_dom_lookback_days=int(os.getenv("EFFECTIVE_DOM_LOOKBACK_DAYS", "365")),
+            howloud_enabled=(
+                os.getenv("MARKETSENTRY_HOWLOUD_ENABLED", "false")
+                .strip()
+                .lower()
+                in ("1", "true", "yes", "on")
+            ),
+            howloud_base_url=os.getenv(
+                "MARKETSENTRY_HOWLOUD_BASE_URL",
+                "https://api.howloud.com",
+            ),
+            howloud_timeout_seconds=int(
+                os.getenv(
+                    "MARKETSENTRY_HOWLOUD_TIMEOUT_SECONDS", "15"
+                )
+            ),
         )
 
     @property
@@ -81,6 +106,44 @@ class Config(BaseModel):
         ]
         for directory in dirs:
             Path(directory).mkdir(parents=True, exist_ok=True)
+
+
+HOWLOUD_API_KEY_ENV_VAR = "MARKETSENTRY_HOWLOUD_API_KEY"
+
+
+def get_howloud_api_key() -> Optional[str]:
+    """Read the HowLoud API key from the environment.
+
+    Kept out of the Config model on purpose: config objects are printed
+    in logs and tracebacks, and a secret stored as a field would leak
+    through them. Callers must pass the return value straight into a
+    request header and never store, log, or report it.
+
+    Returns:
+        The API key, or None when it is not configured.
+    """
+    value = os.getenv(HOWLOUD_API_KEY_ENV_VAR, "").strip()
+    return value or None
+
+
+def mask_secret(value: Optional[str]) -> str:
+    """Mask a secret for display.
+
+    Shows only the last four characters so an operator can tell which
+    key is loaded without the value being readable. Short values are
+    fully masked rather than partially revealed.
+
+    Args:
+        value: The secret to mask.
+
+    Returns:
+        A display-safe string. Never the raw secret.
+    """
+    if not value:
+        return "not set"
+    if len(value) <= 8:
+        return "*" * 8
+    return f"{'*' * 8}{value[-4:]}"
 
 
 # Global config instance

@@ -2524,6 +2524,70 @@ The Streamlit dashboard includes an Initial Redfin Screening section with metric
 
 See `docs/REDFIN_SCREENING_QUEUE.md` for the full screening queue guide.
 
+## HowLoud Noise Enrichment (Milestone 55)
+
+HowLoud is an optional third-party noise signal, stored separately from Redfin Quiet/Vibrancy and never blended into them. It is opt-in: nothing calls HowLoud unless you run an explicit command with enrichment enabled and a key configured.
+
+### Configuring the key
+
+The key is read from the environment only. It is never printed, logged, stored in the database, or written to any report. Add it to your gitignored `.env`:
+
+```text
+MARKETSENTRY_HOWLOUD_ENABLED=true
+MARKETSENTRY_HOWLOUD_API_KEY=your-key-here
+MARKETSENTRY_HOWLOUD_BASE_URL=https://api.howloud.com
+MARKETSENTRY_HOWLOUD_TIMEOUT_SECONDS=15
+```
+
+Two settings are required on purpose. A key alone does nothing; enrichment must also be enabled, so a stray key cannot cause an accidental outbound call.
+
+```powershell
+python -m marketsentry.cli howloud-config-status
+```
+
+Status shows only a masked key, for example `********9999`.
+
+### Coordinates are required
+
+The HowLoud v2 API accepts latitude and longitude only; it has no address endpoint. No geocoding service is called, so you supply the coordinates once per property and they are stored and reused.
+
+Find them by opening the location in any map application and right-clicking the spot.
+
+### Dry-run vs real enrichment
+
+```powershell
+python -m marketsentry.cli list-candidates-needing-howloud
+
+# Preview only. Default. No request, no database write, no schema change.
+python -m marketsentry.cli enrich-candidate-howloud --candidate-id 5 --lat 33.4936 --lng -117.1484
+
+# Actually call HowLoud
+python -m marketsentry.cli enrich-candidate-howloud --candidate-id 5 --lat 33.4936 --lng -117.1484 --no-dry-run
+```
+
+A real call requires all three of `--no-dry-run`, `MARKETSENTRY_HOWLOUD_ENABLED=true`, and a configured key. Failed attempts are recorded with a sanitized error for audit, and still count as needing enrichment.
+
+### Comparing and exporting
+
+```powershell
+python -m marketsentry.cli compare-howloud-redfin --candidate-id 5
+python -m marketsentry.cli export-howloud-noise-report
+```
+
+| Category | Meaning |
+|----------|---------|
+| `agreement_clear` | Both sources lean the same direction |
+| `possible_disagreement` | Sources point different ways; review manually |
+| `missing_redfin_score` | No Redfin Quiet recorded yet |
+| `missing_howloud_score` | No HowLoud reading recorded yet |
+| `manual_review_needed` | HowLoud's reading was inconclusive |
+
+### HowLoud never changes the gatekeeper
+
+Quiet Score remains the gatekeeper at 7.0. A candidate failing at Quiet 6.9 still fails whatever HowLoud reports. Every comparison prints a gatekeeper statement so this cannot be misread.
+
+No browser automation, no Redfin scraping, no outbound notifications, no walkability fields. See `docs/HOWLOUD_NOISE_ENRICHMENT.md`.
+
 ## Manual Quiet/Vibrancy Entry (Milestone 54)
 
 Quiet and Vibrancy come from you, not from the software. You open the Redfin page in your browser, read the two lifestyle score cards, and type the numbers in. Nothing in this workflow reads Redfin.
